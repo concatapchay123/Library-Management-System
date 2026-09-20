@@ -17,11 +17,28 @@ file, supply deployment values, then validate Compose from the repository root:
 docker compose --env-file backend/.env -f infra/docker-compose.yml config
 ```
 
-`APP_SECRET_KEY`, `DATABASE_MIGRATION_URL`, `DATABASE_RUNTIME_URL`, and
-`REDIS_URL` are required before the app or worker is created.
-`MSSQL_SA_PASSWORD` initializes local SQL Server only; migration and runtime
-credentials remain separate URLs. SQL Server and Redis have no host port;
-the local API is proxied by Nginx at `http://localhost:8080`.
+`APP_SECRET_KEY`, `DATABASE_RUNTIME_URL`, and `REDIS_URL` are required before
+the app or worker is created. The app and worker never receive migration
+credentials. SQL Server and Redis have no host port; the local API is proxied
+by Nginx at `http://localhost:8080`.
+
+## SQL Server migration bootstrap
+
+The deployment job, not an app or worker replica, supplies three distinct
+database URLs in its environment: `DATABASE_BOOTSTRAP_URL` for initial
+server/database principal provisioning, `DATABASE_MIGRATION_URL` for Alembic,
+and `DATABASE_RUNTIME_URL` for the least-privilege application identity.
+Provision an empty target database, then run this command from `backend`:
+
+```powershell
+python scripts/run_migrations.py
+```
+
+The command creates the configured migration and runtime principals when they
+do not exist, applies Alembic revisions with the migration identity, and fails
+if the runtime identity has `db_owner`, `CONTROL`, `IMPERSONATE`, or
+`ALTER ANY SECURITY POLICY`. The URLs and `MSSQL_SA_PASSWORD` remain
+deployment secrets and are never committed.
 
 ## Lệnh kiểm tra chuẩn
 

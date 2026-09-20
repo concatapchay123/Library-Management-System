@@ -58,12 +58,12 @@ def test_missing_database_runtime_url_stops_app_creation() -> None:
 ### Task 2: BE-003 SQL Server migrations and database identities
 
 **Files:**
-- Create: `backend/tests/integration/migrations/test_database_roles.py`, `backend/migrations/env.py`, `backend/migrations/versions/0001_database_identities.py`, `backend/src/openlibrary/infrastructure/sqlserver/migrate.py`, `backend/scripts/run_migrations.py`.
-- Modify: `backend/pyproject.toml`, `backend/README.md`, `infra/docker-compose.yml`, `tasks/backend/BE-003.md`.
+- Create: `backend/tests/integration/migrations/test_database_roles.py`, `backend/alembic.ini`, `backend/migrations/env.py`, `backend/migrations/versions/0001_database_identities.py`, `backend/src/openlibrary/infrastructure/sqlserver/migrate.py`, `backend/scripts/run_migrations.py`.
+- Modify: `backend/pyproject.toml`, `backend/.env.example`, `backend/src/openlibrary/app/runtime.py`, `backend/README.md`, `infra/Dockerfile.backend`, `infra/docker-compose.yml`, `tasks/backend/BE-003.md`.
 
 **Interfaces:**
-- Produces `run_migrations(database_url: str) -> None` and `verify_runtime_restrictions(runtime_url: str) -> None`.
-- Produces SQL Server principals `openlibrary_migrator` and `openlibrary_runtime`; later migrations execute only through the former.
+- Produces `bootstrap_database_identities(bootstrap_url: str, migration_url: str, runtime_url: str) -> DatabaseIdentities`, `run_migrations(database_url: str, *, runtime_login: str) -> None`, and `verify_runtime_restrictions(runtime_url: str, *, migration_login: str) -> None`.
+- Produces SQL Server principals from the migration and runtime URL usernames; later migrations execute only through the configured migration principal.
 
 - [ ] **Step 1: Write failing SQL Server integration tests.** Add a fixture that requires `DATABASE_MIGRATION_URL` and `DATABASE_RUNTIME_URL`, invokes the migration command against a clean Compose database, then asserts the runtime connection cannot execute `CREATE TABLE` or `ALTER SECURITY POLICY`.
 
@@ -74,7 +74,7 @@ def test_runtime_identity_cannot_run_ddl(runtime_connection: Connection) -> None
 ```
 
 - [ ] **Step 2: Run RED evidence against Compose SQL Server.** Start only required services with `docker compose -f infra/docker-compose.yml up -d database`; run `cd backend; python -m pytest tests/integration/migrations/test_database_roles.py -q`; record the failing absent-runner/role output in BE-003.
-- [ ] **Step 3: Implement SQL Server-only migration bootstrap.** Add Alembic/Flask-Migrate and SQL Server dependencies; configure migration URL separately from runtime URL. The first revision creates `core`, `ops`, `education`, and `public_library`, creates/grants principals with explicit least privilege, denies runtime DDL/CONTROL/IMPERSONATE, and records migration version. Document the exact clean-database command in `backend/README.md`.
+- [ ] **Step 3: Implement SQL Server-only migration bootstrap.** Add Alembic and SQL Server dependencies; use a deployment-only `DATABASE_BOOTSTRAP_URL` to provision distinct migration/runtime principals, run Alembic only through `DATABASE_MIGRATION_URL`, and keep that URL out of app/worker environments. The first revision creates `core`, `ops`, `education`, and `public_library`, creates/grants principals with explicit least privilege, denies runtime DDL/CONTROL/IMPERSONATE, and records migration version. Document the exact clean-database command in `backend/README.md`.
 - [ ] **Step 4: Run GREEN evidence.** Recreate the named Compose database volume only after confirming its exact project-scoped target, start SQL Server, run the focused role test and `python scripts/run_migrations.py`; verify migration succeeds and both runtime DDL and policy alteration are denied. Append output to BE-003.
 - [ ] **Step 5: Review and commit.** Inspect grants and catalog queries for least privilege, run `git diff --check`, and commit `feat: add sql server migration baseline and roles`.
 

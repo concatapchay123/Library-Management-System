@@ -34,7 +34,7 @@ def without_setting(setting_name: str) -> Mapping[str, str]:
 
 @pytest.mark.parametrize(
     "setting_name",
-    ["APP_SECRET_KEY", "DATABASE_MIGRATION_URL", "DATABASE_RUNTIME_URL", "REDIS_URL"],
+    ["APP_SECRET_KEY", "DATABASE_RUNTIME_URL", "REDIS_URL"],
 )
 def test_missing_required_setting_is_rejected(setting_name: str) -> None:
     """The server must not accept requests without a required runtime value."""
@@ -57,6 +57,16 @@ def test_non_secret_development_environment_has_a_safe_default() -> None:
 
     assert settings.app_environment == "development"
     assert settings.redis_url == "redis://redis:6379/0"
+
+
+def test_runtime_settings_do_not_require_the_migration_credential() -> None:
+    """The app process must not receive the migration-only database identity."""
+    environment = valid_environment()
+    del environment["DATABASE_MIGRATION_URL"]
+
+    settings = RuntimeSettings.from_environ(environment)
+
+    assert settings.database_runtime_url == "mssql+pyodbc://runtime@example.test/library"
 
 
 def test_app_creation_rejects_missing_required_settings_before_requests() -> None:

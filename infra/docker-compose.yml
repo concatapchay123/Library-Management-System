@@ -36,7 +36,6 @@ services:
     environment:
       APP_ENV: ${APP_ENV:-development}
       APP_SECRET_KEY: ${APP_SECRET_KEY:?APP_SECRET_KEY is required}
-      DATABASE_MIGRATION_URL: ${DATABASE_MIGRATION_URL:?DATABASE_MIGRATION_URL is required}
       DATABASE_RUNTIME_URL: ${DATABASE_RUNTIME_URL:?DATABASE_RUNTIME_URL is required}
       REDIS_URL: ${REDIS_URL:?REDIS_URL is required}
     depends_on:
@@ -63,7 +62,6 @@ services:
     environment:
       APP_ENV: ${APP_ENV:-development}
       APP_SECRET_KEY: ${APP_SECRET_KEY:?APP_SECRET_KEY is required}
-      DATABASE_MIGRATION_URL: ${DATABASE_MIGRATION_URL:?DATABASE_MIGRATION_URL is required}
       DATABASE_RUNTIME_URL: ${DATABASE_RUNTIME_URL:?DATABASE_RUNTIME_URL is required}
       REDIS_URL: ${REDIS_URL:?REDIS_URL is required}
     depends_on:
