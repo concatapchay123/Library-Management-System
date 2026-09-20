@@ -50,7 +50,7 @@ Rollback ưu tiên deploy image trước đó nếu migration backward-compatibl
 
 ## Operations
 
-- Health endpoints: `/health/live`, `/health/ready`.
+- Health endpoints: `/api/v1/health/live`, `/api/v1/health/ready`.
 - Logs: JSON, request id, organization id, actor id, event name, duration.
 - Alerts: page khi backup failure, restore drill quá hạn, readiness failure, API 5xx vượt 2% trong 5 phút hoặc p95 vượt hai lần baseline trong 15 phút. DB pool saturation, queue backlog/dead-letter, disk failure và repeated RLS denial phải có threshold, runbook và owner.
 - Nginx chặn access trực tiếp tới database/Redis.
