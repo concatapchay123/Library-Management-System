@@ -12,7 +12,7 @@ Add public-library membership and money workflows while keeping core circulation
 
 ## Scope
 
-Implement members, membership plans, subscriptions, fines, payments, invoices and invoice lines. Example seed plans: Basic 5 books/30 days and Premium 20 books/90 days.
+Implement members, membership plans, subscriptions, fines, payments, payment allocations, invoices and invoice lines. Example seed plans: Basic 5 books/30 days and Premium 20 books/90 days. Payment includes provider webhook verification, reconciliation and partial/refund state transitions; it does not introduce a general accounting ledger.
 
 ## Files affected
 
@@ -26,10 +26,11 @@ Implement members, membership plans, subscriptions, fines, payments, invoices an
 1. Write failing tests for plan snapshot, subscription validity and money calculation.
 2. Run tests and confirm missing public-library policy fails as expected.
 3. Implement plan/subscription policy adapter for circulation.
-4. Implement fine assessment and payment state machine.
-5. Add idempotent provider reference handling and invoice immutability after issue.
-6. Add tenant-scoped migrations, API schemas and audit events.
-7. Test provider retry, duplicate webhook/reference and failed payment paths.
+4. Implement fine assessment, payment state machine and immutable partial-payment/refund allocation.
+5. Write failing webhook tests for invalid signature, stale replay timestamp, duplicate provider event and pending-payment reconciliation; implement signature verification on raw body, provider event deduplication and outbox reconciliation.
+6. Add idempotent provider reference handling and invoice immutability after issue.
+7. Add tenant-scoped migrations, composite foreign keys, API schemas and audit events.
+8. Test provider retry, duplicate webhook/reference, failed payment, partial payment and refund paths.
 
 ## Dependencies
 
@@ -43,6 +44,9 @@ TASK-006.
 - [ ] Payment retry does not duplicate settlement.
 - [ ] Invoice lines and totals are immutable after issue.
 - [ ] Provider credentials/card data are never persisted.
+- [ ] Webhook signature and replay timestamp are verified before payload parsing or mutation.
+- [ ] Payment timeout remains pending until reconciliation; duplicate provider event cannot settle twice.
+- [ ] Partial payment and refund allocation totals cannot exceed the related payment/fine under documented state rules.
 
 ## Acceptance criteria
 
@@ -56,3 +60,4 @@ TASK-006.
 - [ ] Payment adapter has explicit timeout/retry behavior.
 - [ ] Duplicate provider callbacks are safe.
 - [ ] Sensitive payment data is excluded from logs and audit JSON.
+- [ ] Webhook raw body, signature secret and provider credential are never stored in idempotency, audit or job payloads.

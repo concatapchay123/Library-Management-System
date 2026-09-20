@@ -50,7 +50,19 @@ Return khóa loan và copy, ghi `returned_at`, tính overdue/fine theo policy sn
 
 ## Reservation allocation
 
-Reservation queue được partition theo organization và book. Transaction return hoặc inventory availability ghi một allocation job. Worker claim người đầu tiên bằng row lock/lease, tạo hold expiry và notification. Job retry không tạo duplicate hold vì allocation có idempotency key `(organization_id, reservation_id, event_id)`.
+Reservation queue được partition theo organization và book. Transaction return hoặc inventory availability ghi allocation outbox event. Dispatcher/worker claim người đầu tiên bằng row lock/lease, tạo hold expiry và notification. Job retry không tạo duplicate hold vì allocation có idempotency key `(organization_id, reservation_id, event_id)`.
+
+## Audit và transactional outbox
+
+Mọi mutation nghiệp vụ ghi `ops.audit_events` trong cùng transaction với state change. Audit payload dùng allow-list field, không chứa secret/token/password/raw payment credential và runtime database identity không được update/delete audit event.
+
+Nếu mutation tạo notification, reservation allocation, overdue work, email, payment reconciliation hoặc side effect khác, transaction ghi thêm `ops.outbox_events`. Dispatcher pre-context chỉ gọi `ops.claim_outbox_event` để claim lease nguyên tử và nhận server-created organization id, sau đó mới set context, tạo hoặc đánh thức `ops.job_records`, rồi chỉ đánh dấu event delivered khi consumer xác nhận. Consumer ghi deduplication key trước side effect; retry bounded exponential backoff và dead-letter có metric/runbook. Vì event đã durable trước commit, transaction không phụ thuộc Celery/Redis/email provider đang sẵn sàng.
+
+Reservation allocation dùng outbox event có idempotency key `(organization_id, reservation_id, event_id)`. Lease hết hạn chỉ cho phép worker khác claim lại event chưa delivered; không được tạo hold thứ hai hoặc nhảy queue.
+
+## Payment lifecycle
+
+Payment bắt đầu ở trạng thái `pending` và chỉ chuyển qua state machine đã công bố: `authorized`, `succeeded`, `failed`, `refunded`, `partially_refunded`, `disputed`. Provider webhook được xác thực chữ ký trên raw body, timestamp/replay window và provider event id trước khi ghi mutation. Timeout provider không tự đồng nghĩa thất bại; outbox job reconciliation xác minh payment pending. Partial payment/refund ghi allocation bất biến với fine và audit event, nên không cần đưa accounting engine vào Core.
 
 ## Tenant context và connection pool
 
@@ -72,7 +84,7 @@ Loan lưu `max_days_at_checkout`, `borrower_type_at_checkout` và `due_at`. Memb
 
 ## Background processing
 
-Celery chỉ xử lý công việc có thể retry: email, notification delivery, overdue marking, reservation hold expiry và invoice side effects. Mỗi job có payload version, retry limit, exponential backoff và failure visibility. Business transaction chính không phụ thuộc vào email provider.
+Celery chỉ xử lý công việc có thể retry: dispatcher/outbox delivery, email, notification delivery, overdue marking, reservation hold expiry, payment reconciliation và invoice side effects. Mỗi job có payload version, retry limit, exponential backoff, deduplication key và failure visibility. Business transaction chính không phụ thuộc vào email provider.
 
 ## Reliability and observability
 

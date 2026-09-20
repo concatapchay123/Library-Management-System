@@ -11,12 +11,14 @@
 
 ## Database and tenancy
 
-1. Mọi persistent table có `organization_id NOT NULL`.
+1. Mọi tenant-owned persistent table có `organization_id NOT NULL`; control-plane exception phải được liệt kê trong `docs/foundational-decisions.md`.
 2. Mọi tenant-scoped unique constraint/index đặt `organization_id` ở vị trí đầu.
 3. Mọi migration phải reversible hoặc mô tả rõ lý do không thể rollback.
 4. Mọi connection phải set và clear `SESSION_CONTEXT('organization_id')` trong transaction.
 5. Không tin vào `organization_id` do client gửi; lấy tenant từ authenticated principal.
 6. Loan, payment và audit data không được hard-delete.
+7. Foreign key giữa tenant-owned tables phải dùng cặp `(organization_id, entity_id)`; UUID primary key đơn không đủ chứng minh cùng tenant.
+8. Runtime database identity không có DDL, `db_owner`, `CONTROL`, `IMPERSONATE` hoặc quyền bỏ qua RLS.
 
 ## API and security
 
@@ -26,6 +28,8 @@
 4. Refresh/logout dùng CSRF protection; token không được lưu trong localStorage.
 5. Mutation checkout, return và payment phải idempotent.
 6. Password chỉ lưu dưới dạng Argon2id hash.
+7. Login chỉ dùng `organization_slug` để resolve tenant; protected request chỉ lấy tenant từ JWT.
+8. Mutation có side effect bất đồng bộ phải ghi audit và outbox trong cùng transaction.
 
 ## Testing and review
 

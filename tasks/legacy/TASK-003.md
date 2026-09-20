@@ -12,7 +12,7 @@ Implement one-account/one-organization authentication, Argon2id passwords, acces
 
 ## Scope
 
-Implement `core.users`, `core.user_profiles`, `core.roles`, `core.permissions`, `core.user_roles`, `core.role_permissions` and `core.refresh_sessions`. Add auth API and audit events for security actions.
+Implement `core.users`, `core.user_profiles`, `core.roles`, `core.permissions`, `core.user_roles`, `core.role_permissions` and `core.refresh_sessions`. Add auth API, RLS policy/tenant composite constraints for each new tenant table, and audit events for security actions.
 
 ## Files affected
 
@@ -23,14 +23,14 @@ Implement `core.users`, `core.user_profiles`, `core.roles`, `core.permissions`, 
 
 ## Implementation steps
 
-1. Write failing tests for password verification, login success and invalid-login response.
+1. Write failing tests for password verification, login success and invalid-login response, including two organizations sharing one email but requiring `organization_slug`.
 2. Run them and verify the missing auth service causes expected failures.
 3. Implement Argon2id password service and login use case.
 4. Write failing rotation, reuse rejection and revoke tests.
-5. Implement hashed refresh sessions with parent chain and revoke timestamps.
+5. Implement hashed refresh sessions with parent chain, revoke timestamps and restricted `core.resolve_refresh_session` pre-context resolver.
 6. Write failing permission assignment and authorization matrix tests.
 7. Implement role/permission repositories and service authorization port.
-8. Add migration, API schemas, problem details and security audit events.
+8. Add composite tenant foreign keys, RLS filter/block policies and catalog assertions in the same migration as each tenant table; add API schemas, problem details and security audit events.
 9. Run focused auth tests and full backend suite.
 
 ## Dependencies
@@ -47,11 +47,15 @@ TASK-002.
 - [ ] Role/permission changes apply without code deployment.
 - [ ] Invalid credentials do not reveal account existence.
 - [ ] Auth mutations produce audit records.
+- [ ] Login with missing/wrong `organization_slug` and wrong password returns the same generic failure.
+- [ ] Missing/disabled slug executes dummy Argon verification; invalid/revoked refresh token cannot resolve a tenant context.
+- [ ] Every auth tenant table has composite tenant foreign keys and both RLS predicate types at creation time.
 
 ## Acceptance criteria
 
 - Auth endpoints match OpenAPI and return stable Problem Details.
 - Browser refresh token is Secure HttpOnly and CSRF protected.
+- JWT verifier pins `RS256`, issuer, audience and `kid`; key rotation keeps previous public keys until token expiry.
 - Backend permission checks do not depend on hard-coded role names.
 - Two organizations can use the same email address without collision.
 

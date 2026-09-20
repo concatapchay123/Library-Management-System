@@ -25,8 +25,8 @@ Implement production Compose/Nginx configuration, deployment migration job, secr
 
 1. Write a deployment smoke test for clean host configuration validation.
 2. Run it and verify missing production profile fails safely.
-3. Add immutable image tags, non-default secrets and network restrictions.
-4. Add one-time migration job with lock and readiness gate.
+3. Add immutable image tags, non-default secrets, network restrictions and distinct migration/runtime database identities.
+4. Add one-time migration job with lock, readiness gate and runtime-grant/RLS-catalog smoke checks.
 5. Add Nginx TLS/security headers, SPA fallback and API proxy configuration.
 6. Add backup/restore and rollback runbooks with explicit evidence commands.
 7. Execute clean-host deploy, migration, health, backup/restore and rollback rehearsal.
@@ -44,6 +44,9 @@ TASK-011.
 - [ ] Backup restores into isolated environment.
 - [ ] Previous application version starts after backward-compatible migration.
 - [ ] TLS/security headers and SPA/API routing work.
+- [ ] Runtime database identity cannot perform migration/DDL/RLS-policy operations.
+- [ ] Release manifest records owner, jurisdiction and retention periods; deployment rejects omissions.
+- [ ] Backup schedule demonstrates default or stricter 15-minute RPO, 4-hour RTO and 35-day retention.
 
 ## Acceptance criteria
 
@@ -57,3 +60,4 @@ TASK-011.
 - [ ] Migration identity is least-privilege and separate from runtime identity.
 - [ ] Rollback instructions match actual migration compatibility.
 - [ ] Backup retention and restore ownership are documented.
+- [ ] Alert thresholds/runbooks cover failed backup, overdue restore drill, 5xx, p95 regression, queue dead-letter and repeated RLS denial.

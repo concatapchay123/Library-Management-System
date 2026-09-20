@@ -26,7 +26,7 @@ Implement `core.books`, `core.book_copies`, `core.locations` and `core.copy_stat
 1. Write failing unit tests for copy status transition rules and duplicate barcode rejection.
 2. Run tests and confirm missing domain policy causes expected failures.
 3. Implement book/copy/location entities and repository adapters.
-4. Add migration, tenant-prefixed indexes and status history append behavior.
+4. Add migration, composite tenant foreign keys, RLS filter/block policies, tenant-prefixed indexes and status history append behavior.
 5. Add API schemas, permission checks and cursor search for books.
 6. Add integration tests for concurrent status updates and tenant isolation.
 
@@ -41,6 +41,7 @@ TASK-004.
 - [ ] Copy cannot checkout from lost/damaged/maintenance.
 - [ ] Status transition records actor, reason and timestamp.
 - [ ] Location hierarchy remains tenant-scoped.
+- [ ] Book, copy, location and history relations use composite `(organization_id, id)` foreign keys and migration catalog check passes.
 - [ ] Catalog search does not expose another organization.
 
 ## Acceptance criteria

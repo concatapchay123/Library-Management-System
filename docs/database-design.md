@@ -7,30 +7,31 @@
 - Timestamp dùng `datetime2(3)` ở UTC.
 - Tiền dùng `decimal(19,4)` với currency code `char(3)`.
 - Trạng thái dùng `varchar(32)` kết hợp check constraint hoặc lookup table; domain service kiểm tra transition.
-- Mọi persistent table có `organization_id uniqueidentifier NOT NULL` và foreign key tới `core.organizations(organization_id)`, ngoại trừ chính bảng `core.organizations`, nơi `organization_id` là khóa gốc.
+- Mọi tenant-owned table có `organization_id uniqueidentifier NOT NULL` và foreign key tới `core.organizations(organization_id)`. `core.organizations` là root registry nên không có parent foreign key, nhưng vẫn là tenant-addressable row và có RLS sau login. Pre-auth chỉ resolve qua `core.resolve_login_tenant` hoặc `core.resolve_refresh_session`, stored procedure `EXECUTE AS OWNER` với quyền `EXECUTE` hẹp; runtime không có pre-context `SELECT`. Mọi ngoại lệ system/control-plane mới phải được ghi trong `docs/foundational-decisions.md`, có lý do và test riêng.
 - Mọi bảng có `created_at`, `updated_at`; bảng nghiệp vụ có `created_by`/`updated_by` khi cần audit actor.
 - Không dùng cascade delete cho loan, payment hoặc audit.
+- Mỗi parent table tenant-owned có candidate key `(organization_id, <primary_id>)`; child table tham chiếu parent bằng composite foreign key `(organization_id, <foreign_id>)`. Không dùng single-column UUID foreign key giữa hai tenant table.
 
 ## Core schema
 
 | Table | Columns chính | Khóa và quan hệ |
 |---|---|---|
-| `core.organizations` | `organization_id`, `name`, `slug`, `organization_type`, `status`, `timezone`, `settings_json` | PK `organization_id`, unique `slug` |
+| `core.organizations` | `organization_id`, `name`, `slug`, `organization_type`, `status`, `timezone`, `settings_json` | root PK `organization_id`, unique `slug`, RLS after login; pre-auth lookup only through `core.resolve_login_tenant` |
 | `core.organization_modules` | `organization_module_id`, `organization_id`, `module_code`, `status`, `enabled_at`, `disabled_at` | unique `(organization_id, module_code)` |
 | `core.users` | `user_id`, `organization_id`, `email`, `password_hash`, `status`, `last_login_at` | PK `user_id`, unique `(organization_id, email)` |
-| `core.user_profiles` | `profile_id`, `organization_id`, `user_id`, `display_name`, `phone`, `avatar_url` | FK user, unique `(organization_id, user_id)` |
+| `core.user_profiles` | `profile_id`, `organization_id`, `user_id`, `display_name`, `phone`, `avatar_url` | composite FK `(organization_id, user_id)`, unique `(organization_id, user_id)` |
 | `core.roles` | `role_id`, `organization_id`, `name`, `description`, `is_system` | unique `(organization_id, name)` |
 | `core.permissions` | `permission_id`, `organization_id`, `code`, `description` | unique `(organization_id, code)`; permission rows seeded per tenant |
 | `core.role_permissions` | `organization_id`, `role_id`, `permission_id` | composite PK and tenant FKs |
 | `core.user_roles` | `organization_id`, `user_id`, `role_id` | composite PK and tenant FKs |
-| `core.refresh_sessions` | `session_id`, `organization_id`, `user_id`, `token_hash`, `parent_session_id`, `expires_at`, `revoked_at`, `last_used_at` | unique token hash; rotation chain |
+| `core.refresh_sessions` | `session_id`, `organization_id`, `user_id`, `token_hash`, `parent_session_id`, `expires_at`, `revoked_at`, `last_used_at` | composite FK user và self-FK parent session; unique token hash; pre-auth resolution only via `core.resolve_refresh_session`; rotation chain |
 | `core.books` | `book_id`, `organization_id`, `isbn`, `title`, `subtitle`, `authors_json`, `publisher`, `published_year`, `language`, `status` | index title/ISBN per tenant |
-| `core.book_copies` | `copy_id`, `organization_id`, `book_id`, `barcode`, `location_id`, `status`, `condition_code`, `acquired_at` | unique `(organization_id, barcode)` |
-| `core.locations` | `location_id`, `organization_id`, `name`, `code`, `parent_location_id`, `status` | unique `(organization_id, code)` |
-| `core.copy_status_history` | `history_id`, `organization_id`, `copy_id`, `from_status`, `to_status`, `reason`, `actor_id` | append-only FK copy |
-| `core.loans` | `loan_id`, `organization_id`, `copy_id`, `borrower_user_id`, `request_status`, `loan_status`, `requested_at`, `approved_at`, `checked_out_at`, `due_at`, `returned_at`, `policy_snapshot_json` | filtered unique active loan per copy |
-| `core.reservations` | `reservation_id`, `organization_id`, `book_id`, `requester_user_id`, `queue_position`, `status`, `hold_expires_at` | queue index by book/status/created time |
-| `core.notifications` | `notification_id`, `organization_id`, `user_id`, `channel`, `type`, `payload_json`, `status`, `read_at` | user inbox index |
+| `core.book_copies` | `copy_id`, `organization_id`, `book_id`, `barcode`, `location_id`, `status`, `condition_code`, `acquired_at` | composite FK book/location; unique `(organization_id, barcode)` |
+| `core.locations` | `location_id`, `organization_id`, `name`, `code`, `parent_location_id`, `status` | composite self-FK parent location; unique `(organization_id, code)` |
+| `core.copy_status_history` | `history_id`, `organization_id`, `copy_id`, `from_status`, `to_status`, `reason`, `actor_id` | append-only composite FK copy/actor |
+| `core.loans` | `loan_id`, `organization_id`, `copy_id`, `borrower_user_id`, `request_status`, `loan_status`, `requested_at`, `approved_at`, `checked_out_at`, `due_at`, `returned_at`, `policy_snapshot_json` | composite FK copy/borrower; filtered unique active loan per copy |
+| `core.reservations` | `reservation_id`, `organization_id`, `book_id`, `requester_user_id`, `queue_position`, `status`, `hold_expires_at` | composite FK book/requester; queue index by book/status/created time |
+| `core.notifications` | `notification_id`, `organization_id`, `user_id`, `channel`, `type`, `payload_json`, `status`, `read_at` | composite FK user; user inbox index |
 
 ## Education schema
 
@@ -53,7 +54,8 @@
 | `public_library.membership_plans` | `plan_id`, `organization_id`, `name`, `max_active_loans`, `duration_days`, `price`, `currency`, `status` | plan history preserved |
 | `public_library.subscriptions` | `subscription_id`, `organization_id`, `member_id`, `plan_id`, `starts_at`, `ends_at`, `status` | active subscription constraint |
 | `public_library.fines` | `fine_id`, `organization_id`, `member_id`, `loan_id`, `amount`, `currency`, `status`, `assessed_at` | loan/payment relation |
-| `public_library.payments` | `payment_id`, `organization_id`, `member_id`, `fine_id`, `amount`, `currency`, `provider`, `provider_reference`, `status`, `paid_at` | idempotent provider reference |
+| `public_library.payments` | `payment_id`, `organization_id`, `member_id`, `fine_id`, `amount`, `currency`, `provider`, `provider_reference`, `provider_event_id`, `status`, `paid_at` | composite FK member/fine; unique `(organization_id, provider, provider_event_id)`; state machine |
+| `public_library.payment_allocations` | `allocation_id`, `organization_id`, `payment_id`, `fine_id`, `amount`, `allocation_type`, `created_at` | composite FK payment/fine; supports partial-payment/refund allocation |
 | `public_library.invoices` | `invoice_id`, `organization_id`, `member_id`, `number`, `subtotal`, `tax`, `total`, `currency`, `status`, `issued_at` | unique `(organization_id, number)` |
 | `public_library.invoice_lines` | `invoice_line_id`, `organization_id`, `invoice_id`, `description`, `quantity`, `unit_price`, `amount` | immutable after issue |
 
@@ -61,9 +63,10 @@
 
 | Table | Columns chính | Quy tắc |
 |---|---|---|
-| `ops.audit_events` | `audit_id`, `organization_id`, `actor_user_id`, `action`, `entity_type`, `entity_id`, `before_json`, `after_json`, `request_id`, `occurred_at` | append-only, no secrets |
-| `ops.job_records` | `job_id`, `organization_id`, `job_type`, `payload_json`, `status`, `attempts`, `next_run_at`, `last_error` | retry and dead-letter visibility |
-| `ops.idempotency_keys` | `organization_id`, `key`, `endpoint`, `request_hash`, `response_status`, `response_json`, `expires_at` | unique `(organization_id, key, endpoint)` |
+| `ops.audit_events` | `audit_id`, `organization_id`, `actor_user_id`, `actor_type`, `action`, `entity_type`, `entity_id`, `before_json`, `after_json`, `request_id`, `occurred_at` | append-only, allow-listed payload, no secrets |
+| `ops.outbox_events` | `event_id`, `organization_id`, `topic`, `aggregate_type`, `aggregate_id`, `payload_version`, `payload_json`, `idempotency_key`, `available_at`, `lease_token`, `lease_expires_at`, `delivered_at`, `attempts`, `last_error` | durable transactional outbox; unique `(organization_id, topic, idempotency_key)` |
+| `ops.job_records` | `job_id`, `organization_id`, `outbox_event_id`, `job_type`, `payload_version`, `status`, `attempts`, `next_run_at`, `last_error` | composite tenant relation, consumer deduplication and dead-letter visibility |
+| `ops.idempotency_keys` | `organization_id`, `key`, `method`, `endpoint`, `request_hash`, `resource_reference`, `safe_response_json`, `expires_at` | unique `(organization_id, key, method, endpoint)`; 24-hour expiry; no secret/raw PII |
 
 ## Relationships
 
@@ -91,7 +94,9 @@ organizations
 
 ## Row-Level Security
 
-Mỗi tenant table có security policy dùng cùng predicate function. Predicate lấy `SESSION_CONTEXT(N'organization_id')`, cast sang `uniqueidentifier` và so sánh với `organization_id`. Filter predicate bảo vệ SELECT; block predicate bảo vệ INSERT/UPDATE/DELETE. Bootstrap path cho organization mới dùng connection role có quyền tạo tenant và ghi audit.
+Mỗi tenant-addressable table, gồm `core.organizations`, có security policy dùng cùng schema-bound predicate function. Predicate lấy `SESSION_CONTEXT(N'organization_id')`, dùng `TRY_CONVERT` sang `uniqueidentifier` và trả false khi context thiếu hoặc không hợp lệ. Filter predicate bảo vệ SELECT; block predicate bảo vệ INSERT/UPDATE/DELETE. Pre-auth lookup chỉ đi qua `core.resolve_login_tenant` hoặc `core.resolve_refresh_session`; runtime không được query trực tiếp khi context chưa có.
+
+Runtime identity không là database owner và không có DDL, `CONTROL`, `IMPERSONATE` hoặc quyền thay đổi/bỏ qua security policy. Migration/platform identity tách biệt mới được tạo policy, seed tenant hoặc bootstrap organization. CI chạy system-catalog test để fail khi bất kỳ tenant-addressable table nào thiếu cả filter và block predicate, hoặc runtime có direct pre-context select thay vì procedure grant. `ops.claim_outbox_event` là procedure `EXECUTE AS OWNER` duy nhất được dispatcher dùng trước khi biết organization context.
 
 RLS test matrix phải chứng minh:
 
@@ -100,6 +105,8 @@ RLS test matrix phải chứng minh:
 3. Insert với `organization_id` khác session context bị block.
 4. Connection pool reuse không giữ context của request trước.
 5. Privileged bootstrap path là explicit, audited và không được dùng bởi request thường.
+6. System-catalog test phát hiện mọi tenant-owned table không có cả filter và block policy.
+7. Runtime database identity không có quyền DDL, owner hoặc thay đổi/bỏ qua security policy.
 
 ## Migration policy
 

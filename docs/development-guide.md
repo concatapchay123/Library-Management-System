@@ -39,9 +39,11 @@
 ## Database workflow
 
 - Mỗi schema change có migration và integration test.
-- Migration phải thể hiện organization foreign key, index và RLS policy.
+- Migration phải thể hiện organization foreign key, composite tenant foreign key, tenant-first index và cả RLS filter/block policy; system-catalog integration test phải fail nếu thiếu một thành phần.
 - Seed permission/role là idempotent và tenant-aware.
 - Không sửa database thủ công rồi coi đó là migration.
+
+Mỗi mutation có audit row trong cùng transaction; nếu tạo side effect bất đồng bộ thì cùng transaction phải thêm versioned outbox event. Runtime database credential không chạy migration hoặc có quyền đổi RLS policy.
 
 ## Documentation workflow
 

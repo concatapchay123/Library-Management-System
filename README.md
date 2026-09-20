@@ -6,6 +6,7 @@ OpenLibraryOS là nền tảng vận hành thư viện mã nguồn mở, multi-t
 
 - [Tầm nhìn sản phẩm](DESIGN.md)
 - [Kiến trúc](docs/architecture.md)
+- [Quyết định nền tảng](docs/foundational-decisions.md)
 - [Thiết kế hệ thống](docs/system-design.md)
 - [Thiết kế database](docs/database-design.md)
 - [API](docs/api-design.md)

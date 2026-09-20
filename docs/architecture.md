@@ -13,7 +13,7 @@ OpenLibraryOS dùng một modular monolith để giữ transaction boundary, deb
 | Frontend | React, TypeScript, Vite; không truy cập database. |
 | API | REST `/api/v1`, OpenAPI contract-first. |
 | Database | Một SQL Server database; schema `core`, `education`, `public_library`, `ops`. |
-| Tenancy | `organization_id` ở mọi persistent table; SQL Server RLS + service authorization. |
+| Tenancy | `organization_id` ở mọi tenant-owned table; SQL Server RLS + service authorization. `core.organizations` là root row không có parent FK nhưng vẫn có RLS; system exception phải được liệt kê tại `foundational-decisions.md`. |
 | Async | Redis và Celery cho notification, overdue và reservation expiry. |
 | Edge | Nginx reverse proxy, TLS termination và security headers. |
 
@@ -87,14 +87,16 @@ Core không biết một borrower là student hay member. Core chỉ nhận mộ
 
 ## Request lifecycle
 
-1. Nginx tạo hoặc forward `X-Request-ID`.
-2. Flask xác thực access JWT và lấy `user_id`, `organization_id`, roles, permissions.
-3. Tenant middleware mở transaction và set `SESSION_CONTEXT('organization_id')`.
+1. Nginx tạo `X-Request-ID` hoặc forward giá trị đã qua validation.
+2. Login public dùng `organization_slug` qua resolver hẹp; refresh public dùng hash cookie qua resolver session hẹp. Các endpoint protected xác thực access JWT và lấy `user_id`, `organization_id`, session và permission.
+3. Tenant middleware mở transaction, set `SESSION_CONTEXT('organization_id')` trước query đầu tiên và fail closed khi context không hợp lệ.
 4. Route parse input bằng Pydantic schema và gọi application service.
 5. Service kiểm tra permission, invariant và ownership; ORM query được RLS bảo vệ thêm.
-6. Transaction commit, audit event được ghi cùng transaction nếu là mutation.
-7. Middleware clear tenant context trước khi trả connection về pool.
+6. Mutation ghi audit event và outbox event trong cùng transaction khi có side effect bất đồng bộ.
+7. Middleware clear tenant context trước khi trả connection về pool; clear failure invalidate connection.
 8. API trả JSON thành công hoặc RFC Problem Details kèm request id.
+
+Platform control plane không đi qua request lifecycle này. Bootstrap, migration, restore và thao tác liên tenant dùng operational command cùng database/deployment identity riêng. Quy tắc chi tiết nằm tại `docs/foundational-decisions.md`.
 
 ## Future extraction rule
 

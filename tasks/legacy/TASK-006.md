@@ -12,11 +12,12 @@ Implement request/approval/direct checkout/return/overdue and reservation workfl
 
 ## Scope
 
-Implement `core.loans`, `core.reservations`, due date policy port, idempotency handling and copy/loan audit events. Self-service requests require approval; librarian desk checkout may approve and checkout in one operation.
+Implement `core.loans`, `core.reservations`, due date policy port, idempotency handling, copy/loan audit events, `ops.job_records` and the generic outbox dispatcher required by reservation/overdue processing. Self-service requests require approval; librarian desk checkout may approve and checkout in one operation.
 
 ## Files affected
 
 - Modify: `backend/src/openlibrary/modules/core/`
+- Create: `backend/src/openlibrary/ops/` generic outbox dispatcher and job-record adapters
 - Create: circulation migrations, domain tests, API tests and concurrency integration tests
 - Modify: `contracts/openapi/v1.yaml`, `docs/system-design.md`, `docs/api-design.md`
 
@@ -27,9 +28,10 @@ Implement `core.loans`, `core.reservations`, due date policy port, idempotency h
 3. Implement request, approve, checkout and return use cases.
 4. Add policy snapshot fields and active-loan constraints.
 5. Write failing concurrent checkout test for one copy.
-6. Implement SQL transaction locking and idempotency record handling.
-7. Implement reservation queue, claim, hold expiry and cancellation.
-8. Add overdue calculation and background job contract without coupling to email.
+6. Implement SQL transaction locking and idempotency record handling with 24-hour safe-record expiry.
+7. Write failing tests for atomic audit/outbox writes, dispatcher crash/reclaim, duplicate consumer delivery and pre-context worker claim; implement `ops.claim_outbox_event`, `ops.job_records`, bounded-retry dispatcher, dead-letter state and consumer deduplication.
+8. Implement reservation queue, claim, hold expiry and cancellation through durable outbox events.
+9. Add overdue calculation and background job contract without coupling to email.
 
 ## Dependencies
 
@@ -45,6 +47,8 @@ TASK-005.
 - [ ] Reservation queue ordering is deterministic.
 - [ ] Expired hold advances to the next reservation.
 - [ ] Replayed idempotency key returns original result without duplicate side effect.
+- [ ] Return/reservation mutation writes audit and outbox event atomically.
+- [ ] Dispatcher replay after a lease expiry cannot skip or duplicate reservation allocation.
 
 ## Acceptance criteria
 
@@ -58,3 +62,4 @@ TASK-005.
 - [ ] Reservation allocation cannot skip or duplicate queue entries.
 - [ ] Payment is not coupled into core loan return.
 - [ ] Idempotency request hash prevents key reuse with different payload.
+- [ ] Outbox payload is versioned, tenant context comes from server-created record, and retry/dead-letter behavior is bounded and observable.

@@ -12,7 +12,7 @@ Implement organization settings, tenant context propagation and SQL Server Row-L
 
 ## Scope
 
-Implement `core.organizations`, organization settings, tenant middleware, SQL Server predicate/block policies and tenant-aware seed data. Add two-tenant integration fixtures.
+Implement organization settings, tenant middleware, RLS catalog enforcement and tenant-aware seed data. `core.organizations` plus the shared predicate already exist from TASK-002; tenant tables created by TASK-003 are already protected in their own migration. Add two-tenant integration fixtures.
 
 ## Files affected
 
@@ -23,10 +23,10 @@ Implement `core.organizations`, organization settings, tenant middleware, SQL Se
 
 ## Implementation steps
 
-1. Write failing SQL Server integration tests for cross-tenant SELECT, UPDATE, DELETE and INSERT.
-2. Run them against the unprotected schema and confirm the tests fail for the expected reason.
+1. Write failing SQL Server integration tests for cross-tenant SELECT, UPDATE, DELETE and INSERT, plus a catalog test for a deliberately policy-free tenant-table fixture.
+2. Run the policy-free fixture and confirm catalog enforcement fails for the expected missing-predicate reason; run cross-tenant cases with missing context and confirm fail-closed behavior.
 3. Implement tenant context middleware and transaction-scoped `SESSION_CONTEXT` setup.
-4. Add RLS filter and block predicates to every tenant table created so far.
+4. Add system-catalog enforcement that verifies every tenant-owned table has RLS filter/block policies and that every tenant relation uses composite foreign keys.
 5. Add connection reset/invalidation logic when context cleanup fails.
 6. Add organization bootstrap command with explicit privileged role and audit event.
 7. Run connection-pool reuse tests with Tenant A followed by Tenant B.
@@ -44,6 +44,7 @@ TASK-003.
 - [ ] Pooled connection context is reset between requests.
 - [ ] Organization bootstrap cannot be called through ordinary user API.
 - [ ] Every created tenant table has non-null `organization_id` and foreign key.
+- [ ] Tenant-owned relation fails migration review when it omits the composite `(organization_id, id)` foreign key.
 
 ## Acceptance criteria
 

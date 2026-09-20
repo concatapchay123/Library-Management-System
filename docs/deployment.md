@@ -38,10 +38,11 @@ App container không tự chạy migration trên mọi replica startup; deployme
 
 ## Backup and restore
 
-- SQL Server full/differential/log backup theo RPO đã cấu hình.
+- Default self-hosted target là availability 99.5% mỗi tháng, RPO không quá 15 phút và RTO không quá 4 giờ. Môi trường có mục tiêu khác phải ghi giá trị chặt hơn hoặc lý do/owner chấp thuận trong release manifest.
+- SQL Server full backup hằng tuần, differential hằng ngày, transaction-log backup mỗi 15 phút; backup mã hóa được giữ ít nhất 35 ngày.
 - Redis không phải source of truth cho business data; có thể recreate queue.
 - Backup encryption key được quản lý ngoài database host.
-- Restore drill phải tạo environment tách biệt, restore database, replay migration check và chạy RLS smoke tests.
+- Restore drill tối thiểu mỗi quý, có operational owner, tạo environment tách biệt, restore database, replay migration check và chạy RLS smoke tests. Chỉ đạt khi database usable, migration version khớp và RLS test pass.
 
 ## Rollback
 
@@ -51,6 +52,10 @@ Rollback ưu tiên deploy image trước đó nếu migration backward-compatibl
 
 - Health endpoints: `/health/live`, `/health/ready`.
 - Logs: JSON, request id, organization id, actor id, event name, duration.
-- Alerts: API 5xx, readiness failure, DB pool saturation, queue backlog, failed jobs, disk/backup failure và repeated RLS denial.
+- Alerts: page khi backup failure, restore drill quá hạn, readiness failure, API 5xx vượt 2% trong 5 phút hoặc p95 vượt hai lần baseline trong 15 phút. DB pool saturation, queue backlog/dead-letter, disk failure và repeated RLS denial phải có threshold, runbook và owner.
 - Nginx chặn access trực tiếp tới database/Redis.
 - Worker concurrency và retry limit được cấu hình theo deployment size, không hard-code theo local machine.
+
+## Database identities
+
+Migration job dùng identity tách khỏi runtime app. Runtime identity không có `db_owner`, DDL, `CONTROL`, `IMPERSONATE` hoặc quyền thay đổi RLS policy; migration identity không được cấp cho app/worker container. Deployment smoke test phải xác minh grants này, RLS catalog coverage và việc app không dùng credential migration.

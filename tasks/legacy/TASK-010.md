@@ -25,7 +25,7 @@ Implement app routing, auth refresh flow, organization-scoped UI, typed OpenAPI 
 
 1. Write failing tests for protected route redirect and refresh failure behavior.
 2. Run tests and confirm missing auth state implementation fails.
-3. Implement auth provider using HttpOnly refresh cookie and in-memory access token.
+3. Implement login form with required `organization_slug`, then auth provider using HttpOnly refresh cookie and in-memory access token.
 4. Generate or implement typed API client from OpenAPI.
 5. Add catalog, copy, loan, reservation and notification screens.
 6. Add problem-details rendering, loading/empty/error states and keyboard-accessible controls.
@@ -38,6 +38,7 @@ TASK-003 through TASK-009 for available API contracts.
 ## Testing checklist
 
 - [ ] Access token is not stored in localStorage.
+- [ ] Login sends `organization_slug`; wrong slug and wrong password render the same safe authentication error.
 - [ ] Protected route recovers after valid refresh.
 - [ ] Refresh failure clears auth state and redirects safely.
 - [ ] API error `request_id` is shown in support-friendly error UI.

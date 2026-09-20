@@ -23,12 +23,13 @@ Complete test matrix, fixture quality, security scans, OpenAPI compatibility che
 ## Implementation steps
 
 1. Run the full unit, API, integration and frontend suites.
-2. Add missing two-tenant, concurrent checkout, token reuse and idempotency cases.
+2. Add missing two-tenant, composite-FK/RLS-catalog, concurrent checkout, token reuse, audit/outbox atomicity, webhook replay and idempotency-retention cases.
 3. Run dependency audit, secret scan and OpenAPI breaking-change check.
-4. Verify structured logs, request correlation, health endpoints and queue metrics.
-5. Run a documented SQL Server backup/restore drill.
+4. Verify structured logs, validated request correlation, health endpoints, queue metrics and runtime database grants.
+5. Run a documented SQL Server backup/restore drill against RPO/RTO target.
 6. Measure baseline latency for catalog search and checkout; record environment and result.
-7. Run delegated Open Code Review and fix critical/high findings.
+7. Run retention/legal-hold test and record deployment policy owner/jurisdiction/periods.
+8. Run delegated Open Code Review and fix critical/high findings.
 
 ## Dependencies
 
@@ -39,6 +40,9 @@ TASK-003 through TASK-010.
 - [ ] Full CI suite passes from a clean checkout.
 - [ ] Cross-tenant negative tests pass.
 - [ ] RLS context reuse tests pass.
+- [ ] RLS catalog coverage, runtime least-privilege grants and composite tenant FK tests pass.
+- [ ] Audit/outbox atomicity and dispatcher replay tests pass.
+- [ ] JWT issuer/audience/algorithm/key-rotation and webhook signature/replay tests pass.
 - [ ] No critical/high dependency or code-review finding remains.
 - [ ] Restore drill produces a usable database and passes smoke tests.
 - [ ] Performance baseline is recorded and reproducible.
@@ -54,4 +58,5 @@ TASK-003 through TASK-010.
 - [ ] Verification commands are complete, not partial samples.
 - [ ] Test fixtures do not accidentally bypass RLS.
 - [ ] Performance result includes data volume and environment.
+- [ ] Backup drill records measured RPO/RTO and a named owner; production retention policy is complete.
 - [ ] Review coverage accounts for every changed file.

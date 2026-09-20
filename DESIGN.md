@@ -6,7 +6,7 @@ OpenLibraryOS là nền tảng vận hành thư viện mã nguồn mở cho trư
 
 ## Users
 
-- Platform administrator: bootstrap và vận hành instance.
+- Platform administrator: bootstrap và vận hành instance qua control plane/operational command riêng, không dùng tenant user API.
 - Organization administrator: cấu hình tenant, branding, user và permissions.
 - Librarian: quản lý catalog, copies, locations, checkout, return và reservation.
 - Student/teacher: người mượn trong Education edition.
@@ -23,9 +23,9 @@ OpenLibraryOS là nền tảng vận hành thư viện mã nguồn mở cho trư
 
 - Modular monolith trước, service extraction khi có bằng chứng.
 - API-first contract với React frontend độc lập.
-- Một SQL Server database với schema boundaries và SQL Server Row-Level Security.
+- Một SQL Server database với schema boundaries và SQL Server Row-Level Security; tenant-owned quan hệ luôn dùng composite tenant FK.
 - Service layer là nơi điều phối use case; database constraint/RLS là lớp bảo vệ cuối.
-- Mọi thay đổi quan trọng phải có migration, test và audit trail.
+- Mọi thay đổi quan trọng phải có migration, test, audit trail và outbox event nếu có side effect bất đồng bộ.
 
 ## Product boundaries
 

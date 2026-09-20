@@ -26,7 +26,7 @@ Implement students, teachers, departments, classes, courses, semesters, membersh
 1. Write failing tests for student/teacher policy resolution and semester date validation.
 2. Run tests and confirm the module policy port is absent.
 3. Implement education entities, repositories and policy resolver adapter.
-4. Add tenant-scoped migrations and seed policies.
+4. Add tenant-scoped migrations with composite tenant foreign keys, RLS filter/block policies and seed policies.
 5. Connect core circulation through the policy interface, not education imports.
 6. Add API permission checks and integration tests.
 
@@ -40,6 +40,7 @@ TASK-006.
 - [ ] Teacher default is 20 active loans and 90 days.
 - [ ] Policies can be changed per organization without controller changes.
 - [ ] Course/class/semester relations are tenant-scoped.
+- [ ] Every education relation uses a composite tenant foreign key and migration catalog check passes.
 - [ ] Core package has no import dependency on education implementation.
 - [ ] Policy snapshot is stored on loan at checkout.
 
