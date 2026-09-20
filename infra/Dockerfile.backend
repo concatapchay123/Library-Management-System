@@ -1,0 +1,9 @@
+FROM python:3.12-slim
+
+WORKDIR /app/backend
+
+COPY backend /app/backend
+
+RUN python -m pip install --no-cache-dir .
+
+CMD ["python", "-m", "flask", "--app", "openlibrary.app.runtime:create_app_from_process_environment", "run", "--host=0.0.0.0", "--port=8000"]

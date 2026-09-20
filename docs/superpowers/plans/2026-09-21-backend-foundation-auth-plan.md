@@ -42,7 +42,7 @@
 - Produces `RuntimeSettings.from_environ(environ: Mapping[str, str]) -> RuntimeSettings`, raising `ConfigurationError` for missing required values.
 - Produces `create_runtime_app(settings: RuntimeSettings) -> Flask`; later tasks add dependencies through the settings object rather than global environment reads.
 
-- [ ] **Step 1: Write the failing configuration tests.** Define an environment fixture containing all names-only required values; assert missing `APP_SECRET_KEY`, `DATABASE_RUNTIME_URL`, and `REDIS_URL` each raise `ConfigurationError`; assert `APP_ENV` defaults to `development` and secret values do not default.
+- [x] **Step 1: Write the failing configuration tests.** Define an environment fixture containing all names-only required values; assert missing `APP_SECRET_KEY`, `DATABASE_RUNTIME_URL`, and `REDIS_URL` each raise `ConfigurationError`; assert `APP_ENV` defaults to `development` and secret values do not default.
 
 ```python
 def test_missing_database_runtime_url_stops_app_creation() -> None:
@@ -50,10 +50,10 @@ def test_missing_database_runtime_url_stops_app_creation() -> None:
         RuntimeSettings.from_environ(required_environment_without("DATABASE_RUNTIME_URL"))
 ```
 
-- [ ] **Step 2: Run RED evidence.** Run `cd backend; python -m pytest tests/integration/app/test_runtime_config.py -q`; confirm import/behavior fails because `RuntimeSettings` is absent, then paste the sanitized failure summary under BE-002 Evidence checkpoint.
-- [ ] **Step 3: Implement the smallest runtime boundary.** Add frozen `RuntimeSettings` with explicit settings names, no secret defaults, a settings-to-`AppConfig` adapter, and `create_runtime_app`. Add Compose services `database`, `redis`, `app`, `worker`, and `nginx`; place only app/nginx on public host ports, give every service a health check and `depends_on.condition: service_healthy`, and configure an internal network for database/Redis. Add names only to `.env.example`.
-- [ ] **Step 4: Run GREEN and Compose validation.** Run `cd backend; python -m pytest tests/integration/app/test_runtime_config.py -q` and `docker compose -f infra/docker-compose.yml config`; verify exit 0, no exposed SQL Server/Redis port, health checks, and dependency order. Append both outputs and mark only verified checklist items in BE-002.
-- [ ] **Step 5: Review and commit.** Review the diff for secret values and config fallbacks, run `git diff --check`, then commit `feat: add runtime configuration and local compose services`.
+- [x] **Step 2: Run RED evidence.** Run `cd backend; python -m pytest tests/integration/app/test_runtime_config.py -q`; confirm import/behavior fails because `RuntimeSettings` is absent, then paste the sanitized failure summary under BE-002 Evidence checkpoint.
+- [x] **Step 3: Implement the smallest runtime boundary.** Add frozen `RuntimeSettings` with explicit settings names, no secret defaults, a settings-to-`AppConfig` adapter, and `create_runtime_app`. Add Compose services `database`, `redis`, `app`, `worker`, and `nginx`; place only app/nginx on public host ports, give every service a health check and `depends_on.condition: service_healthy`, and configure an internal network for database/Redis. Add names only to `.env.example`.
+- [x] **Step 4: Run GREEN and Compose validation.** Run `cd backend; python -m pytest tests/integration/app/test_runtime_config.py -q` and `docker compose -f infra/docker-compose.yml config`; verify exit 0, no exposed SQL Server/Redis port, health checks, and dependency order. Append both outputs and mark only verified checklist items in BE-002.
+- [x] **Step 5: Review and commit.** Review the diff for secret values and config fallbacks, run `git diff --check`, then commit `feat: add runtime configuration and local compose services`.
 
 ### Task 2: BE-003 SQL Server migrations and database identities
 
