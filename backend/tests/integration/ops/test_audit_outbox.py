@@ -56,12 +56,16 @@ def clean_database_urls(database_urls: SqlServerUrls) -> Iterator[SqlServerUrls]
     )
     migration_login = f"be005_migrator_{uuid4().hex}"
     runtime_login = f"be005_runtime_{uuid4().hex}"
-    urls["DATABASE_MIGRATION_URL"] = make_url(urls["DATABASE_MIGRATION_URL"]).set(
-        username=migration_login
-    ).render_as_string(hide_password=False)
-    urls["DATABASE_RUNTIME_URL"] = make_url(urls["DATABASE_RUNTIME_URL"]).set(
-        username=runtime_login
-    ).render_as_string(hide_password=False)
+    urls["DATABASE_MIGRATION_URL"] = (
+        make_url(urls["DATABASE_MIGRATION_URL"])
+        .set(username=migration_login)
+        .render_as_string(hide_password=False)
+    )
+    urls["DATABASE_RUNTIME_URL"] = (
+        make_url(urls["DATABASE_RUNTIME_URL"])
+        .set(username=runtime_login)
+        .render_as_string(hide_password=False)
+    )
     try:
         yield urls
     finally:
@@ -125,7 +129,9 @@ def _table_names(database_url: str) -> set[str]:
     return names
 
 
-def _security_predicates(database_url: str, table_name: str) -> set[tuple[str, str | None]]:
+def _security_predicates(
+    database_url: str, table_name: str
+) -> set[tuple[str, str | None]]:
     engine = create_engine(database_url)
     with engine.connect() as connection:
         rows = connection.execute(
@@ -136,19 +142,25 @@ def _security_predicates(database_url: str, table_name: str) -> set[tuple[str, s
             ),
             {"table_name": table_name},
         )
-        predicates = {(str(row.predicate_type_desc), row.operation_desc) for row in rows}
+        predicates = {
+            (str(row.predicate_type_desc), row.operation_desc) for row in rows
+        }
     engine.dispose()
     return predicates
 
 
 def _writer() -> object:
     """Return the BE-005 transaction port once its production module exists."""
-    from openlibrary.modules.ops.infrastructure.sqlserver import SqlServerAuditedTransaction
+    from openlibrary.modules.ops.infrastructure.sqlserver import (
+        SqlServerAuditedTransaction,
+    )
 
     return SqlServerAuditedTransaction()
 
 
-def _events(organization_id: UUID, idempotency_key: str) -> tuple[object, tuple[object, ...]]:
+def _events(
+    organization_id: UUID, idempotency_key: str
+) -> tuple[object, tuple[object, ...]]:
     """Construct literals that represent one safe audited domain mutation."""
     from openlibrary.modules.ops.application.persistence import AuditEvent, OutboxEvent
 
@@ -178,7 +190,9 @@ def _events(organization_id: UUID, idempotency_key: str) -> tuple[object, tuple[
     )
 
 
-def _change_timezone(connection: Connection, organization_id: UUID, timezone: str) -> str:
+def _change_timezone(
+    connection: Connection, organization_id: UUID, timezone: str
+) -> str:
     connection.execute(
         text(
             "UPDATE core.organizations SET timezone = :timezone "
@@ -202,7 +216,9 @@ def _record_count(connection: Connection, table_name: str, record_id: UUID) -> i
     if table_name not in statements:
         raise ValueError(f"unsupported durable table: {table_name}")
     return int(
-        connection.execute(statements[table_name], {"record_id": str(record_id)}).scalar_one()
+        connection.execute(
+            statements[table_name], {"record_id": str(record_id)}
+        ).scalar_one()
     )
 
 
@@ -295,12 +311,18 @@ def test_audit_and_outbox_tables_are_tenant_protected(
         ("BLOCK", "AFTER UPDATE"),
         ("BLOCK", "BEFORE DELETE"),
     }
-    assert _security_predicates(
-        seeded_database_urls["DATABASE_BOOTSTRAP_URL"], "ops.audit_events"
-    ) == expected_predicates
-    assert _security_predicates(
-        seeded_database_urls["DATABASE_BOOTSTRAP_URL"], "ops.outbox_events"
-    ) == expected_predicates
+    assert (
+        _security_predicates(
+            seeded_database_urls["DATABASE_BOOTSTRAP_URL"], "ops.audit_events"
+        )
+        == expected_predicates
+    )
+    assert (
+        _security_predicates(
+            seeded_database_urls["DATABASE_BOOTSTRAP_URL"], "ops.outbox_events"
+        )
+        == expected_predicates
+    )
 
 
 def test_transaction_commits_mutation_audit_and_outbox_together(
@@ -319,11 +341,16 @@ def test_transaction_commits_mutation_audit_and_outbox_together(
     )
 
     assert result == "UTC"
-    assert runtime_connection.execute(
-        text("SELECT timezone FROM core.organizations WHERE organization_id = :id"),
-        {"id": str(organization_id)},
-    ).scalar_one() == "UTC"
-    assert _record_count(runtime_connection, "ops.audit_events", audit_event.audit_id) == 1
+    assert (
+        runtime_connection.execute(
+            text("SELECT timezone FROM core.organizations WHERE organization_id = :id"),
+            {"id": str(organization_id)},
+        ).scalar_one()
+        == "UTC"
+    )
+    assert (
+        _record_count(runtime_connection, "ops.audit_events", audit_event.audit_id) == 1
+    )
     assert (
         _record_count(
             runtime_connection, "ops.outbox_events", outbox_events[0].event_id
@@ -354,27 +381,37 @@ def test_transaction_rolls_back_mutation_and_audit_when_outbox_insert_fails(
     with pytest.raises(IntegrityError):
         writer.run(
             runtime_connection,
-            lambda connection: _change_timezone(connection, organization_id, "Asia/Bangkok"),
+            lambda connection: _change_timezone(
+                connection, organization_id, "Asia/Bangkok"
+            ),
             duplicate_audit,
             duplicate_outbox,
         )
 
-    assert runtime_connection.execute(
-        text("SELECT timezone FROM core.organizations WHERE organization_id = :id"),
-        {"id": str(organization_id)},
-    ).scalar_one() == "UTC"
-    assert _record_count(
-        runtime_connection, "ops.audit_events", first_audit.audit_id
-    ) == 1
-    assert _record_count(
-        runtime_connection, "ops.audit_events", duplicate_audit.audit_id
-    ) == 0
-    assert _record_count(
-        runtime_connection, "ops.outbox_events", first_outbox[0].event_id
-    ) == 1
-    assert _record_count(
-        runtime_connection, "ops.outbox_events", duplicate_outbox[0].event_id
-    ) == 0
+    assert (
+        runtime_connection.execute(
+            text("SELECT timezone FROM core.organizations WHERE organization_id = :id"),
+            {"id": str(organization_id)},
+        ).scalar_one()
+        == "UTC"
+    )
+    assert (
+        _record_count(runtime_connection, "ops.audit_events", first_audit.audit_id) == 1
+    )
+    assert (
+        _record_count(runtime_connection, "ops.audit_events", duplicate_audit.audit_id)
+        == 0
+    )
+    assert (
+        _record_count(runtime_connection, "ops.outbox_events", first_outbox[0].event_id)
+        == 1
+    )
+    assert (
+        _record_count(
+            runtime_connection, "ops.outbox_events", duplicate_outbox[0].event_id
+        )
+        == 0
+    )
 
 
 def test_runtime_cannot_modify_or_delete_audit_events(
@@ -392,9 +429,13 @@ def test_runtime_cannot_modify_or_delete_audit_events(
     )
 
     with pytest.raises(DBAPIError):
-        runtime_connection.execute(text("UPDATE ops.audit_events SET action = 'tampered'"))
+        runtime_connection.execute(
+            text("UPDATE ops.audit_events SET action = 'tampered'")
+        )
     runtime_connection.rollback()
     with pytest.raises(DBAPIError):
         runtime_connection.execute(text("DELETE FROM ops.audit_events"))
     runtime_connection.rollback()
-    assert _record_count(runtime_connection, "ops.audit_events", audit_event.audit_id) == 1
+    assert (
+        _record_count(runtime_connection, "ops.audit_events", audit_event.audit_id) == 1
+    )

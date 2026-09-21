@@ -30,7 +30,9 @@ class SqlServerAuditedTransaction:
     ) -> T:
         """Write atomically in a new transaction or the caller's savepoint."""
         transaction = (
-            connection.begin_nested() if connection.in_transaction() else connection.begin()
+            connection.begin_nested()
+            if connection.in_transaction()
+            else connection.begin()
         )
         with transaction:
             result = mutation(connection)
