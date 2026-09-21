@@ -63,8 +63,8 @@
 
 | Table | Columns chính | Quy tắc |
 |---|---|---|
-| `ops.audit_events` | `audit_id`, `organization_id`, `actor_user_id`, `actor_type`, `action`, `entity_type`, `entity_id`, `before_json`, `after_json`, `request_id`, `occurred_at` | append-only, allow-listed payload, no secrets |
-| `ops.outbox_events` | `event_id`, `organization_id`, `topic`, `aggregate_type`, `aggregate_id`, `payload_version`, `payload_json`, `idempotency_key`, `available_at`, `lease_token`, `lease_expires_at`, `delivered_at`, `attempts`, `last_error` | durable transactional outbox; unique `(organization_id, topic, idempotency_key)` |
+| `ops.audit_events` | `audit_id`, `organization_id`, `actor_user_id`, `actor_type`, `action`, `entity_type`, `entity_id`, `payload_version`, `payload_json`, `correlation_id`, `occurred_at` | append-only, allow-listed JSON payload, no secrets; runtime identity cannot update/delete |
+| `ops.outbox_events` | `event_id`, `organization_id`, `event_type`, `aggregate_type`, `aggregate_id`, `payload_version`, `payload_json`, `correlation_id`, `idempotency_key`, `created_at` | durable transactional outbox; unique `(organization_id, event_type, idempotency_key)`; claim/delivery fields arrive with the dispatcher task |
 | `ops.job_records` | `job_id`, `organization_id`, `outbox_event_id`, `job_type`, `payload_version`, `status`, `attempts`, `next_run_at`, `last_error` | composite tenant relation, consumer deduplication and dead-letter visibility |
 | `ops.idempotency_keys` | `organization_id`, `key`, `method`, `endpoint`, `request_hash`, `resource_reference`, `safe_response_json`, `expires_at` | unique `(organization_id, key, method, endpoint)`; 24-hour expiry; no secret/raw PII |
 
