@@ -6,10 +6,16 @@ from flask import Flask, Response, jsonify, request
 from werkzeug.exceptions import HTTPException
 
 from openlibrary.app.correlation import request_id
+from openlibrary.modules.core.application.authorization import AuthorizationDenied
 
 
 def install_problem_details_handlers(app: Flask) -> None:
     """Prevent framework HTML errors and implementation detail from escaping the API."""
+
+    @app.errorhandler(AuthorizationDenied)
+    def handle_authorization_denied(error: AuthorizationDenied) -> Response:
+        del error
+        return authorization_failure_response()
 
     @app.errorhandler(HTTPException)
     def handle_http_exception(error: HTTPException) -> Response:
@@ -58,6 +64,15 @@ def authentication_failure_response() -> Response:
         status=HTTPStatus.UNAUTHORIZED,
         title="Authentication failed",
         detail="Authentication failed.",
+    )
+
+
+def authorization_failure_response() -> Response:
+    """Return one stable response for an application-service permission denial."""
+    return _problem_response(
+        status=HTTPStatus.FORBIDDEN,
+        title="Forbidden",
+        detail="Authorization denied.",
     )
 
 

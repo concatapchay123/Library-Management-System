@@ -36,11 +36,16 @@ def test_v1_contract_defines_health_problem_details_and_request_correlation() ->
     schemas = components["schemas"]
     assert schemas["AccessPrincipal"] == {
         "type": "object",
-        "required": ["user_id", "organization_id", "session_id"],
+        "required": ["user_id", "organization_id", "session_id", "permissions"],
         "properties": {
             "user_id": {"type": "string", "format": "uuid"},
             "organization_id": {"type": "string", "format": "uuid"},
             "session_id": {"type": "string", "format": "uuid"},
+            "permissions": {
+                "type": "array",
+                "items": {"type": "string"},
+                "uniqueItems": True,
+            },
         },
         "additionalProperties": False,
     }

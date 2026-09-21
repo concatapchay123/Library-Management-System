@@ -53,7 +53,7 @@
         "operationId": "getCurrentPrincipal",
         "summary": "Return only the authenticated user, organization, and session identifiers.",
         "security": [{"BearerAuth": []}],
-        "responses": {"200": {"description": "The authenticated principal.", "headers": {"X-Request-ID": {"$ref": "#/components/headers/X-Request-ID"}}, "content": {"application/json": {"schema": {"$ref": "#/components/schemas/AccessPrincipal"}}}}, "401": {"$ref": "#/components/responses/AuthenticationFailed"}}
+        "responses": {"200": {"description": "The authenticated principal and live effective permissions.", "headers": {"X-Request-ID": {"$ref": "#/components/headers/X-Request-ID"}}, "content": {"application/json": {"schema": {"$ref": "#/components/schemas/AccessPrincipal"}}}}, "401": {"$ref": "#/components/responses/AuthenticationFailed"}}
       }
     },
     "/auth/password/change": {
@@ -81,7 +81,7 @@
       "LoginAccepted": {"type": "object", "required": ["status"], "properties": {"status": {"type": "string", "const": "authenticated"}}, "additionalProperties": false},
       "AccessToken": {"type": "object", "required": ["access_token", "token_type", "expires_in"], "properties": {"access_token": {"type": "string"}, "token_type": {"type": "string", "const": "Bearer"}, "expires_in": {"type": "integer", "minimum": 1}}, "additionalProperties": false},
       "Principal": {"type": "object", "required": ["user_id", "organization_id", "permissions"], "properties": {"user_id": {"type": "string", "format": "uuid"}, "organization_id": {"type": "string", "format": "uuid"}, "permissions": {"type": "array", "items": {"type": "string"}, "uniqueItems": true}}, "additionalProperties": false},
-      "AccessPrincipal": {"type": "object", "required": ["user_id", "organization_id", "session_id"], "properties": {"user_id": {"type": "string", "format": "uuid"}, "organization_id": {"type": "string", "format": "uuid"}, "session_id": {"type": "string", "format": "uuid"}}, "additionalProperties": false},
+      "AccessPrincipal": {"type": "object", "required": ["user_id", "organization_id", "session_id", "permissions"], "properties": {"user_id": {"type": "string", "format": "uuid"}, "organization_id": {"type": "string", "format": "uuid"}, "session_id": {"type": "string", "format": "uuid"}, "permissions": {"type": "array", "items": {"type": "string"}, "uniqueItems": true}}, "additionalProperties": false},
       "PasswordChangeRequest": {"type": "object", "required": ["current_password", "new_password"], "properties": {"current_password": {"type": "string", "format": "password"}, "new_password": {"type": "string", "format": "password", "minLength": 12}}, "additionalProperties": false}
     },
     "responses": {

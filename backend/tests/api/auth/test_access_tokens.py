@@ -265,6 +265,7 @@ def test_login_issues_token_and_me_exposes_only_verified_principal(
         "user_id": str(login_result.user_id),
         "organization_id": str(login_result.organization_id),
         "session_id": str(access_tokens.verify(token).session_id),
+        "permissions": [],
     }
 
 

@@ -22,7 +22,10 @@ def create_app(config: AppConfig) -> Flask:
             )
         app.register_blueprint(
             create_auth_blueprint(
-                config.login_service, config.access_tokens, config.refresh_sessions
+                config.login_service,
+                config.access_tokens,
+                config.refresh_sessions,
+                config.authorization,
             )
         )
     return app

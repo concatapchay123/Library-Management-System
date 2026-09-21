@@ -15,6 +15,7 @@ from openlibrary.modules.core.application.access_tokens import (
     Principal,
     TokenVerificationError,
 )
+from openlibrary.modules.core.application.authorization import AuthorizationService
 from openlibrary.modules.core.application.login import LoginService
 from openlibrary.modules.core.application.refresh_sessions import (
     CsrfValidationError,
@@ -27,6 +28,7 @@ def create_auth_blueprint(
     login_service: LoginService,
     access_tokens: AccessTokenService,
     refresh_sessions: RefreshSessionService,
+    authorization: AuthorizationService | None = None,
 ) -> Blueprint:
     """Create the public login route around an injected application service."""
     auth = Blueprint("auth", __name__, url_prefix="/api/v1/auth")
@@ -84,6 +86,9 @@ def create_auth_blueprint(
                 "user_id": str(principal.user_id),
                 "organization_id": str(principal.organization_id),
                 "session_id": str(principal.session_id),
+                "permissions": list(authorization.permissions(principal))
+                if authorization is not None
+                else [],
             }
         )
 
