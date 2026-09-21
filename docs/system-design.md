@@ -54,7 +54,7 @@ Reservation queue được partition theo organization và book. Transaction ret
 
 ## Audit và transactional outbox
 
-Mọi mutation nghiệp vụ ghi `ops.audit_events` trong cùng transaction với state change. Audit payload dùng allow-list field, không chứa secret/token/password/raw payment credential và runtime database identity không được update/delete audit event.
+Mọi mutation nghiệp vụ ghi `ops.audit_events` trong cùng transaction với state change. Audit và outbox mang `payload_version` cùng `correlation_id`; `organization_id` được SQL Server lấy từ tenant session context thay vì payload của caller. Audit payload dùng allow-list field, không chứa secret/token/password/raw payment credential và runtime database identity không được update/delete audit event.
 
 Nếu mutation tạo notification, reservation allocation, overdue work, email, payment reconciliation hoặc side effect khác, transaction ghi thêm `ops.outbox_events`. Dispatcher pre-context chỉ gọi `ops.claim_outbox_event` để claim lease nguyên tử và nhận server-created organization id, sau đó mới set context, tạo hoặc đánh thức `ops.job_records`, rồi chỉ đánh dấu event delivered khi consumer xác nhận. Consumer ghi deduplication key trước side effect; retry bounded exponential backoff và dead-letter có metric/runbook. Vì event đã durable trước commit, transaction không phụ thuộc Celery/Redis/email provider đang sẵn sàng.
 

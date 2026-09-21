@@ -1,5 +1,6 @@
 """Runtime configuration boundary tests."""
 
+import json
 import os
 from collections.abc import Mapping
 from pathlib import Path
@@ -106,3 +107,72 @@ def test_compose_requires_redis_url() -> None:
 
     assert result.returncode != 0
     assert "REDIS_URL is required" in result.stderr
+
+
+def test_compose_keeps_migration_credentials_out_of_runtime_services() -> None:
+    """The migration profile is the sole Compose path receiving elevated URLs."""
+    environment = os.environ.copy()
+    environment.update(valid_environment())
+    environment.update(
+        {
+            "DATABASE_BOOTSTRAP_URL": (
+                "mssql+pyodbc://sa:LocalTestPassword!123@database:1433/master?"
+                "driver=ODBC+Driver+18+for+SQL+Server&Encrypt=yes&"
+                "TrustServerCertificate=yes"
+            ),
+            "DATABASE_MIGRATION_URL": (
+                "mssql+pyodbc://openlibrary_migrator:LocalTestPassword!123@"
+                "database:1433/openlibrary?driver=ODBC+Driver+18+for+SQL+Server&"
+                "Encrypt=yes&TrustServerCertificate=yes"
+            ),
+            "DATABASE_RUNTIME_URL": (
+                "mssql+pyodbc://openlibrary_runtime:LocalTestPassword!123@"
+                "database:1433/openlibrary?driver=ODBC+Driver+18+for+SQL+Server&"
+                "Encrypt=yes&TrustServerCertificate=yes"
+            ),
+            "MSSQL_SA_PASSWORD": "LocalTestPassword!123",
+        }
+    )
+    repository_root = Path(__file__).resolve().parents[4]
+
+    result = subprocess.run(
+        [
+            "docker",
+            "compose",
+            "-f",
+            "infra/docker-compose.yml",
+            "--profile",
+            "migration",
+            "--profile",
+            "test",
+            "config",
+            "--format",
+            "json",
+        ],
+        cwd=repository_root,
+        env=environment,
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+
+    assert result.returncode == 0, result.stderr
+    services = json.loads(result.stdout)["services"]
+    assert services["database-init"]["profiles"] == ["migration", "test"]
+    assert services["migration"]["profiles"] == ["migration"]
+    assert services["migration"]["depends_on"]["database-init"]["condition"] == (
+        "service_completed_successfully"
+    )
+    assert set(services["migration"]["environment"]) >= {
+        "DATABASE_BOOTSTRAP_URL",
+        "DATABASE_MIGRATION_URL",
+        "DATABASE_RUNTIME_URL",
+    }
+    assert "DATABASE_BOOTSTRAP_URL" not in services["app"]["environment"]
+    assert "DATABASE_MIGRATION_URL" not in services["app"]["environment"]
+    assert "DATABASE_BOOTSTRAP_URL" not in services["worker"]["environment"]
+    assert "DATABASE_MIGRATION_URL" not in services["worker"]["environment"]
+    assert services["tests"]["profiles"] == ["test"]
+    assert services["tests"]["depends_on"]["database-init"]["condition"] == (
+        "service_completed_successfully"
+    )

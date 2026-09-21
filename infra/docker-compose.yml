@@ -16,6 +16,58 @@ services:
       retries: 20
       start_period: 30s
 
+  database-init:
+    image: mcr.microsoft.com/mssql/server:2022-latest
+    profiles: ["migration", "test"]
+    environment:
+      MSSQL_SA_PASSWORD: ${MSSQL_SA_PASSWORD:?MSSQL_SA_PASSWORD is required}
+    entrypoint: ["/bin/bash", "-c"]
+    command:
+      - >-
+        /opt/mssql-tools18/bin/sqlcmd -C -S database -U sa -P "$$MSSQL_SA_PASSWORD"
+        -Q "IF DB_ID(N'openlibrary') IS NULL CREATE DATABASE [openlibrary]"
+    depends_on:
+      database:
+        condition: service_healthy
+    networks:
+      - internal
+
+  migration:
+    build:
+      context: ..
+      dockerfile: infra/Dockerfile.backend
+    profiles: ["migration"]
+    command: ["python", "scripts/run_migrations.py"]
+    environment:
+      DATABASE_BOOTSTRAP_URL: ${DATABASE_BOOTSTRAP_URL:-}
+      DATABASE_MIGRATION_URL: ${DATABASE_MIGRATION_URL:-}
+      DATABASE_RUNTIME_URL: ${DATABASE_RUNTIME_URL:-}
+    depends_on:
+      database-init:
+        condition: service_completed_successfully
+    networks:
+      - internal
+
+  tests:
+    build:
+      context: ..
+      dockerfile: infra/Dockerfile.backend
+      target: test
+    profiles: ["test"]
+    command:
+      - /bin/sh
+      - -c
+      - python scripts/run_migrations.py && python -m pytest tests/integration/ops/test_audit_outbox.py -q
+    environment:
+      DATABASE_BOOTSTRAP_URL: ${DATABASE_BOOTSTRAP_URL:-}
+      DATABASE_MIGRATION_URL: ${DATABASE_MIGRATION_URL:-}
+      DATABASE_RUNTIME_URL: ${DATABASE_RUNTIME_URL:-}
+    depends_on:
+      database-init:
+        condition: service_completed_successfully
+    networks:
+      - internal
+
   redis:
     image: redis:7.4-alpine
     command: ["redis-server", "--appendonly", "yes"]
