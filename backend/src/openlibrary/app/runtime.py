@@ -8,6 +8,7 @@ from flask import Flask
 
 from openlibrary.app.config import AppConfig, ReadinessProbe
 from openlibrary.app.factory import create_app
+from openlibrary.modules.core.infrastructure.login import create_sqlserver_login_service
 
 
 class ConfigurationError(ValueError):
@@ -42,7 +43,10 @@ def create_app_from_environ(
     """Create a configured app only after validating the full runtime contract."""
     settings = RuntimeSettings.from_environ(environ)
     app = create_app(
-        AppConfig(readiness_probe=readiness_probe or _dependencies_are_unverified)
+        AppConfig(
+            readiness_probe=readiness_probe or _dependencies_are_unverified,
+            login_service=create_sqlserver_login_service(settings.database_runtime_url),
+        )
     )
     app.config.update(
         APP_ENV=settings.app_environment,

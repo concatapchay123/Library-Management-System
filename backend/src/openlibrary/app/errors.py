@@ -52,6 +52,15 @@ def _problem_response(*, status: int | HTTPStatus, title: str, detail: str) -> R
     return response
 
 
+def authentication_failure_response() -> Response:
+    """Return the one non-enumerating public response for credential failures."""
+    return _problem_response(
+        status=HTTPStatus.UNAUTHORIZED,
+        title="Authentication failed",
+        detail="Authentication failed.",
+    )
+
+
 def _problem_type(status: int | HTTPStatus) -> str:
     """Derive a stable URL-safe type suffix from an HTTP status."""
     return HTTPStatus(status).phrase.lower().replace(" ", "-")

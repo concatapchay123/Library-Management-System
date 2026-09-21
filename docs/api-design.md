@@ -29,7 +29,7 @@ Slug không tồn tại, organization disabled và password sai phải trả cù
 
 | Method | Endpoint | Permission | Mục đích |
 |---|---|---|---|
-| POST | `/auth/login` | Public | Resolve `organization_slug`, xác thực email/password và cấp access token + refresh cookie. |
+| POST | `/auth/login` | Public | Resolve `organization_slug` và xác thực email/password. BE-007 chỉ trả trạng thái xác thực; BE-008 thêm access token và BE-009 thêm refresh cookie. |
 | POST | `/auth/refresh` | Refresh cookie + CSRF | Rotate refresh session và cấp access token mới. |
 | POST | `/auth/logout` | Authenticated + CSRF | Revoke refresh session chain hiện tại. |
 | GET | `/auth/me` | Authenticated | Trả principal, organization và permissions hiệu lực. |

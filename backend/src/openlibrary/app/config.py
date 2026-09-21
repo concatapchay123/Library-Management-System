@@ -2,6 +2,10 @@
 
 from collections.abc import Callable
 from dataclasses import dataclass
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from openlibrary.modules.core.application.login import LoginService
 
 ReadinessProbe = Callable[[], bool]
 
@@ -11,3 +15,4 @@ class AppConfig:
     """Dependencies needed to create an application instance."""
 
     readiness_probe: ReadinessProbe
+    login_service: "LoginService | None" = None

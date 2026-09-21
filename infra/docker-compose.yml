@@ -57,7 +57,10 @@ services:
     command:
       - /bin/sh
       - -c
-      - python scripts/run_migrations.py && python -m pytest tests/integration/ops/test_audit_outbox.py -q
+      - >-
+        python scripts/run_migrations.py && python -m pytest
+        tests/integration/ops/test_audit_outbox.py
+        tests/integration/auth/test_login_persistence.py -q
     environment:
       DATABASE_BOOTSTRAP_URL: ${DATABASE_BOOTSTRAP_URL:-}
       DATABASE_MIGRATION_URL: ${DATABASE_MIGRATION_URL:-}

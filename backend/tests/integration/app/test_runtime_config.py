@@ -5,8 +5,10 @@ import os
 from collections.abc import Mapping
 from pathlib import Path
 import subprocess
+import warnings
 
 import pytest
+from sqlalchemy.exc import SAWarning
 
 from openlibrary.app.runtime import (
     ConfigurationError,
@@ -88,6 +90,17 @@ def test_process_environment_entrypoint_uses_the_validated_contract(
     app = create_app_from_process_environment()
 
     assert app.test_client().get("/api/v1/health/live").status_code == 200
+
+
+def test_app_creation_defers_sql_engine_creation_until_login() -> None:
+    """Configuration-only startup must not parse or warn about an unopened ODBC URL."""
+    with warnings.catch_warnings(record=True) as captured:
+        warnings.simplefilter("always")
+        create_app_from_environ(valid_environment())
+
+    assert not [
+        warning for warning in captured if issubclass(warning.category, SAWarning)
+    ]
 
 
 def test_compose_requires_redis_url() -> None:
@@ -177,4 +190,8 @@ def test_compose_keeps_migration_credentials_out_of_runtime_services() -> None:
     assert services["tests"]["profiles"] == ["test"]
     assert services["tests"]["depends_on"]["database-init"]["condition"] == (
         "service_completed_successfully"
+    )
+    assert (
+        "tests/integration/auth/test_login_persistence.py"
+        in services["tests"]["command"][2]
     )

@@ -1,0 +1,182 @@
+"""HTTP contract coverage for tenant-scoped credential validation."""
+
+from __future__ import annotations
+
+from dataclasses import dataclass, field
+from uuid import uuid4
+
+from flask.testing import FlaskClient
+import pytest
+
+from openlibrary.app.config import AppConfig
+from openlibrary.app.factory import create_app
+from openlibrary.modules.core.application.login import LoginResult
+
+
+@dataclass(frozen=True, slots=True)
+class LoginCall:
+    """One credential handoff observed at the application boundary."""
+
+    organization_slug: str
+    email: str
+    password: str
+    correlation_id: str
+
+
+@dataclass(slots=True)
+class StubLoginService:
+    """Deterministic application boundary used by HTTP contract tests."""
+
+    results: dict[tuple[str, str, str], LoginResult]
+    calls: list[LoginCall] = field(default_factory=list)
+
+    def login(
+        self,
+        *,
+        organization_slug: str,
+        email: str,
+        password: str,
+        correlation_id: str,
+    ) -> LoginResult | None:
+        self.calls.append(LoginCall(organization_slug, email, password, correlation_id))
+        return self.results.get((organization_slug, email, password))
+
+
+@pytest.fixture
+def login_service() -> StubLoginService:
+    """Provide two tenant-local users with an intentionally duplicate email."""
+    duplicate_email = "librarian@example.test"
+    password = "correct-horse-battery-staple"
+    return StubLoginService(
+        {
+            ("campus-a", duplicate_email, password): LoginResult(
+                user_id=uuid4(), organization_id=uuid4()
+            ),
+            ("campus-b", duplicate_email, password): LoginResult(
+                user_id=uuid4(), organization_id=uuid4()
+            ),
+        }
+    )
+
+
+@pytest.fixture
+def client(login_service: StubLoginService) -> FlaskClient:
+    """Create the HTTP adapter with a controlled login application service."""
+    app = create_app(
+        AppConfig(readiness_probe=lambda: True, login_service=login_service)
+    )
+    return app.test_client()
+
+
+def _login(client: FlaskClient, payload: dict[str, str]) -> object:
+    return client.post(
+        "/api/v1/auth/login",
+        headers={"X-Request-ID": "login-contract-test"},
+        json=payload,
+    )
+
+
+def test_login_succeeds_without_returning_credential_material(
+    client: FlaskClient,
+) -> None:
+    """A successful credential check must not expose a token or password yet."""
+    response = _login(
+        client,
+        {
+            "organization_slug": "campus-a",
+            "email": "librarian@example.test",
+            "password": "correct-horse-battery-staple",
+        },
+    )
+
+    assert response.status_code == 200
+    assert response.get_json() == {"status": "authenticated"}
+    assert b"correct-horse-battery-staple" not in response.data
+    assert b"access_token" not in response.data
+
+
+def test_wrong_slug_disabled_slug_and_wrong_password_share_one_public_failure(
+    client: FlaskClient,
+) -> None:
+    """Changing one failure path must not restore tenant or credential enumeration."""
+    payloads = (
+        {
+            "organization_slug": "missing-campus",
+            "email": "librarian@example.test",
+            "password": "wrong-password",
+        },
+        {
+            "organization_slug": "disabled-campus",
+            "email": "librarian@example.test",
+            "password": "wrong-password",
+        },
+        {
+            "organization_slug": "campus-a",
+            "email": "librarian@example.test",
+            "password": "wrong-password",
+        },
+    )
+
+    responses = [_login(client, payload) for payload in payloads]
+
+    assert [response.status_code for response in responses] == [401, 401, 401]
+    assert [response.mimetype for response in responses] == [
+        "application/problem+json",
+        "application/problem+json",
+        "application/problem+json",
+    ]
+    assert responses[0].get_json() == responses[1].get_json() == responses[2].get_json()
+
+
+def test_missing_slug_reaches_the_service_for_dummy_verification(
+    client: FlaskClient, login_service: StubLoginService
+) -> None:
+    """Rejecting before the service would skip the required dummy Argon2 work."""
+    response = _login(
+        client,
+        {
+            "email": "librarian@example.test",
+            "password": "wrong-password",
+        },
+    )
+
+    assert response.status_code == 401
+    assert login_service.calls[-1] == LoginCall(
+        organization_slug="",
+        email="librarian@example.test",
+        password="wrong-password",
+        correlation_id="login-contract-test",
+    )
+
+
+def test_duplicate_email_authenticates_against_the_organization_slug(
+    client: FlaskClient, login_service: StubLoginService
+) -> None:
+    """A tenant-local identity lookup must use the resolved organization boundary."""
+    password = "correct-horse-battery-staple"
+
+    first = _login(
+        client,
+        {
+            "organization_slug": "campus-a",
+            "email": "librarian@example.test",
+            "password": password,
+        },
+    )
+    second = _login(
+        client,
+        {
+            "organization_slug": "campus-b",
+            "email": "librarian@example.test",
+            "password": password,
+        },
+    )
+
+    assert first.status_code == second.status_code == 200
+    assert [call.organization_slug for call in login_service.calls] == [
+        "campus-a",
+        "campus-b",
+    ]
+    assert (
+        len({result.organization_id for result in login_service.results.values()}) == 2
+    )

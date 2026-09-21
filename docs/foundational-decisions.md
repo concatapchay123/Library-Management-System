@@ -23,7 +23,7 @@ Mọi tenant-owned parent table phải có candidate key `(organization_id, enti
 
 ## 3. Audit, outbox và worker
 
-Mọi mutation nghiệp vụ ghi audit event trong cùng transaction. `ops.audit_events` append-only; runtime identity chỉ được insert/select theo RLS, không có quyền update/delete. Payload audit dùng allow-list field và không chứa password, token, credential thanh toán, raw webhook body hoặc PII không cần thiết.
+Mọi mutation nghiệp vụ ghi audit event trong cùng transaction. `ops.audit_events` append-only; runtime identity chỉ được insert/select theo RLS, không có quyền update/delete. Payload audit dùng allow-list field và không chứa password, token, credential thanh toán, raw webhook body hoặc PII không cần thiết. Một login failure không resolve được tenant là system-scope security fact, không phải tenant-owned row: chỉ `ops.record_prelogin_security_event` với `EXECUTE AS OWNER` được ghi một classification allow-list và correlation ID vào `ops.prelogin_security_events`; runtime chỉ có quyền `EXECUTE`, không có `SELECT`/DML trực tiếp, và procedure không nhận password, email hoặc slug thô.
 
 Mọi side effect bất đồng bộ bắt buộc ghi `ops.outbox_events` trong transaction tạo dữ liệu nghiệp vụ. Một event gồm `event_id`, `organization_id`, `topic`, aggregate type/id, `payload_version`, payload allow-list, idempotency key, `occurred_at`, attempts, `available_at`, lease token/expiry, `delivered_at` và lỗi đã sanitize. Unique key `(organization_id, topic, idempotency_key)` ngăn cùng logical event được ghi hai lần.
 
