@@ -22,8 +22,7 @@ def upgrade() -> None:
     op.execute("CREATE SCHEMA education")
     op.execute("CREATE SCHEMA public_library")
     op.execute(
-        "CREATE TABLE core.runtime_permission_guard "
-        "(guard_id int NOT NULL PRIMARY KEY)"
+        "CREATE TABLE core.runtime_permission_guard (guard_id int NOT NULL PRIMARY KEY)"
     )
     op.execute(
         "CREATE FUNCTION core.runtime_permission_guard_predicate "

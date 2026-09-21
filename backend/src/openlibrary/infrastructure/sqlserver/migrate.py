@@ -88,7 +88,9 @@ class SqlServerConnection:
 
 
 @contextmanager
-def connect(database_url: str, database: str | None = None) -> Iterator[SqlServerConnection]:
+def connect(
+    database_url: str, database: str | None = None
+) -> Iterator[SqlServerConnection]:
     """Connect through the SQL Server ODBC driver without logging credentials."""
     connection_string = _odbc_connection_string(database_url, database)
     del database_url
@@ -106,8 +108,10 @@ def database_url_for(database_url: str, database_name: str) -> str:
     """Return an existing SQLAlchemy URL pointed at one selected database name."""
     if not database_name:
         raise ValueError("SQL Server database name is required")
-    return make_url(database_url).set(database=database_name).render_as_string(
-        hide_password=False
+    return (
+        make_url(database_url)
+        .set(database=database_name)
+        .render_as_string(hide_password=False)
     )
 
 
@@ -143,9 +147,7 @@ def bootstrap_database_identities(
             f"N'{migration_login}') = 0 "
             f"ALTER ROLE db_ddladmin ADD MEMBER [{migration_login}]"
         )
-        database.execute(
-            f"GRANT ALTER ANY SECURITY POLICY TO [{migration_login}]"
-        )
+        database.execute(f"GRANT ALTER ANY SECURITY POLICY TO [{migration_login}]")
         database.execute(f"GRANT ALTER ANY CERTIFICATE TO [{migration_login}]")
         database.execute(f"GRANT ALTER ANY USER TO [{migration_login}]")
         database.execute(f"GRANT ALTER ANY ROLE TO [{migration_login}]")
@@ -190,8 +192,7 @@ def verify_runtime_restrictions(
             "DB_NAME(), 'DATABASE', 'ALTER ANY SECURITY POLICY')"
         )
         impersonate = connection.fetch_value(
-            "SELECT HAS_PERMS_BY_NAME("
-            f"'{migration_login}', 'LOGIN', 'IMPERSONATE')"
+            f"SELECT HAS_PERMS_BY_NAME('{migration_login}', 'LOGIN', 'IMPERSONATE')"
         )
 
     forbidden = {
@@ -219,9 +220,7 @@ def _create_login(
     )
 
 
-def _ensure_database_master_key(
-    connection: SqlServerConnection, password: str
-) -> None:
+def _ensure_database_master_key(connection: SqlServerConnection, password: str) -> None:
     """Create the database master key once for migration-owned module signing."""
     escaped_password = password.replace("'", "''")
     statement = (

@@ -66,7 +66,9 @@ def test_runtime_settings_do_not_require_the_migration_credential() -> None:
 
     settings = RuntimeSettings.from_environ(environment)
 
-    assert settings.database_runtime_url == "mssql+pyodbc://runtime@example.test/library"
+    assert (
+        settings.database_runtime_url == "mssql+pyodbc://runtime@example.test/library"
+    )
 
 
 def test_app_creation_rejects_missing_required_settings_before_requests() -> None:

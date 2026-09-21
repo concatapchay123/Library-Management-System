@@ -49,3 +49,23 @@ python -m pytest -q
 python -m ruff check .
 python -m mypy src
 ```
+
+## OpenAPI contract checks
+
+From the repository root, validate the versioned V1 contract with the same
+command used by CI:
+
+```powershell
+openapi-spec-validator contracts/openapi/v1.yaml
+```
+
+To check whether a proposed V1 change breaks a published baseline, run:
+
+```powershell
+python contracts/openapi/check_compatibility.py path/to/published-v1.yaml contracts/openapi/v1.yaml
+```
+
+The compatibility command fails on removed operations, responses or schema
+properties, and on new required request inputs or schema properties. Breaking
+client-visible changes require a new API major version rather than an edit to
+`v1.yaml`.

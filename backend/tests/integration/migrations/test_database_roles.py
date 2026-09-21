@@ -60,12 +60,16 @@ def clean_database_urls(database_urls: SqlServerUrls) -> Iterator[SqlServerUrls]
     # illustrative documentation names or leak principals across test runs.
     migration_login = f"be003_migrator_{uuid4().hex}"
     runtime_login = f"be003_runtime_{uuid4().hex}"
-    urls["DATABASE_MIGRATION_URL"] = make_url(
-        urls["DATABASE_MIGRATION_URL"]
-    ).set(username=migration_login).render_as_string(hide_password=False)
-    urls["DATABASE_RUNTIME_URL"] = make_url(
-        urls["DATABASE_RUNTIME_URL"]
-    ).set(username=runtime_login).render_as_string(hide_password=False)
+    urls["DATABASE_MIGRATION_URL"] = (
+        make_url(urls["DATABASE_MIGRATION_URL"])
+        .set(username=migration_login)
+        .render_as_string(hide_password=False)
+    )
+    urls["DATABASE_RUNTIME_URL"] = (
+        make_url(urls["DATABASE_RUNTIME_URL"])
+        .set(username=runtime_login)
+        .render_as_string(hide_password=False)
+    )
     try:
         yield urls
     finally:

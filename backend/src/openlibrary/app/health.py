@@ -5,6 +5,7 @@ from http import HTTPStatus
 from flask import Blueprint, Response, jsonify
 
 from openlibrary.app.config import ReadinessProbe
+from openlibrary.app.correlation import request_id
 
 
 def create_health_blueprint(readiness_probe: ReadinessProbe) -> Blueprint:
@@ -27,6 +28,7 @@ def create_health_blueprint(readiness_probe: ReadinessProbe) -> Blueprint:
                 "status": HTTPStatus.SERVICE_UNAVAILABLE,
                 "detail": "A required dependency is unavailable.",
                 "instance": "/api/v1/health/ready",
+                "request_id": request_id(),
             }
         )
         response.status_code = HTTPStatus.SERVICE_UNAVAILABLE
