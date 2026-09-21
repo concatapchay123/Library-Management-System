@@ -21,6 +21,8 @@ _SENSITIVE_NAMES = frozenset(
         "cardnumber",
         "cardpan",
         "clientsecret",
+        "credential",
+        "credentials",
         "cvc",
         "cvv",
         "idtoken",
@@ -29,9 +31,11 @@ _SENSITIVE_NAMES = frozenset(
         "passwordhash",
         "paymentpayload",
         "rawpaymentpayload",
+        "rawwebhookbody",
         "refreshtoken",
         "secret",
         "token",
+        "webhookbody",
     }
 )
 
