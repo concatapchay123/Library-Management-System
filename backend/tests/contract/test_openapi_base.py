@@ -25,9 +25,25 @@ def test_v1_contract_defines_health_problem_details_and_request_correlation() ->
     assert "/health/live" in paths
     assert "/health/ready" in paths
     assert "/auth/login" in paths
+    assert paths["/auth/login"]["post"]["responses"]["200"] == {
+        "$ref": "#/components/responses/AccessToken"
+    }
+    assert paths["/auth/me"]["get"]["responses"]["200"]["content"]["application/json"][
+        "schema"
+    ] == {"$ref": "#/components/schemas/AccessPrincipal"}
 
     components = contract["components"]
     schemas = components["schemas"]
+    assert schemas["AccessPrincipal"] == {
+        "type": "object",
+        "required": ["user_id", "organization_id", "session_id"],
+        "properties": {
+            "user_id": {"type": "string", "format": "uuid"},
+            "organization_id": {"type": "string", "format": "uuid"},
+            "session_id": {"type": "string", "format": "uuid"},
+        },
+        "additionalProperties": False,
+    }
     problem_details = schemas["ProblemDetails"]
     assert problem_details["type"] == "object"
     assert set(problem_details["required"]) >= {

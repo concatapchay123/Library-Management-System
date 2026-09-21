@@ -16,5 +16,9 @@ def create_app(config: AppConfig) -> Flask:
     install_problem_details_handlers(app)
     app.register_blueprint(create_health_blueprint(config.readiness_probe))
     if config.login_service is not None:
-        app.register_blueprint(create_auth_blueprint(config.login_service))
+        if config.access_tokens is None:
+            raise ValueError("Login routes require access token issuance")
+        app.register_blueprint(
+            create_auth_blueprint(config.login_service, config.access_tokens)
+        )
     return app

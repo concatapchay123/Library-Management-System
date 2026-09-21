@@ -11,7 +11,17 @@ contain URL-reserved characters.
 DATABASE_BOOTSTRAP_URL=mssql+pyodbc://sa:<encoded-sa-password>@database:1433/master?driver=ODBC+Driver+18+for+SQL+Server&Encrypt=yes&TrustServerCertificate=yes
 DATABASE_MIGRATION_URL=mssql+pyodbc://openlibrary_migrator:<encoded-migration-password>@database:1433/openlibrary?driver=ODBC+Driver+18+for+SQL+Server&Encrypt=yes&TrustServerCertificate=yes
 DATABASE_RUNTIME_URL=mssql+pyodbc://openlibrary_runtime:<encoded-runtime-password>@database:1433/openlibrary?driver=ODBC+Driver+18+for+SQL+Server&Encrypt=yes&TrustServerCertificate=yes
+JWT_ISSUER=https://identity.example.invalid
+JWT_AUDIENCE=openlibraryos-api
+JWT_SIGNING_KEY_ID=<active-rs256-key-id>
+JWT_PRIVATE_KEY_PEM=<secret-manager-injected-rs256-private-pem>
+JWT_PUBLIC_KEYS_JSON={"<active-rs256-key-id>":"<active-rs256-public-pem>"}
+JWT_ACCESS_TOKEN_TTL_SECONDS=900
 ```
+
+When rotating an access-token signing key, deploy the new private key and
+retain every previous public key in `JWT_PUBLIC_KEYS_JSON` until its last
+possible issued token has exceeded `JWT_ACCESS_TOKEN_TTL_SECONDS`.
 
 The `migration` profile runs a one-shot `database-init` service that creates
 the local `openlibrary` database if needed, then executes the existing

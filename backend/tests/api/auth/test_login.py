@@ -3,13 +3,20 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from datetime import timedelta
 from uuid import uuid4
 
+from cryptography.hazmat.primitives import serialization
+from cryptography.hazmat.primitives.asymmetric import rsa
 from flask.testing import FlaskClient
 import pytest
 
 from openlibrary.app.config import AppConfig
 from openlibrary.app.factory import create_app
+from openlibrary.modules.core.application.access_tokens import (
+    AccessTokenService,
+    JwtKey,
+)
 from openlibrary.modules.core.application.login import LoginResult
 
 
@@ -60,10 +67,43 @@ def login_service() -> StubLoginService:
 
 
 @pytest.fixture
-def client(login_service: StubLoginService) -> FlaskClient:
+def access_tokens() -> AccessTokenService:
+    """Create an ephemeral RS256 signer for the login response contract."""
+    private_key = rsa.generate_private_key(public_exponent=65537, key_size=2048)
+    private_key_pem = private_key.private_bytes(
+        encoding=serialization.Encoding.PEM,
+        format=serialization.PrivateFormat.PKCS8,
+        encryption_algorithm=serialization.NoEncryption(),
+    )
+    public_key_pem = private_key.public_key().public_bytes(
+        encoding=serialization.Encoding.PEM,
+        format=serialization.PublicFormat.SubjectPublicKeyInfo,
+    )
+    key = JwtKey(
+        key_id="test-key",
+        private_key_pem=private_key_pem,
+        public_key_pem=public_key_pem,
+    )
+    return AccessTokenService(
+        issuer="https://identity.openlibraryos.example",
+        audience="openlibraryos-api",
+        access_token_ttl=timedelta(minutes=15),
+        signing_key=key,
+        verification_keys={key.key_id: key.public_key_pem},
+    )
+
+
+@pytest.fixture
+def client(
+    login_service: StubLoginService, access_tokens: AccessTokenService
+) -> FlaskClient:
     """Create the HTTP adapter with a controlled login application service."""
     app = create_app(
-        AppConfig(readiness_probe=lambda: True, login_service=login_service)
+        AppConfig(
+            readiness_probe=lambda: True,
+            login_service=login_service,
+            access_tokens=access_tokens,
+        )
     )
     return app.test_client()
 
@@ -76,10 +116,10 @@ def _login(client: FlaskClient, payload: dict[str, str]) -> object:
     )
 
 
-def test_login_succeeds_without_returning_credential_material(
+def test_login_issues_an_access_token_without_returning_credential_material(
     client: FlaskClient,
 ) -> None:
-    """A successful credential check must not expose a token or password yet."""
+    """A successful credential check returns an access token, never credentials."""
     response = _login(
         client,
         {
@@ -90,9 +130,10 @@ def test_login_succeeds_without_returning_credential_material(
     )
 
     assert response.status_code == 200
-    assert response.get_json() == {"status": "authenticated"}
+    assert set(response.get_json()) == {"access_token", "token_type", "expires_in"}
+    assert response.get_json()["token_type"] == "Bearer"
+    assert response.get_json()["expires_in"] == 900
     assert b"correct-horse-battery-staple" not in response.data
-    assert b"access_token" not in response.data
 
 
 def test_wrong_slug_disabled_slug_and_wrong_password_share_one_public_failure(

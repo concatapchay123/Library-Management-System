@@ -8,6 +8,8 @@ import subprocess
 import warnings
 
 import pytest
+from cryptography.hazmat.primitives import serialization
+from cryptography.hazmat.primitives.asymmetric import rsa
 from sqlalchemy.exc import SAWarning
 
 from openlibrary.app.runtime import (
@@ -20,12 +22,38 @@ from openlibrary.app.runtime import (
 
 def valid_environment() -> dict[str, str]:
     """Return every required configuration value without using a real secret."""
+    private_key_pem, public_key_pem = jwt_key_material()
     return {
         "APP_SECRET_KEY": "test-only-secret",
         "DATABASE_MIGRATION_URL": "mssql+pyodbc://migrator@example.test/library",
         "DATABASE_RUNTIME_URL": "mssql+pyodbc://runtime@example.test/library",
         "REDIS_URL": "redis://redis:6379/0",
+        "JWT_ISSUER": "https://identity.openlibraryos.example",
+        "JWT_AUDIENCE": "openlibraryos-api",
+        "JWT_SIGNING_KEY_ID": "test-key",
+        "JWT_PRIVATE_KEY_PEM": private_key_pem,
+        "JWT_PUBLIC_KEYS_JSON": json.dumps({"test-key": public_key_pem}),
+        "JWT_ACCESS_TOKEN_TTL_SECONDS": "900",
     }
+
+
+def jwt_key_material() -> tuple[str, str]:
+    """Create ephemeral RSA material so startup validation exercises real keys."""
+    private_key = rsa.generate_private_key(public_exponent=65537, key_size=2048)
+    private_key_pem = private_key.private_bytes(
+        encoding=serialization.Encoding.PEM,
+        format=serialization.PrivateFormat.PKCS8,
+        encryption_algorithm=serialization.NoEncryption(),
+    ).decode()
+    public_key_pem = (
+        private_key.public_key()
+        .public_bytes(
+            encoding=serialization.Encoding.PEM,
+            format=serialization.PublicFormat.SubjectPublicKeyInfo,
+        )
+        .decode()
+    )
+    return private_key_pem, public_key_pem
 
 
 def without_setting(setting_name: str) -> Mapping[str, str]:
@@ -37,7 +65,17 @@ def without_setting(setting_name: str) -> Mapping[str, str]:
 
 @pytest.mark.parametrize(
     "setting_name",
-    ["APP_SECRET_KEY", "DATABASE_RUNTIME_URL", "REDIS_URL"],
+    [
+        "APP_SECRET_KEY",
+        "DATABASE_RUNTIME_URL",
+        "REDIS_URL",
+        "JWT_ISSUER",
+        "JWT_AUDIENCE",
+        "JWT_SIGNING_KEY_ID",
+        "JWT_PRIVATE_KEY_PEM",
+        "JWT_PUBLIC_KEYS_JSON",
+        "JWT_ACCESS_TOKEN_TTL_SECONDS",
+    ],
 )
 def test_missing_required_setting_is_rejected(setting_name: str) -> None:
     """The server must not accept requests without a required runtime value."""
@@ -60,6 +98,33 @@ def test_non_secret_development_environment_has_a_safe_default() -> None:
 
     assert settings.app_environment == "development"
     assert settings.redis_url == "redis://redis:6379/0"
+    assert settings.access_token_ttl_seconds == 900
+    assert set(settings.jwt_public_keys) == {"test-key"}
+
+
+@pytest.mark.parametrize("value", ["0", "-1", "not-a-number"])
+def test_non_positive_or_invalid_access_token_lifetime_is_rejected(value: str) -> None:
+    """A runtime must not accidentally issue non-expiring access tokens."""
+    environment = valid_environment()
+    environment["JWT_ACCESS_TOKEN_TTL_SECONDS"] = value
+
+    with pytest.raises(ConfigurationError, match="JWT_ACCESS_TOKEN_TTL_SECONDS"):
+        RuntimeSettings.from_environ(environment)
+
+
+def test_app_creation_rejects_malformed_or_mismatched_jwt_key_material() -> None:
+    """The API process must fail before serving if signing material is unusable."""
+    malformed = valid_environment()
+    malformed["JWT_PRIVATE_KEY_PEM"] = "not a PEM"
+    mismatched = valid_environment()
+    _, other_public_key = jwt_key_material()
+    mismatched["JWT_PUBLIC_KEYS_JSON"] = json.dumps({"test-key": other_public_key})
+
+    for environment in (malformed, mismatched):
+        with pytest.raises(
+            ConfigurationError, match="Invalid JWT signing configuration"
+        ):
+            create_app_from_environ(environment)
 
 
 def test_runtime_settings_do_not_require_the_migration_credential() -> None:

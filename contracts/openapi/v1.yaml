@@ -29,7 +29,7 @@
         "operationId": "login",
         "summary": "Authenticate in the named organization.",
         "requestBody": {"required": true, "content": {"application/json": {"schema": {"$ref": "#/components/schemas/LoginRequest"}}}},
-        "responses": {"200": {"$ref": "#/components/responses/LoginAccepted"}, "401": {"$ref": "#/components/responses/AuthenticationFailed"}}
+        "responses": {"200": {"$ref": "#/components/responses/AccessToken"}, "401": {"$ref": "#/components/responses/AuthenticationFailed"}}
       }
     },
     "/auth/refresh": {
@@ -51,9 +51,9 @@
     "/auth/me": {
       "get": {
         "operationId": "getCurrentPrincipal",
-        "summary": "Return the authenticated principal and effective permissions.",
+        "summary": "Return only the authenticated user, organization, and session identifiers.",
         "security": [{"BearerAuth": []}],
-        "responses": {"200": {"description": "The authenticated principal.", "headers": {"X-Request-ID": {"$ref": "#/components/headers/X-Request-ID"}}, "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Principal"}}}}, "401": {"$ref": "#/components/responses/AuthenticationFailed"}}
+        "responses": {"200": {"description": "The authenticated principal.", "headers": {"X-Request-ID": {"$ref": "#/components/headers/X-Request-ID"}}, "content": {"application/json": {"schema": {"$ref": "#/components/schemas/AccessPrincipal"}}}}, "401": {"$ref": "#/components/responses/AuthenticationFailed"}}
       }
     },
     "/auth/password/change": {
@@ -81,11 +81,12 @@
       "LoginAccepted": {"type": "object", "required": ["status"], "properties": {"status": {"type": "string", "const": "authenticated"}}, "additionalProperties": false},
       "AccessToken": {"type": "object", "required": ["access_token", "token_type", "expires_in"], "properties": {"access_token": {"type": "string"}, "token_type": {"type": "string", "const": "Bearer"}, "expires_in": {"type": "integer", "minimum": 1}}, "additionalProperties": false},
       "Principal": {"type": "object", "required": ["user_id", "organization_id", "permissions"], "properties": {"user_id": {"type": "string", "format": "uuid"}, "organization_id": {"type": "string", "format": "uuid"}, "permissions": {"type": "array", "items": {"type": "string"}, "uniqueItems": true}}, "additionalProperties": false},
+      "AccessPrincipal": {"type": "object", "required": ["user_id", "organization_id", "session_id"], "properties": {"user_id": {"type": "string", "format": "uuid"}, "organization_id": {"type": "string", "format": "uuid"}, "session_id": {"type": "string", "format": "uuid"}}, "additionalProperties": false},
       "PasswordChangeRequest": {"type": "object", "required": ["current_password", "new_password"], "properties": {"current_password": {"type": "string", "format": "password"}, "new_password": {"type": "string", "format": "password", "minLength": 12}}, "additionalProperties": false}
     },
     "responses": {
       "LoginAccepted": {"description": "Credentials were validated; token issuance is introduced by BE-008.", "headers": {"X-Request-ID": {"$ref": "#/components/headers/X-Request-ID"}}, "content": {"application/json": {"schema": {"$ref": "#/components/schemas/LoginAccepted"}}}},
-      "AccessToken": {"description": "A new access token and refresh-cookie rotation where applicable.", "headers": {"X-Request-ID": {"$ref": "#/components/headers/X-Request-ID"}}, "content": {"application/json": {"schema": {"$ref": "#/components/schemas/AccessToken"}}}},
+      "AccessToken": {"description": "A short-lived access token.", "headers": {"X-Request-ID": {"$ref": "#/components/headers/X-Request-ID"}}, "content": {"application/json": {"schema": {"$ref": "#/components/schemas/AccessToken"}}}},
       "AuthenticationFailed": {"description": "Authentication failed without revealing account or tenant state.", "headers": {"X-Request-ID": {"$ref": "#/components/headers/X-Request-ID"}}, "content": {"application/problem+json": {"schema": {"$ref": "#/components/schemas/ProblemDetails"}}}},
       "ProblemDetails": {"description": "An RFC Problem Details error response.", "headers": {"X-Request-ID": {"$ref": "#/components/headers/X-Request-ID"}}, "content": {"application/problem+json": {"schema": {"$ref": "#/components/schemas/ProblemDetails"}}}}
     }
