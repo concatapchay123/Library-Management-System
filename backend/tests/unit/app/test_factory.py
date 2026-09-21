@@ -1,3 +1,5 @@
+from uuid import UUID
+
 from openlibrary.app.config import AppConfig
 from openlibrary.app.factory import create_app
 
@@ -21,13 +23,16 @@ def test_readiness_returns_problem_details_when_dependency_is_unavailable() -> N
 
     assert response.status_code == 503
     assert response.content_type == "application/problem+json"
-    assert response.get_json() == {
+    payload = response.get_json()
+    assert {key: value for key, value in payload.items() if key != "request_id"} == {
         "type": "https://openlibraryos.example/problems/dependency-unavailable",
         "title": "Service unavailable",
         "status": 503,
         "detail": "A required dependency is unavailable.",
         "instance": "/api/v1/health/ready",
     }
+    assert UUID(payload["request_id"])
+    assert response.headers["X-Request-ID"] == payload["request_id"]
 
 
 def test_readiness_returns_ok_when_dependencies_are_available() -> None:

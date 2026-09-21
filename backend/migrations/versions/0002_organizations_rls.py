@@ -78,8 +78,7 @@ def upgrade() -> None:
     )
     op.execute(f"REVOKE EXECUTE ON SCHEMA::core FROM [{runtime_login}]")
     op.execute(
-        "GRANT EXECUTE ON OBJECT::core.resolve_login_tenant "
-        f"TO [{runtime_login}]"
+        f"GRANT EXECUTE ON OBJECT::core.resolve_login_tenant TO [{runtime_login}]"
     )
 
 
