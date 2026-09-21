@@ -226,6 +226,8 @@ def _record_count(connection: Connection, table_name: str, record_id: UUID) -> i
     "payload",
     [
         {"access_token": "untrusted"},
+        {"credential": "untrusted"},
+        {"raw_webhook_body": "untrusted"},
         {"payment": {"card_number": "4111111111111111", "cvv": "123"}},
     ],
 )

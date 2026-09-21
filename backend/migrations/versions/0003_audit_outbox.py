@@ -35,10 +35,11 @@ def _drop_tenant_predicates(table_name: str) -> None:
         "ALTER SECURITY POLICY core.organization_tenant_policy "
         f"DROP FILTER PREDICATE ON {table_name}"
     )
-    op.execute(
-        "ALTER SECURITY POLICY core.organization_tenant_policy "
-        f"DROP BLOCK PREDICATE ON {table_name}"
-    )
+    for operation in ("AFTER INSERT", "AFTER UPDATE", "BEFORE DELETE"):
+        op.execute(
+            "ALTER SECURITY POLICY core.organization_tenant_policy "
+            f"DROP BLOCK PREDICATE ON {table_name} {operation}"
+        )
 
 
 def upgrade() -> None:
