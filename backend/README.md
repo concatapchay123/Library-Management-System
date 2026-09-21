@@ -17,7 +17,8 @@ file, supply deployment values, then validate Compose from the repository root:
 docker compose --env-file backend/.env -f infra/docker-compose.yml config
 ```
 
-`APP_SECRET_KEY`, `DATABASE_RUNTIME_URL`, and `REDIS_URL` are required before
+`APP_SECRET_KEY`, `DATABASE_RUNTIME_URL`, `REDIS_URL`, the JWT key-ring settings,
+and `REFRESH_TOKEN_TTL_SECONDS` are required before
 the app or worker is created. The app and worker never receive migration
 credentials. SQL Server and Redis have no host port; the local API is proxied
 by Nginx at `http://localhost:8080`.

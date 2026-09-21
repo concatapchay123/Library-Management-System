@@ -18,6 +18,7 @@ from openlibrary.modules.core.application.access_tokens import (
     JwtKey,
 )
 from openlibrary.modules.core.application.login import LoginResult
+from openlibrary.modules.core.application.refresh_sessions import RefreshResult
 
 
 @dataclass(frozen=True, slots=True)
@@ -47,6 +48,20 @@ class StubLoginService:
     ) -> LoginResult | None:
         self.calls.append(LoginCall(organization_slug, email, password, correlation_id))
         return self.results.get((organization_slug, email, password))
+
+
+@dataclass(slots=True)
+class StubRefreshSessions:
+    """Provide browser-session issuance without changing login credential contracts."""
+
+    access_tokens: AccessTokenService
+
+    def start(self, result: LoginResult) -> RefreshResult:
+        return RefreshResult(
+            access_token=self.access_tokens.issue(result),
+            refresh_token="refresh-test-value",
+            csrf_token="csrf-test-value",
+        )
 
 
 @pytest.fixture
@@ -103,6 +118,7 @@ def client(
             readiness_probe=lambda: True,
             login_service=login_service,
             access_tokens=access_tokens,
+            refresh_sessions=StubRefreshSessions(access_tokens),
         )
     )
     return app.test_client()

@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from collections.abc import Callable
 from functools import wraps
+import hmac
 
 from flask import Blueprint, Response, g, jsonify, request
 
@@ -15,10 +16,17 @@ from openlibrary.modules.core.application.access_tokens import (
     TokenVerificationError,
 )
 from openlibrary.modules.core.application.login import LoginService
+from openlibrary.modules.core.application.refresh_sessions import (
+    CsrfValidationError,
+    RefreshResult,
+    RefreshSessionService,
+)
 
 
 def create_auth_blueprint(
-    login_service: LoginService, access_tokens: AccessTokenService
+    login_service: LoginService,
+    access_tokens: AccessTokenService,
+    refresh_sessions: RefreshSessionService,
 ) -> Blueprint:
     """Create the public login route around an injected application service."""
     auth = Blueprint("auth", __name__, url_prefix="/api/v1/auth")
@@ -35,13 +43,37 @@ def create_auth_blueprint(
         )
         if result is None:
             return authentication_failure_response()
-        return jsonify(
-            {
-                "access_token": access_tokens.issue(result),
-                "token_type": "Bearer",
-                "expires_in": access_tokens.expires_in,
-            }
-        )
+        return _refresh_response(refresh_sessions.start(result), access_tokens)
+
+    @auth.post("/refresh")
+    def refresh() -> Response:
+        try:
+            result = refresh_sessions.rotate(
+                request.cookies.get("refresh_token", ""), _csrf_token_from_request()
+            )
+        except CsrfValidationError:
+            return _csrf_failure_response()
+        if result is None:
+            return authentication_failure_response()
+        return _refresh_response(result, access_tokens)
+
+    @auth.post("/logout")
+    @_require_principal(access_tokens)
+    def logout() -> Response:
+        try:
+            logged_out = refresh_sessions.logout(
+                request.cookies.get("refresh_token", ""),
+                _csrf_token_from_request(),
+                _principal_from_request(),
+            )
+        except CsrfValidationError:
+            return _csrf_failure_response()
+        if not logged_out:
+            return authentication_failure_response()
+        response = Response(status=204)
+        response.delete_cookie("refresh_token", path="/api/v1/auth", secure=True)
+        response.delete_cookie("csrf_token", path="/api/v1/auth", secure=True)
+        return response
 
     @auth.get("/me")
     @_require_principal(access_tokens)
@@ -56,6 +88,59 @@ def create_auth_blueprint(
         )
 
     return auth
+
+
+def _refresh_response(
+    result: RefreshResult, access_tokens: AccessTokenService
+) -> Response:
+    response = jsonify(
+        {
+            "access_token": result.access_token,
+            "token_type": "Bearer",
+            "expires_in": access_tokens.expires_in,
+        }
+    )
+    response.set_cookie(
+        "refresh_token",
+        result.refresh_token,
+        secure=True,
+        httponly=True,
+        samesite="Strict",
+        path="/api/v1/auth",
+    )
+    response.set_cookie(
+        "csrf_token",
+        result.csrf_token,
+        secure=True,
+        httponly=False,
+        samesite="Strict",
+        path="/api/v1/auth",
+    )
+    return response
+
+
+def _csrf_token_from_request() -> str:
+    header = request.headers.get("X-CSRF-Token", "")
+    cookie = request.cookies.get("csrf_token", "")
+    if not header or not cookie or not hmac.compare_digest(header, cookie):
+        raise CsrfValidationError("CSRF double-submit validation failed")
+    return header
+
+
+def _csrf_failure_response() -> Response:
+    response = jsonify(
+        {
+            "type": "about:blank",
+            "title": "Forbidden",
+            "status": 403,
+            "detail": "CSRF validation failed",
+            "instance": request.path,
+            "request_id": request_id(),
+        }
+    )
+    response.status_code = 403
+    response.mimetype = "application/problem+json"
+    return response
 
 
 def _string_value(payload: dict[object, object], key: str) -> str:

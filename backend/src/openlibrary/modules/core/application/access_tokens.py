@@ -84,7 +84,7 @@ class AccessTokenService:
         """Return the token lifetime for the OAuth-compatible response envelope."""
         return int(self._access_token_ttl.total_seconds())
 
-    def issue(self, result: LoginResult) -> str:
+    def issue(self, result: LoginResult, *, session_id: UUID | None = None) -> str:
         """Sign one short-lived token using only server-derived identity values."""
         issued_at = self._now()
         if issued_at.tzinfo is None:
@@ -94,7 +94,7 @@ class AccessTokenService:
             "aud": self._audience,
             "sub": str(result.user_id),
             "organization_id": str(result.organization_id),
-            "session_id": str(uuid4()),
+            "session_id": str(session_id or uuid4()),
             "iat": issued_at,
             "nbf": issued_at,
             "exp": issued_at + self._access_token_ttl,

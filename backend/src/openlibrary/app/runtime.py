@@ -15,6 +15,10 @@ from openlibrary.modules.core.application.access_tokens import (
     JwtKey,
 )
 from openlibrary.modules.core.infrastructure.login import create_sqlserver_login_service
+from openlibrary.modules.core.infrastructure.refresh_sessions import (
+    SqlServerRefreshSessionStore,
+)
+from openlibrary.modules.core.application.refresh_sessions import RefreshSessionService
 
 
 class ConfigurationError(ValueError):
@@ -35,6 +39,7 @@ class RuntimeSettings:
     jwt_private_key_pem: str
     jwt_public_keys: dict[str, str]
     access_token_ttl_seconds: int
+    refresh_token_ttl_seconds: int
 
     @classmethod
     def from_environ(cls, environ: Mapping[str, str]) -> "RuntimeSettings":
@@ -59,6 +64,9 @@ class RuntimeSettings:
             access_token_ttl_seconds=_positive_int(
                 environ, "JWT_ACCESS_TOKEN_TTL_SECONDS"
             ),
+            refresh_token_ttl_seconds=_positive_int(
+                environ, "REFRESH_TOKEN_TTL_SECONDS"
+            ),
         )
 
 
@@ -80,11 +88,17 @@ def create_app_from_environ(
 ) -> Flask:
     """Create a configured app only after validating the full runtime contract."""
     settings = RuntimeSettings.from_environ(environ)
+    access_tokens = _access_tokens(settings)
     app = create_app(
         AppConfig(
             readiness_probe=readiness_probe or _dependencies_are_unverified,
             login_service=create_sqlserver_login_service(settings.database_runtime_url),
-            access_tokens=_access_tokens(settings),
+            access_tokens=access_tokens,
+            refresh_sessions=RefreshSessionService(
+                store=SqlServerRefreshSessionStore(settings.database_runtime_url),
+                access_tokens=access_tokens,
+                refresh_token_ttl=timedelta(seconds=settings.refresh_token_ttl_seconds),
+            ),
         )
     )
     app.config.update(

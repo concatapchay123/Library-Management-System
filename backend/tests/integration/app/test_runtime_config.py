@@ -34,6 +34,7 @@ def valid_environment() -> dict[str, str]:
         "JWT_PRIVATE_KEY_PEM": private_key_pem,
         "JWT_PUBLIC_KEYS_JSON": json.dumps({"test-key": public_key_pem}),
         "JWT_ACCESS_TOKEN_TTL_SECONDS": "900",
+        "REFRESH_TOKEN_TTL_SECONDS": "1209600",
     }
 
 
@@ -75,6 +76,7 @@ def without_setting(setting_name: str) -> Mapping[str, str]:
         "JWT_PRIVATE_KEY_PEM",
         "JWT_PUBLIC_KEYS_JSON",
         "JWT_ACCESS_TOKEN_TTL_SECONDS",
+        "REFRESH_TOKEN_TTL_SECONDS",
     ],
 )
 def test_missing_required_setting_is_rejected(setting_name: str) -> None:
@@ -109,6 +111,16 @@ def test_non_positive_or_invalid_access_token_lifetime_is_rejected(value: str) -
     environment["JWT_ACCESS_TOKEN_TTL_SECONDS"] = value
 
     with pytest.raises(ConfigurationError, match="JWT_ACCESS_TOKEN_TTL_SECONDS"):
+        RuntimeSettings.from_environ(environment)
+
+
+@pytest.mark.parametrize("value", ["0", "-1", "not-a-number"])
+def test_non_positive_or_invalid_refresh_token_lifetime_is_rejected(value: str) -> None:
+    """Browser refresh sessions must expire under an explicit runtime policy."""
+    environment = valid_environment()
+    environment["REFRESH_TOKEN_TTL_SECONDS"] = value
+
+    with pytest.raises(ConfigurationError, match="REFRESH_TOKEN_TTL_SECONDS"):
         RuntimeSettings.from_environ(environment)
 
 

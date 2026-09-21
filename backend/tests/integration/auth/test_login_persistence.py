@@ -1,8 +1,9 @@
 """SQL Server coverage for BE-007 tenant-scoped credential persistence."""
 
 from collections.abc import Iterator
+from datetime import UTC, datetime, timedelta
 import os
-from uuid import uuid4
+from uuid import UUID, uuid4
 
 import pytest
 from sqlalchemy import create_engine, text
@@ -16,6 +17,10 @@ from openlibrary.infrastructure.sqlserver.migrate import (
 )
 from openlibrary.modules.core.domain.passwords import PasswordService
 from openlibrary.modules.core.infrastructure.login import create_sqlserver_login_service
+from openlibrary.modules.core.application.refresh_sessions import RefreshSession
+from openlibrary.modules.core.infrastructure.refresh_sessions import (
+    SqlServerRefreshSessionStore,
+)
 
 
 class SqlServerUrls(dict[str, str]):
@@ -256,3 +261,54 @@ def test_users_and_profiles_have_composite_relations_and_rls(
         }
         for predicates in policies.values()
     )
+
+
+def test_refresh_resolver_cannot_resolve_a_revoked_hash(
+    seeded_database_urls: SqlServerUrls,
+) -> None:
+    """Pre-auth lookup is narrow, and a revoked chain cannot re-establish tenant state."""
+    engine: Engine = create_engine(seeded_database_urls["DATABASE_BOOTSTRAP_URL"])
+    with engine.connect() as connection:
+        user = connection.execute(
+            text("SELECT TOP 1 user_id, organization_id FROM core.users")
+        ).one()
+    engine.dispose()
+    session_id = uuid4()
+    store = SqlServerRefreshSessionStore(seeded_database_urls["DATABASE_RUNTIME_URL"])
+    session = RefreshSession(
+        session_id=session_id,
+        root_session_id=session_id,
+        parent_session_id=None,
+        organization_id=UUID(str(user.organization_id)),
+        user_id=UUID(str(user.user_id)),
+        token_hash="a" * 64,
+        csrf_hash="b" * 64,
+        expires_at=datetime.now(UTC) + timedelta(days=1),
+    )
+
+    store.create(session)
+    resolved = store.resolve(session.token_hash)
+    replacement = RefreshSession(
+        session_id=uuid4(),
+        root_session_id=session.root_session_id,
+        parent_session_id=session.session_id,
+        organization_id=session.organization_id,
+        user_id=session.user_id,
+        token_hash="c" * 64,
+        csrf_hash="d" * 64,
+        expires_at=datetime.now(UTC) + timedelta(days=1),
+    )
+    assert store.rotate(session, replacement, datetime.now(UTC))
+    rotated = store.resolve(session.token_hash)
+    store.revoke_chain(
+        session.root_session_id, session.organization_id, datetime.now(UTC)
+    )
+
+    assert resolved is not None
+    assert resolved.expires_at.tzinfo is UTC
+    assert rotated is not None
+    assert rotated.rotated_at is not None
+    assert store.resolve(replacement.token_hash) is None
+    assert resolved.organization_id == session.organization_id
+    assert resolved.user_id == session.user_id
+    assert store.resolve(session.token_hash) is None

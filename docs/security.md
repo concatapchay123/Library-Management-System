@@ -10,8 +10,8 @@
 - Password hash dùng Argon2id với cost được benchmark trên deployment target.
 - Access JWT ngắn hạn chỉ chứa `iss`, `aud`, `sub`, `organization_id`, `session_id`, `iat`, `nbf`, `exp`, token version và header `kid`; không chứa permission snapshot dài hoặc profile data.
 - Refresh token chỉ lưu hash, rotation chain và revoke timestamp trong `core.refresh_sessions`.
-- Refresh token nằm trong Secure HttpOnly cookie với SameSite policy phù hợp deployment.
-- Refresh/logout yêu cầu CSRF token header và kiểm tra Origin/Referer khi có thể.
+- Refresh token nằm trong cookie `Secure`, `HttpOnly`, `SameSite=Strict`, path `/api/v1/auth`; plaintext không vào database, audit, log hay response JSON.
+- `csrf_token` là cookie `Secure`, `SameSite=Strict` có thể đọc bởi SPA; refresh/logout bắt buộc header `X-CSRF-Token` khớp hash CSRF của session trước khi mutation.
 - Đăng nhập lỗi trả thông báo chung, không phân biệt email tồn tại.
 - Đổi password revoke các refresh sessions khác và ghi audit event.
 

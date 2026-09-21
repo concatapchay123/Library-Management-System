@@ -20,6 +20,7 @@ from openlibrary.modules.core.application.access_tokens import (
     TokenVerificationError,
 )
 from openlibrary.modules.core.application.login import LoginResult
+from openlibrary.modules.core.application.refresh_sessions import RefreshResult
 
 
 NOW = datetime(2026, 9, 21, 12, 0, tzinfo=UTC)
@@ -43,6 +44,20 @@ class StubLoginService:
     ) -> LoginResult | None:
         del organization_slug, email, password, correlation_id
         return self.result
+
+
+@dataclass(slots=True)
+class StubRefreshSessions:
+    """Keep pre-existing JWT tests focused while satisfying the browser-session port."""
+
+    access_tokens: AccessTokenService
+
+    def start(self, result: LoginResult) -> RefreshResult:
+        return RefreshResult(
+            access_token=self.access_tokens.issue(result),
+            refresh_token="refresh-test-value",
+            csrf_token="csrf-test-value",
+        )
 
 
 @pytest.fixture
@@ -224,6 +239,7 @@ def test_login_issues_token_and_me_exposes_only_verified_principal(
             readiness_probe=lambda: True,
             login_service=StubLoginService(login_result),
             access_tokens=access_tokens,
+            refresh_sessions=StubRefreshSessions(access_tokens),
         )
     )
     client: FlaskClient = app.test_client()
@@ -262,6 +278,7 @@ def test_me_rejects_missing_or_untrusted_bearer_tokens(
             readiness_probe=lambda: True,
             login_service=StubLoginService(login_result),
             access_tokens=access_tokens,
+            refresh_sessions=StubRefreshSessions(access_tokens),
         )
     )
     client: FlaskClient = app.test_client()
