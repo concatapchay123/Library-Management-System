@@ -5,6 +5,7 @@ from __future__ import annotations
 from collections.abc import Callable
 from functools import wraps
 import hmac
+from typing import ParamSpec
 
 from flask import Blueprint, Response, g, jsonify, request
 
@@ -23,6 +24,9 @@ from openlibrary.modules.core.application.refresh_sessions import (
     RefreshSessionService,
 )
 from openlibrary.modules.core.infrastructure.tenancy import TenantRequestContext
+
+
+P = ParamSpec("P")
 
 
 def create_auth_blueprint(
@@ -159,12 +163,12 @@ def _string_value(payload: dict[object, object], key: str) -> str:
 def _require_principal(
     access_tokens: AccessTokenService,
     tenant_request_context: TenantRequestContext | None = None,
-) -> Callable[[Callable[[], Response]], Callable[[], Response]]:
+) -> Callable[[Callable[P, Response]], Callable[P, Response]]:
     """Install the bearer boundary before a protected route receives control."""
 
-    def decorator(view: Callable[[], Response]) -> Callable[[], Response]:
+    def decorator(view: Callable[P, Response]) -> Callable[P, Response]:
         @wraps(view)
-        def protected() -> Response:
+        def protected(*args: P.args, **kwargs: P.kwargs) -> Response:
             token = _bearer_token(request.headers.get("Authorization"))
             if token is None:
                 return authentication_failure_response()
@@ -174,8 +178,8 @@ def _require_principal(
                 return authentication_failure_response()
             if tenant_request_context is not None:
                 with tenant_request_context.request(g.principal.organization_id):
-                    return view()
-            return view()
+                    return view(*args, **kwargs)
+            return view(*args, **kwargs)
 
         return protected
 

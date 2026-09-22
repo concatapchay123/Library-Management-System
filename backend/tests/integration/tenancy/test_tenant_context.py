@@ -22,6 +22,11 @@ from openlibrary.modules.core.infrastructure.tenancy import (
     TenantCatalogError,
     verify_tenant_catalog,
 )
+from openlibrary.modules.core.application.access_tokens import Principal
+from openlibrary.modules.core.application.authorization import AuthorizationService
+from openlibrary.modules.core.application.books import BookCatalogService
+from openlibrary.modules.core.infrastructure.books import SqlServerBookStore
+from openlibrary.modules.core.infrastructure.rbac import SqlServerRbacStore
 
 
 @pytest.fixture(scope="module")
@@ -173,3 +178,79 @@ def test_catalog_rejects_a_policy_free_tenant_fixture(
             verify_tenant_catalog(connection)
         connection.execute(text("DROP TABLE core.be011_policy_free"))
     engine.dispose()
+
+
+def test_books_are_visible_only_to_the_current_tenant(
+    tenant_database_urls: dict[str, str],
+) -> None:
+    """RLS and the catalog adapter must make a foreign book indistinguishable from absent."""
+    organization_a, organization_b = _seed_tenants(
+        tenant_database_urls["DATABASE_BOOTSTRAP_URL"]
+    )
+    store = SqlServerBookStore(tenant_database_urls["DATABASE_RUNTIME_URL"])
+    authorizer = AuthorizationService(
+        SqlServerRbacStore(tenant_database_urls["DATABASE_RUNTIME_URL"])
+    )
+    service = BookCatalogService(store, authorizer)
+    # Insert direct permission grants only for this disposable integration fixture.
+    # The service still resolves them through tenant-scoped RBAC joins.
+    actor_a, actor_b = _catalog_actors(
+        tenant_database_urls["DATABASE_BOOTSTRAP_URL"], organization_a, organization_b
+    )
+    book_a = service.create(
+        actor=actor_a,
+        title="Tenant A title",
+        isbn="9780000000001",
+        authors=["A"],
+        published_year=2024,
+    )
+    book_b = service.create(
+        actor=actor_b,
+        title="Tenant B title",
+        isbn="9780000000002",
+        authors=["B"],
+        published_year=2025,
+    )
+
+    assert service.list(actor=actor_a, limit=20, cursor=None, filters={}).items == (
+        book_a,
+    )
+    with pytest.raises(KeyError):
+        service.get(actor=actor_a, book_id=book_b.book_id)
+
+
+def _catalog_actors(
+    bootstrap_url: str, organization_a: UUID, organization_b: UUID
+) -> tuple[Principal, Principal]:
+    actors = tuple(
+        Principal(uuid4(), organization_id, uuid4())
+        for organization_id in (organization_a, organization_b)
+    )
+    with create_engine(bootstrap_url).begin() as connection:
+        for actor in actors:
+            role_id, read_id, manage_id = uuid4(), uuid4(), uuid4()
+            connection.execute(
+                text(
+                    "INSERT INTO core.users (user_id, organization_id, email, password_hash, status) "
+                    "VALUES (:user_id, :organization_id, :email, 'not-a-secret', 'active'); "
+                    "INSERT INTO core.roles (role_id, organization_id, name) "
+                    "VALUES (:role_id, :organization_id, 'catalog-manager'); "
+                    "INSERT INTO core.permissions (permission_id, organization_id, code) VALUES "
+                    "(:read_id, :organization_id, 'catalog.read'), "
+                    "(:manage_id, :organization_id, 'catalog.manage'); "
+                    "INSERT INTO core.user_roles (organization_id, user_id, role_id) "
+                    "VALUES (:organization_id, :user_id, :role_id); "
+                    "INSERT INTO core.role_permissions (organization_id, role_id, permission_id) VALUES "
+                    "(:organization_id, :role_id, :read_id), "
+                    "(:organization_id, :role_id, :manage_id)"
+                ),
+                {
+                    "user_id": str(actor.user_id),
+                    "organization_id": str(actor.organization_id),
+                    "email": f"{actor.user_id.hex}@example.test",
+                    "role_id": str(role_id),
+                    "read_id": str(read_id),
+                    "manage_id": str(manage_id),
+                },
+            )
+    return actors

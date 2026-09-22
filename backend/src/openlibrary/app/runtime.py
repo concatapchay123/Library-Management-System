@@ -20,6 +20,8 @@ from openlibrary.modules.core.infrastructure.refresh_sessions import (
 )
 from openlibrary.modules.core.application.refresh_sessions import RefreshSessionService
 from openlibrary.modules.core.application.authorization import AuthorizationService
+from openlibrary.modules.core.application.books import BookCatalogService
+from openlibrary.modules.core.infrastructure.books import SqlServerBookStore
 from openlibrary.modules.core.application.organization_settings import (
     OrganizationSettingsService,
 )
@@ -118,6 +120,9 @@ def create_app_from_environ(
             authorization=authorization,
             organization_settings=OrganizationSettingsService(
                 SqlServerOrganizationSettingsStore(tenant_context), authorization
+            ),
+            book_catalog=BookCatalogService(
+                SqlServerBookStore(settings.database_runtime_url), authorization
             ),
             tenant_request_context=TenantRequestContext(tenant_context),
         )
