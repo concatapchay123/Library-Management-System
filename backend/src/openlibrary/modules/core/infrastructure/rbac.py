@@ -2,19 +2,15 @@
 
 from __future__ import annotations
 
-from contextlib import contextmanager
-from typing import Iterator
+from contextlib import AbstractContextManager
 from uuid import UUID, uuid4
 
-from sqlalchemy import create_engine, text
-from sqlalchemy.engine import Connection, Engine
+from sqlalchemy import text
+from sqlalchemy.engine import Connection
 
 from openlibrary.modules.core.application.access_tokens import Principal
 from openlibrary.modules.core.application.authorization import RbacStore
-from openlibrary.modules.core.infrastructure.organizations import (
-    clear_tenant_context,
-    set_tenant_context,
-)
+from openlibrary.modules.core.infrastructure.tenancy import SqlServerTenantContext
 from openlibrary.modules.ops.application.persistence import AuditEvent
 from openlibrary.modules.ops.infrastructure.sqlserver import SqlServerAuditedTransaction
 
@@ -24,7 +20,7 @@ class SqlServerRbacStore(RbacStore):
 
     def __init__(self, database_url: str) -> None:
         self._database_url = database_url
-        self._engine: Engine | None = None
+        self._tenant_context: SqlServerTenantContext | None = None
         self._writer = SqlServerAuditedTransaction()
 
     def effective_permissions(self, principal: Principal) -> set[str]:
@@ -117,18 +113,9 @@ class SqlServerRbacStore(RbacStore):
                 (),
             )
 
-    @contextmanager
-    def _tenant_connection(self, organization_id: UUID) -> Iterator[Connection]:
-        if self._engine is None:
-            self._engine = create_engine(self._database_url)
-        with self._engine.connect() as connection:
-            try:
-                set_tenant_context(connection, organization_id)
-                yield connection
-                connection.commit()
-            except BaseException:
-                connection.rollback()
-                raise
-            finally:
-                clear_tenant_context(connection)
-                connection.commit()
+    def _tenant_connection(
+        self, organization_id: UUID
+    ) -> AbstractContextManager[Connection]:
+        if self._tenant_context is None:
+            self._tenant_context = SqlServerTenantContext(self._database_url)
+        return self._tenant_context.connection(organization_id)

@@ -147,8 +147,12 @@ class LoginService:
                     user_id=user.user_id, organization_id=tenant.organization_id
                 )
             finally:
-                self._clear_tenant_context(connection)
-                connection.commit()
+                try:
+                    self._clear_tenant_context(connection)
+                    connection.commit()
+                except BaseException:
+                    connection.invalidate()
+                    raise
 
     def _record_failure(
         self,

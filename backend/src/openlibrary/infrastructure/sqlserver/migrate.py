@@ -172,6 +172,9 @@ def run_migrations(
     config = Config(str(config_path))
     config.set_main_option("sqlalchemy.url", database_url.replace("%", "%%"))
     config.attributes["runtime_login"] = _identifier(runtime_login)
+    config.attributes["migration_login"] = _identifier(
+        make_url(database_url).username or ""
+    )
     command.upgrade(config, "head")
 
 

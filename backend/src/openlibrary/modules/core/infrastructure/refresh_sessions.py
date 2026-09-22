@@ -2,19 +2,15 @@
 
 from __future__ import annotations
 
-from contextlib import contextmanager
+from contextlib import AbstractContextManager
 from datetime import UTC, datetime
-from typing import Iterator
 from uuid import UUID
 
-from sqlalchemy import create_engine, text
-from sqlalchemy.engine import Connection, Engine
+from sqlalchemy import text
+from sqlalchemy.engine import Connection
 
 from openlibrary.modules.core.application.refresh_sessions import RefreshSession
-from openlibrary.modules.core.infrastructure.organizations import (
-    clear_tenant_context,
-    set_tenant_context,
-)
+from openlibrary.modules.core.infrastructure.tenancy import SqlServerTenantContext
 
 
 class SqlServerRefreshSessionStore:
@@ -22,7 +18,7 @@ class SqlServerRefreshSessionStore:
 
     def __init__(self, database_url: str) -> None:
         self._database_url = database_url
-        self._engine: Engine | None = None
+        self._tenant_context: SqlServerTenantContext | None = None
 
     def create(self, session: RefreshSession) -> None:
         with self._tenant_connection(session.organization_id) as connection:
@@ -118,26 +114,17 @@ class SqlServerRefreshSessionStore:
                 {"root_session_id": str(root_session_id), "revoked_at": when},
             )
 
-    @contextmanager
-    def _tenant_connection(self, organization_id: UUID) -> Iterator[Connection]:
-        with self._connection() as connection:
-            try:
-                set_tenant_context(connection, organization_id)
-                yield connection
-                connection.commit()
-            except BaseException:
-                connection.rollback()
-                raise
-            finally:
-                clear_tenant_context(connection)
-                connection.commit()
+    def _tenant_connection(
+        self, organization_id: UUID
+    ) -> AbstractContextManager[Connection]:
+        if self._tenant_context is None:
+            self._tenant_context = SqlServerTenantContext(self._database_url)
+        return self._tenant_context.connection(organization_id)
 
-    @contextmanager
-    def _connection(self) -> Iterator[Connection]:
-        if self._engine is None:
-            self._engine = create_engine(self._database_url)
-        with self._engine.connect() as connection:
-            yield connection
+    def _connection(self) -> AbstractContextManager[Connection]:
+        if self._tenant_context is None:
+            self._tenant_context = SqlServerTenantContext(self._database_url)
+        return self._tenant_context.raw_connection()
 
 
 def _uuid(value: UUID | None) -> str | None:

@@ -19,6 +19,18 @@ from openlibrary.modules.core.infrastructure.refresh_sessions import (
     SqlServerRefreshSessionStore,
 )
 from openlibrary.modules.core.application.refresh_sessions import RefreshSessionService
+from openlibrary.modules.core.application.authorization import AuthorizationService
+from openlibrary.modules.core.application.organization_settings import (
+    OrganizationSettingsService,
+)
+from openlibrary.modules.core.infrastructure.organization_settings import (
+    SqlServerOrganizationSettingsStore,
+)
+from openlibrary.modules.core.infrastructure.rbac import SqlServerRbacStore
+from openlibrary.modules.core.infrastructure.tenancy import (
+    SqlServerTenantContext,
+    TenantRequestContext,
+)
 
 
 class ConfigurationError(ValueError):
@@ -89,6 +101,10 @@ def create_app_from_environ(
     """Create a configured app only after validating the full runtime contract."""
     settings = RuntimeSettings.from_environ(environ)
     access_tokens = _access_tokens(settings)
+    tenant_context = SqlServerTenantContext(settings.database_runtime_url)
+    authorization = AuthorizationService(
+        SqlServerRbacStore(settings.database_runtime_url)
+    )
     app = create_app(
         AppConfig(
             readiness_probe=readiness_probe or _dependencies_are_unverified,
@@ -99,6 +115,11 @@ def create_app_from_environ(
                 access_tokens=access_tokens,
                 refresh_token_ttl=timedelta(seconds=settings.refresh_token_ttl_seconds),
             ),
+            authorization=authorization,
+            organization_settings=OrganizationSettingsService(
+                SqlServerOrganizationSettingsStore(tenant_context), authorization
+            ),
+            tenant_request_context=TenantRequestContext(tenant_context),
         )
     )
     app.config.update(

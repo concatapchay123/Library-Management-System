@@ -56,6 +56,21 @@
         "responses": {"200": {"description": "The authenticated principal and live effective permissions.", "headers": {"X-Request-ID": {"$ref": "#/components/headers/X-Request-ID"}}, "content": {"application/json": {"schema": {"$ref": "#/components/schemas/AccessPrincipal"}}}}, "401": {"$ref": "#/components/responses/AuthenticationFailed"}}
       }
     },
+    "/organizations/settings": {
+      "get": {
+        "operationId": "getOrganizationSettings",
+        "summary": "Return settings for the authenticated organization.",
+        "security": [{"BearerAuth": []}],
+        "responses": {"200": {"description": "Tenant settings.", "headers": {"X-Request-ID": {"$ref": "#/components/headers/X-Request-ID"}}, "content": {"application/json": {"schema": {"$ref": "#/components/schemas/OrganizationSettings"}}}}, "401": {"$ref": "#/components/responses/AuthenticationFailed"}, "403": {"$ref": "#/components/responses/ProblemDetails"}}
+      },
+      "patch": {
+        "operationId": "updateOrganizationSettings",
+        "summary": "Update settings for the authenticated organization.",
+        "security": [{"BearerAuth": []}],
+        "requestBody": {"required": true, "content": {"application/json": {"schema": {"$ref": "#/components/schemas/OrganizationSettings"}}}},
+        "responses": {"200": {"description": "Updated tenant settings.", "headers": {"X-Request-ID": {"$ref": "#/components/headers/X-Request-ID"}}, "content": {"application/json": {"schema": {"$ref": "#/components/schemas/OrganizationSettings"}}}}, "400": {"$ref": "#/components/responses/ProblemDetails"}, "401": {"$ref": "#/components/responses/AuthenticationFailed"}, "403": {"$ref": "#/components/responses/ProblemDetails"}}
+      }
+    },
     "/auth/password/change": {
       "post": {
         "operationId": "changePassword",
@@ -82,7 +97,8 @@
       "AccessToken": {"type": "object", "required": ["access_token", "token_type", "expires_in"], "properties": {"access_token": {"type": "string"}, "token_type": {"type": "string", "const": "Bearer"}, "expires_in": {"type": "integer", "minimum": 1}}, "additionalProperties": false},
       "Principal": {"type": "object", "required": ["user_id", "organization_id", "permissions"], "properties": {"user_id": {"type": "string", "format": "uuid"}, "organization_id": {"type": "string", "format": "uuid"}, "permissions": {"type": "array", "items": {"type": "string"}, "uniqueItems": true}}, "additionalProperties": false},
       "AccessPrincipal": {"type": "object", "required": ["user_id", "organization_id", "session_id", "permissions"], "properties": {"user_id": {"type": "string", "format": "uuid"}, "organization_id": {"type": "string", "format": "uuid"}, "session_id": {"type": "string", "format": "uuid"}, "permissions": {"type": "array", "items": {"type": "string"}, "uniqueItems": true}}, "additionalProperties": false},
-      "PasswordChangeRequest": {"type": "object", "required": ["current_password", "new_password"], "properties": {"current_password": {"type": "string", "format": "password"}, "new_password": {"type": "string", "format": "password", "minLength": 12}}, "additionalProperties": false}
+      "PasswordChangeRequest": {"type": "object", "required": ["current_password", "new_password"], "properties": {"current_password": {"type": "string", "format": "password"}, "new_password": {"type": "string", "format": "password", "minLength": 12}}, "additionalProperties": false},
+      "OrganizationSettings": {"type": "object", "required": ["timezone", "settings"], "properties": {"timezone": {"type": "string", "minLength": 1, "maxLength": 64}, "settings": {"type": "object", "additionalProperties": true}}, "additionalProperties": false}
     },
     "responses": {
       "LoginAccepted": {"description": "Credentials were validated; token issuance is introduced by BE-008.", "headers": {"X-Request-ID": {"$ref": "#/components/headers/X-Request-ID"}}, "content": {"application/json": {"schema": {"$ref": "#/components/schemas/LoginAccepted"}}}},

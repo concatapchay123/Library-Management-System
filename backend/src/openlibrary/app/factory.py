@@ -7,6 +7,7 @@ from openlibrary.app.correlation import install_request_correlation
 from openlibrary.app.errors import install_problem_details_handlers
 from openlibrary.app.health import create_health_blueprint
 from openlibrary.modules.core.api.auth import create_auth_blueprint
+from openlibrary.modules.core.api.organizations import create_organizations_blueprint
 
 
 def create_app(config: AppConfig) -> Flask:
@@ -26,6 +27,19 @@ def create_app(config: AppConfig) -> Flask:
                 config.access_tokens,
                 config.refresh_sessions,
                 config.authorization,
+                config.tenant_request_context,
+            )
+        )
+    if config.organization_settings is not None:
+        if config.access_tokens is None:
+            raise ValueError(
+                "Organization settings routes require access token verification"
+            )
+        app.register_blueprint(
+            create_organizations_blueprint(
+                config.organization_settings,
+                config.access_tokens,
+                config.tenant_request_context,
             )
         )
     return app

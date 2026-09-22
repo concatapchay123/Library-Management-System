@@ -22,6 +22,7 @@ from openlibrary.modules.core.application.refresh_sessions import (
     RefreshResult,
     RefreshSessionService,
 )
+from openlibrary.modules.core.infrastructure.tenancy import TenantRequestContext
 
 
 def create_auth_blueprint(
@@ -29,6 +30,7 @@ def create_auth_blueprint(
     access_tokens: AccessTokenService,
     refresh_sessions: RefreshSessionService,
     authorization: AuthorizationService | None = None,
+    tenant_request_context: TenantRequestContext | None = None,
 ) -> Blueprint:
     """Create the public login route around an injected application service."""
     auth = Blueprint("auth", __name__, url_prefix="/api/v1/auth")
@@ -60,7 +62,7 @@ def create_auth_blueprint(
         return _refresh_response(result, access_tokens)
 
     @auth.post("/logout")
-    @_require_principal(access_tokens)
+    @_require_principal(access_tokens, tenant_request_context)
     def logout() -> Response:
         try:
             logged_out = refresh_sessions.logout(
@@ -78,7 +80,7 @@ def create_auth_blueprint(
         return response
 
     @auth.get("/me")
-    @_require_principal(access_tokens)
+    @_require_principal(access_tokens, tenant_request_context)
     def me() -> Response:
         principal = _principal_from_request()
         return jsonify(
@@ -156,6 +158,7 @@ def _string_value(payload: dict[object, object], key: str) -> str:
 
 def _require_principal(
     access_tokens: AccessTokenService,
+    tenant_request_context: TenantRequestContext | None = None,
 ) -> Callable[[Callable[[], Response]], Callable[[], Response]]:
     """Install the bearer boundary before a protected route receives control."""
 
@@ -169,6 +172,9 @@ def _require_principal(
                 g.principal = access_tokens.verify(token)
             except TokenVerificationError:
                 return authentication_failure_response()
+            if tenant_request_context is not None:
+                with tenant_request_context.request(g.principal.organization_id):
+                    return view()
             return view()
 
         return protected

@@ -191,4 +191,9 @@ def test_organization_policy_has_filter_and_block_predicates(
         }
     engine.dispose()
 
-    assert predicates == {("FILTER", None), ("BLOCK", "AFTER INSERT")}
+    assert predicates == {
+        ("FILTER", None),
+        ("BLOCK", "AFTER INSERT"),
+        ("BLOCK", "AFTER UPDATE"),
+        ("BLOCK", "BEFORE DELETE"),
+    }
