@@ -85,6 +85,22 @@ class ActiveLoanLimitExceededError(Exception):
         super().__init__(message)
 
 
+class BorrowerNotEligibleError(Exception):
+    """Raised when a borrower is not eligible for loans under the applicable policy."""
+
+    problem_type: Final[str] = (
+        "https://openlibraryos.example/problems/loan-not-eligible"
+    )
+    status_code: Final[int] = 409
+    title: Final[str] = "Loan request rejected"
+
+    def __init__(
+        self,
+        message: str = "The borrower is not eligible to borrow under the applicable policy.",
+    ) -> None:
+        super().__init__(message)
+
+
 class LoanNotFoundError(KeyError):
     """Raised when a loan is not found within the tenant."""
 

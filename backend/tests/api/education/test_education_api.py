@@ -9,6 +9,7 @@ from flask import Flask
 from openlibrary.modules.core.application.access_tokens import Principal
 from openlibrary.modules.core.application.authorization import AuthorizationPort
 from openlibrary.modules.education.domain import (
+    BorrowerPolicy,
     Department,
     Semester,
     Course,
@@ -44,6 +45,7 @@ class _FakeStore:
         self.students: list[Student] = []
         self.teachers: list[Teacher] = []
         self.memberships: list[ClassMembership] = []
+        self.policies: list[BorrowerPolicy] = []
 
     def is_edition_enabled(self, organization_id: UUID) -> bool:
         return self.is_enabled
@@ -138,6 +140,40 @@ class _FakeStore:
             for m in self.memberships
             if m.organization_id == org_id and m.class_id == class_id
         ]
+
+    def get_student_by_user_id(self, org_id: UUID, user_id: UUID) -> Student | None:
+        for s in self.students:
+            if s.organization_id == org_id and s.user_id == user_id:
+                return s
+        return None
+
+    def get_teacher_by_user_id(self, org_id: UUID, user_id: UUID) -> Teacher | None:
+        for t in self.teachers:
+            if t.organization_id == org_id and t.user_id == user_id:
+                return t
+        return None
+
+    def get_borrower_policy(
+        self, org_id: UUID, borrower_type: str
+    ) -> BorrowerPolicy | None:
+        for p in self.policies:
+            if p.organization_id == org_id and p.borrower_type == borrower_type:
+                return p
+        return None
+
+    def list_borrower_policies(self, org_id: UUID) -> list[BorrowerPolicy]:
+        return [p for p in self.policies if p.organization_id == org_id]
+
+    def upsert_borrower_policy(self, policy: BorrowerPolicy) -> BorrowerPolicy:
+        for i, p in enumerate(self.policies):
+            if (
+                p.organization_id == policy.organization_id
+                and p.borrower_type == policy.borrower_type
+            ):
+                self.policies[i] = policy
+                return policy
+        self.policies.append(policy)
+        return policy
 
 
 class _StubAccessTokenService:
@@ -269,3 +305,42 @@ def test_semester_date_validation_via_api() -> None:
         data["type"] == "https://openlibraryos.example/problems/invalid-semester-dates"
     )
     assert "starts_on must be before ends_on" in data["detail"]
+
+
+def test_borrower_policy_api_workflow() -> None:
+    store = _FakeStore(is_enabled=True)
+    app, token, _ = _build_test_app(store, {"education.read", "education.manage"})
+    client = app.test_client()
+
+    # 1. Put student policy
+    put_resp = client.put(
+        "/education/borrower-policies/student",
+        headers={"Authorization": f"Bearer {token}"},
+        json={
+            "max_active_loans": 7,
+            "duration_days": 21,
+        },
+    )
+    assert put_resp.status_code == 200
+    data = put_resp.get_json()
+    assert data["borrower_type"] == "student"
+    assert data["max_active_loans"] == 7
+    assert data["duration_days"] == 21
+
+    # 2. Get student policy
+    get_resp = client.get(
+        "/education/borrower-policies/student",
+        headers={"Authorization": f"Bearer {token}"},
+    )
+    assert get_resp.status_code == 200
+    assert get_resp.get_json()["max_active_loans"] == 7
+
+    # 3. List policies
+    list_resp = client.get(
+        "/education/borrower-policies",
+        headers={"Authorization": f"Bearer {token}"},
+    )
+    assert list_resp.status_code == 200
+    items = list_resp.get_json()["items"]
+    assert len(items) == 1
+    assert items[0]["borrower_type"] == "student"

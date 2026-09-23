@@ -10,6 +10,7 @@ from uuid import UUID, uuid4
 from openlibrary.modules.core.application.access_tokens import Principal
 from openlibrary.modules.core.application.authorization import AuthorizationPort
 from openlibrary.modules.education.domain import (
+    BorrowerPolicy,
     Department,
     Semester,
     Course,
@@ -22,6 +23,11 @@ from openlibrary.modules.education.domain import (
     EditionUnavailableError,
     EducationEntityNotFound,
 )
+
+DEFAULT_STUDENT_MAX_ACTIVE_LOANS: int = 5
+DEFAULT_STUDENT_DURATION_DAYS: int = 14
+DEFAULT_TEACHER_MAX_ACTIVE_LOANS: int = 20
+DEFAULT_TEACHER_DURATION_DAYS: int = 90
 
 
 class EducationStore(Protocol):
@@ -63,12 +69,20 @@ class EducationStore(Protocol):
         self, organization_id: UUID, student_id: UUID
     ) -> Student | None: ...
 
+    def get_student_by_user_id(
+        self, organization_id: UUID, user_id: UUID
+    ) -> Student | None: ...
+
     def list_students(self, organization_id: UUID) -> list[Student]: ...
 
     def create_teacher(self, teacher: Teacher) -> Teacher: ...
 
     def get_teacher(
         self, organization_id: UUID, teacher_id: UUID
+    ) -> Teacher | None: ...
+
+    def get_teacher_by_user_id(
+        self, organization_id: UUID, user_id: UUID
     ) -> Teacher | None: ...
 
     def list_teachers(self, organization_id: UUID) -> list[Teacher]: ...
@@ -80,6 +94,14 @@ class EducationStore(Protocol):
     def list_class_memberships(
         self, organization_id: UUID, class_id: UUID
     ) -> list[ClassMembership]: ...
+
+    def get_borrower_policy(
+        self, organization_id: UUID, borrower_type: str
+    ) -> BorrowerPolicy | None: ...
+
+    def list_borrower_policies(self, organization_id: UUID) -> list[BorrowerPolicy]: ...
+
+    def upsert_borrower_policy(self, policy: BorrowerPolicy) -> BorrowerPolicy: ...
 
 
 def _system_now() -> datetime:
@@ -405,3 +427,56 @@ class EducationService:
             updated_at=now,
         )
         return self._store.create_class_membership(membership)
+
+    # --- Borrower Policies ---
+
+    def list_borrower_policies(self, *, actor: Principal) -> list[BorrowerPolicy]:
+        self._ensure_edition_enabled(actor.organization_id)
+        self._authorizer.require(actor, "education.read")
+        return self._store.list_borrower_policies(actor.organization_id)
+
+    def get_borrower_policy(
+        self, *, actor: Principal, borrower_type: str
+    ) -> BorrowerPolicy | None:
+        self._ensure_edition_enabled(actor.organization_id)
+        self._authorizer.require(actor, "education.read")
+        clean_type = borrower_type.strip().lower()
+        return self._store.get_borrower_policy(actor.organization_id, clean_type)
+
+    def set_borrower_policy(
+        self,
+        *,
+        actor: Principal,
+        borrower_type: str,
+        max_active_loans: int,
+        duration_days: int,
+        status: str = "active",
+    ) -> BorrowerPolicy:
+        self._ensure_edition_enabled(actor.organization_id)
+        self._authorizer.require(actor, "education.manage")
+        clean_type = borrower_type.strip().lower()
+        if clean_type not in ("student", "teacher"):
+            raise ValueError(
+                f"Invalid borrower_type '{borrower_type}'; must be 'student' or 'teacher'"
+            )
+        if max_active_loans <= 0:
+            raise ValueError("max_active_loans must be greater than 0")
+        if duration_days <= 0:
+            raise ValueError("duration_days must be greater than 0")
+
+        now = self._clock()
+        existing = self._store.get_borrower_policy(actor.organization_id, clean_type)
+        policy_id = existing.policy_id if existing is not None else uuid4()
+        created_at = existing.created_at if existing is not None else now
+
+        policy = BorrowerPolicy(
+            policy_id=policy_id,
+            organization_id=actor.organization_id,
+            borrower_type=clean_type,
+            max_active_loans=max_active_loans,
+            duration_days=duration_days,
+            status=status.strip() or "active",
+            created_at=created_at,
+            updated_at=now,
+        )
+        return self._store.upsert_borrower_policy(policy)

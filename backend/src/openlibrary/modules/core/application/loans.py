@@ -84,6 +84,50 @@ class LoanStore(Protocol):
     ) -> list[Loan]: ...
 
 
+@dataclass(frozen=True, slots=True)
+class BorrowingPolicy:
+    """One immutable representation of policy rules governing a borrower's active loans and checkout duration."""
+
+    borrower_type: str
+    max_active_loans: int
+    duration_days: int
+    policy_snapshot: Mapping[str, object] = field(default_factory=dict)
+
+
+class BorrowingPolicyResolver(Protocol):
+    """Port for resolving borrowing policies by tenant organization and borrower."""
+
+    def resolve_policy(
+        self, organization_id: UUID, borrower_user_id: UUID
+    ) -> BorrowingPolicy: ...
+
+
+class DefaultBorrowingPolicyResolver:
+    """Fallback borrowing policy resolver applying standard system defaults."""
+
+    def __init__(
+        self,
+        default_max_active_loans: int = 5,
+        default_duration_days: int = 14,
+    ) -> None:
+        self._max_active_loans = default_max_active_loans
+        self._duration_days = default_duration_days
+
+    def resolve_policy(
+        self, organization_id: UUID, borrower_user_id: UUID
+    ) -> BorrowingPolicy:
+        return BorrowingPolicy(
+            borrower_type="standard",
+            max_active_loans=self._max_active_loans,
+            duration_days=self._duration_days,
+            policy_snapshot={
+                "borrower_type": "standard",
+                "max_active_loans": self._max_active_loans,
+                "duration_days": self._duration_days,
+            },
+        )
+
+
 class LoanService:
     """Unified application service for self-service and librarian-desk circulation flows."""
 
@@ -103,6 +147,7 @@ class LoanService:
         loan_store: LoanStore,
         copy_store: CopyStatusStore,
         authorizer: AuthorizationPort,
+        policy_resolver: BorrowingPolicyResolver | None = None,
         transaction: AuditedTransaction | None = None,
         connection_provider: Callable[[UUID], AbstractContextManager[object]]
         | None = None,
@@ -110,6 +155,7 @@ class LoanService:
         self._loan_store = loan_store
         self._copy_store = copy_store
         self._authorizer = authorizer
+        self._policy_resolver = policy_resolver or DefaultBorrowingPolicyResolver()
         self._transaction = transaction
         self._connection_provider = connection_provider
 
@@ -162,22 +208,31 @@ class LoanService:
         if copy.status != CopyStatus.AVAILABLE:
             raise CopyNotAvailableForLoanError(copy_id, copy.status)
 
+        # Resolve borrowing policy for this borrower in this tenant
+        policy = self._policy_resolver.resolve_policy(
+            actor.organization_id, target_borrower
+        )
+
         # Invariant check: active loan count limit
         active_count = self._loan_store.count_active_loans_for_borrower(
             actor.organization_id, target_borrower
         )
-        if active_count >= self._DEFAULT_ACTIVE_LIMIT:
+        if active_count >= policy.max_active_loans:
             raise ActiveLoanLimitExceededError()
 
         now = datetime.now(timezone.utc)
         effective_duration = (
             duration_days
             if (duration_days is not None and duration_days > 0)
-            else self._DEFAULT_DURATION_DAYS
+            else policy.duration_days
         )
-        snapshot = dict(policy_snapshot) if policy_snapshot is not None else {}
-        snapshot.setdefault("max_days_at_checkout", effective_duration)
-        snapshot.setdefault("duration_days", effective_duration)
+        snapshot = dict(policy.policy_snapshot)
+        if policy_snapshot is not None:
+            snapshot.update(policy_snapshot)
+        snapshot.setdefault("borrower_type", policy.borrower_type)
+        snapshot.setdefault("max_active_loans", policy.max_active_loans)
+        snapshot["max_days_at_checkout"] = effective_duration
+        snapshot["duration_days"] = effective_duration
 
         loan_id = uuid4()
         loan = Loan(
@@ -444,13 +499,25 @@ class LoanService:
         validate_transition(copy.status, CopyStatus.BORROWED)
 
         now = datetime.now(timezone.utc)
-        raw_days = current.policy_snapshot.get("duration_days")
+        updated_snapshot = dict(current.policy_snapshot)
+        if (
+            "max_active_loans" not in updated_snapshot
+            or "borrower_type" not in updated_snapshot
+        ):
+            policy = self._policy_resolver.resolve_policy(
+                actor.organization_id, current.borrower_user_id
+            )
+            for k, v in policy.policy_snapshot.items():
+                updated_snapshot.setdefault(k, v)
+            updated_snapshot.setdefault("borrower_type", policy.borrower_type)
+            updated_snapshot.setdefault("max_active_loans", policy.max_active_loans)
+
+        raw_days = updated_snapshot.get("duration_days")
         effective_days = duration_days or (
             int(str(raw_days)) if raw_days is not None else self._DEFAULT_DURATION_DAYS
         )
         due_at = now + timedelta(days=effective_days)
 
-        updated_snapshot = dict(current.policy_snapshot)
         updated_snapshot["max_days_at_checkout"] = effective_days
         updated_snapshot["duration_days"] = effective_days
 

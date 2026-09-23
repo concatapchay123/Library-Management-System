@@ -18,6 +18,7 @@ from openlibrary.modules.core.application.authorization import AuthorizationDeni
 from openlibrary.modules.core.infrastructure.tenancy import TenantRequestContext
 from openlibrary.modules.education.application import EducationService
 from openlibrary.modules.education.domain import (
+    BorrowerPolicy,
     Department,
     Semester,
     Course,
@@ -130,6 +131,19 @@ def _membership_dict(m: ClassMembership) -> dict[str, Any]:
         "left_at": _iso(m.left_at),
         "created_at": _iso(m.created_at),
         "updated_at": _iso(m.updated_at),
+    }
+
+
+def _borrower_policy_dict(p: BorrowerPolicy) -> dict[str, Any]:
+    return {
+        "policy_id": str(p.policy_id),
+        "organization_id": str(p.organization_id),
+        "borrower_type": p.borrower_type,
+        "max_active_loans": p.max_active_loans,
+        "duration_days": p.duration_days,
+        "status": p.status,
+        "created_at": _iso(p.created_at),
+        "updated_at": _iso(p.updated_at),
     }
 
 
@@ -497,6 +511,60 @@ def create_education_blueprint(
             response = jsonify(_teacher_dict(t))
             response.status_code = 201
             return response
+        except Exception as err:
+            return _handle_education_error(err)
+
+    # --- Borrower Policies ---
+
+    @bp.get("/borrower-policies")
+    @_require_principal(access_tokens, tenant_request_context)
+    def list_borrower_policies() -> Response:
+        try:
+            items = service.list_borrower_policies(actor=_principal_from_request())
+            return jsonify({"items": [_borrower_policy_dict(p) for p in items]})
+        except Exception as err:
+            return _handle_education_error(err)
+
+    @bp.get("/borrower-policies/<string:borrower_type>")
+    @_require_principal(access_tokens, tenant_request_context)
+    def get_borrower_policy(borrower_type: str) -> Response:
+        try:
+            p = service.get_borrower_policy(
+                actor=_principal_from_request(), borrower_type=borrower_type
+            )
+            if p is None:
+                return _problem(
+                    404,
+                    "Not Found",
+                    f"Borrower policy for '{borrower_type}' not found",
+                    "not-found",
+                )
+            return jsonify(_borrower_policy_dict(p))
+        except Exception as err:
+            return _handle_education_error(err)
+
+    @bp.put("/borrower-policies/<string:borrower_type>")
+    @_require_principal(access_tokens, tenant_request_context)
+    def set_borrower_policy(borrower_type: str) -> Response:
+        payload = request.get_json(silent=True) or {}
+        try:
+            max_loans_raw = payload.get("max_active_loans")
+            duration_raw = payload.get("duration_days")
+            if max_loans_raw is None or duration_raw is None:
+                return _problem(
+                    400,
+                    "Bad Request",
+                    "max_active_loans and duration_days are required",
+                    "bad-request",
+                )
+            p = service.set_borrower_policy(
+                actor=_principal_from_request(),
+                borrower_type=borrower_type,
+                max_active_loans=int(max_loans_raw),
+                duration_days=int(duration_raw),
+                status=str(payload.get("status", "active")),
+            )
+            return jsonify(_borrower_policy_dict(p))
         except Exception as err:
             return _handle_education_error(err)
 

@@ -18,6 +18,7 @@ from openlibrary.modules.core.application.loans import Loan, LoanService
 from openlibrary.modules.core.domain.copy_status import InvalidCopyStatusTransitionError
 from openlibrary.modules.core.domain.loans import (
     ActiveLoanLimitExceededError,
+    BorrowerNotEligibleError,
     CopyNotAvailableForLoanError,
     InvalidLoanStatusTransitionError,
     LoanNotFoundError,
@@ -155,6 +156,10 @@ def create_loans_blueprint(
             return _problem_response(
                 err.status_code, err.title, str(err), type_uri=err.problem_type
             )
+        except BorrowerNotEligibleError as err:
+            return _problem_response(
+                err.status_code, err.title, str(err), type_uri=err.problem_type
+            )
         except (KeyError, LoanNotFoundError):
             return _not_found("Copy or borrower not found.")
         except ValueError as err:
@@ -220,6 +225,10 @@ def create_loans_blueprint(
                 err.status_code, err.title, str(err), type_uri=err.problem_type
             )
         except ActiveLoanLimitExceededError as err:
+            return _problem_response(
+                err.status_code, err.title, str(err), type_uri=err.problem_type
+            )
+        except BorrowerNotEligibleError as err:
             return _problem_response(
                 err.status_code, err.title, str(err), type_uri=err.problem_type
             )

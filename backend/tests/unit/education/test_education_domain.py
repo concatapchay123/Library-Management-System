@@ -10,6 +10,7 @@ import pytest
 from openlibrary.modules.core.application.access_tokens import Principal
 from openlibrary.modules.core.application.authorization import AuthorizationDenied
 from openlibrary.modules.education.domain import (
+    BorrowerPolicy,
     Department,
     Semester,
     Course,
@@ -44,6 +45,7 @@ class _InMemoryEducationStore:
         self.students: dict[UUID, Student] = {}
         self.teachers: dict[UUID, Teacher] = {}
         self.memberships: dict[UUID, ClassMembership] = {}
+        self.policies: dict[tuple[UUID, str], BorrowerPolicy] = {}
 
     def is_edition_enabled(self, organization_id: UUID) -> bool:
         return self.enabled_editions.get(organization_id, True)
@@ -208,6 +210,36 @@ class _InMemoryEducationStore:
             if m.organization_id == organization_id and m.class_id == class_id
         ]
 
+    def get_student_by_user_id(
+        self, organization_id: UUID, user_id: UUID
+    ) -> Student | None:
+        for s in self.students.values():
+            if s.organization_id == organization_id and s.user_id == user_id:
+                return s
+        return None
+
+    def get_teacher_by_user_id(
+        self, organization_id: UUID, user_id: UUID
+    ) -> Teacher | None:
+        for t in self.teachers.values():
+            if t.organization_id == organization_id and t.user_id == user_id:
+                return t
+        return None
+
+    def get_borrower_policy(
+        self, organization_id: UUID, borrower_type: str
+    ) -> BorrowerPolicy | None:
+        return self.policies.get((organization_id, borrower_type))
+
+    def list_borrower_policies(self, organization_id: UUID) -> list[BorrowerPolicy]:
+        return [
+            p for (org_id, _), p in self.policies.items() if org_id == organization_id
+        ]
+
+    def upsert_borrower_policy(self, policy: BorrowerPolicy) -> BorrowerPolicy:
+        self.policies[(policy.organization_id, policy.borrower_type)] = policy
+        return policy
+
 
 def _actor(org_id: UUID | None = None) -> Principal:
     return Principal(
@@ -359,4 +391,77 @@ def test_student_and_teacher_creation_and_isolation() -> None:
             user_id=user_a,
             student_number="S-200",
             department_id=None,
+        )
+
+
+def test_education_borrower_policy_service_crud_and_permissions() -> None:
+    org_id = uuid4()
+    actor_read = _actor(org_id)
+    actor_manage = _actor(org_id)
+    store = _InMemoryEducationStore()
+    auth_read = _MockAuthorizer(permissions={"education.read"})
+    auth_manage = _MockAuthorizer(permissions={"education.read", "education.manage"})
+
+    read_service = EducationService(store, auth_read)
+    manage_service = EducationService(store, auth_manage)
+
+    # Initially None before configured
+    assert (
+        read_service.get_borrower_policy(actor=actor_read, borrower_type="student")
+        is None
+    )
+
+    # Cannot set policy without education.manage
+    with pytest.raises(AuthorizationDenied):
+        read_service.set_borrower_policy(
+            actor=actor_read,
+            borrower_type="student",
+            max_active_loans=10,
+            duration_days=21,
+        )
+
+    # Manage actor can set policy
+    updated = manage_service.set_borrower_policy(
+        actor=actor_manage,
+        borrower_type="student",
+        max_active_loans=10,
+        duration_days=21,
+    )
+    assert updated.max_active_loans == 10
+    assert updated.duration_days == 21
+
+    # Now read returns updated policy
+    current = read_service.get_borrower_policy(
+        actor=actor_read, borrower_type="student"
+    )
+    assert current is not None
+    assert current.max_active_loans == 10
+    assert current.duration_days == 21
+
+    # List borrower policies includes set policy
+    policies = read_service.list_borrower_policies(actor=actor_read)
+    assert len(policies) == 1
+    assert policies[0].borrower_type == "student"
+
+    # Validation errors on invalid inputs
+    with pytest.raises(ValueError, match="Invalid borrower_type"):
+        manage_service.set_borrower_policy(
+            actor=actor_manage,
+            borrower_type="invalid",
+            max_active_loans=5,
+            duration_days=14,
+        )
+    with pytest.raises(ValueError, match="max_active_loans"):
+        manage_service.set_borrower_policy(
+            actor=actor_manage,
+            borrower_type="student",
+            max_active_loans=0,
+            duration_days=14,
+        )
+    with pytest.raises(ValueError, match="duration_days"):
+        manage_service.set_borrower_policy(
+            actor=actor_manage,
+            borrower_type="student",
+            max_active_loans=5,
+            duration_days=-1,
         )

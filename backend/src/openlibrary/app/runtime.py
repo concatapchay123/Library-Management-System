@@ -32,7 +32,10 @@ from openlibrary.modules.core.application.inventory import InventoryService
 from openlibrary.modules.core.infrastructure.inventory import SqlServerInventoryStore
 from openlibrary.modules.core.application.copy_status import CopyStatusService
 from openlibrary.modules.core.infrastructure.copy_status import SqlServerCopyStatusStore
-from openlibrary.modules.core.application.loans import LoanService
+from openlibrary.modules.core.application.loans import (
+    DefaultBorrowingPolicyResolver,
+    LoanService,
+)
 from openlibrary.modules.core.infrastructure.loans import SqlServerLoanStore
 from openlibrary.modules.core.application.reservations import ReservationService
 from openlibrary.modules.core.infrastructure.reservations import (
@@ -46,6 +49,7 @@ from openlibrary.modules.core.infrastructure.tenancy import (
 )
 from openlibrary.modules.education.application import EducationService
 from openlibrary.modules.education.infrastructure import SqlServerEducationStore
+from openlibrary.modules.education.policy import EducationBorrowerPolicyAdapter
 
 
 class ConfigurationError(ValueError):
@@ -133,10 +137,20 @@ def create_app_from_environ(
         transaction=audited_tx,
         connection_provider=tenant_context.connection,
     )
+    education_store = SqlServerEducationStore(settings.database_runtime_url)
+    education_service = EducationService(
+        store=education_store,
+        authorizer=authorization,
+    )
+    policy_adapter = EducationBorrowerPolicyAdapter(
+        store=education_store,
+        fallback_resolver=DefaultBorrowingPolicyResolver(),
+    )
     loan_service = LoanService(
         loan_store=loan_store,
         copy_store=copy_store,
         authorizer=authorization,
+        policy_resolver=policy_adapter,
         transaction=audited_tx,
         connection_provider=tenant_context.connection,
     )
@@ -146,10 +160,6 @@ def create_app_from_environ(
         authorizer=authorization,
         transaction=audited_tx,
         connection_provider=tenant_context.connection,
-    )
-    education_service = EducationService(
-        store=SqlServerEducationStore(settings.database_runtime_url),
-        authorizer=authorization,
     )
     app = create_app(
         AppConfig(

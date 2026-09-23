@@ -14,6 +14,7 @@ from sqlalchemy.exc import IntegrityError
 from openlibrary.modules.core.infrastructure.tenancy import SqlServerTenantContext
 from openlibrary.modules.education.application import EducationStore
 from openlibrary.modules.education.domain import (
+    BorrowerPolicy,
     Department,
     Semester,
     Course,
@@ -565,6 +566,137 @@ class SqlServerEducationStore(EducationStore):
                 .all()
             )
         return [_membership_from_row(r) for r in rows]
+
+    def get_student_by_user_id(
+        self, organization_id: UUID, user_id: UUID
+    ) -> Student | None:
+        with self._tenant_connection(organization_id) as connection:
+            row = (
+                connection.execute(
+                    text(
+                        "SELECT student_id, organization_id, user_id, student_number, department_id, status, created_at, updated_at "
+                        "FROM education.students "
+                        "WHERE organization_id = :org_id AND user_id = :user_id"
+                    ),
+                    {"org_id": str(organization_id), "user_id": str(user_id)},
+                )
+                .mappings()
+                .one_or_none()
+            )
+        if row is None:
+            return None
+        return _student_from_row(row)
+
+    def get_teacher_by_user_id(
+        self, organization_id: UUID, user_id: UUID
+    ) -> Teacher | None:
+        with self._tenant_connection(organization_id) as connection:
+            row = (
+                connection.execute(
+                    text(
+                        "SELECT teacher_id, organization_id, user_id, employee_number, department_id, status, created_at, updated_at "
+                        "FROM education.teachers "
+                        "WHERE organization_id = :org_id AND user_id = :user_id"
+                    ),
+                    {"org_id": str(organization_id), "user_id": str(user_id)},
+                )
+                .mappings()
+                .one_or_none()
+            )
+        if row is None:
+            return None
+        return _teacher_from_row(row)
+
+    # --- Borrower Policies ---
+
+    def get_borrower_policy(
+        self, organization_id: UUID, borrower_type: str
+    ) -> BorrowerPolicy | None:
+        with self._tenant_connection(organization_id) as connection:
+            row = (
+                connection.execute(
+                    text(
+                        "SELECT policy_id, organization_id, borrower_type, max_active_loans, duration_days, status, created_at, updated_at "
+                        "FROM education.borrower_policies "
+                        "WHERE organization_id = :org_id AND borrower_type = :borrower_type"
+                    ),
+                    {
+                        "org_id": str(organization_id),
+                        "borrower_type": borrower_type.strip().lower(),
+                    },
+                )
+                .mappings()
+                .one_or_none()
+            )
+        if row is None:
+            return None
+        return _borrower_policy_from_row(row)
+
+    def list_borrower_policies(self, organization_id: UUID) -> list[BorrowerPolicy]:
+        with self._tenant_connection(organization_id) as connection:
+            rows = (
+                connection.execute(
+                    text(
+                        "SELECT policy_id, organization_id, borrower_type, max_active_loans, duration_days, status, created_at, updated_at "
+                        "FROM education.borrower_policies "
+                        "WHERE organization_id = :org_id "
+                        "ORDER BY borrower_type"
+                    ),
+                    {"org_id": str(organization_id)},
+                )
+                .mappings()
+                .all()
+            )
+        return [_borrower_policy_from_row(r) for r in rows]
+
+    def upsert_borrower_policy(self, policy: BorrowerPolicy) -> BorrowerPolicy:
+        with self._tenant_connection(policy.organization_id) as connection:
+            connection.execute(
+                text(
+                    "MERGE education.borrower_policies AS target "
+                    "USING (SELECT :policy_id AS policy_id, :org_id AS organization_id, "
+                    ":borrower_type AS borrower_type, :max_active_loans AS max_active_loans, "
+                    ":duration_days AS duration_days, :status AS status, "
+                    ":created_at AS created_at, :updated_at AS updated_at) AS src "
+                    "ON target.organization_id = src.organization_id "
+                    "AND target.borrower_type = src.borrower_type "
+                    "WHEN MATCHED THEN "
+                    "  UPDATE SET max_active_loans = src.max_active_loans, "
+                    "             duration_days = src.duration_days, "
+                    "             status = src.status, "
+                    "             updated_at = src.updated_at "
+                    "WHEN NOT MATCHED THEN "
+                    "  INSERT (policy_id, organization_id, borrower_type, max_active_loans, "
+                    "          duration_days, status, created_at, updated_at) "
+                    "  VALUES (src.policy_id, src.organization_id, src.borrower_type, "
+                    "          src.max_active_loans, src.duration_days, src.status, "
+                    "          src.created_at, src.updated_at);"
+                ),
+                {
+                    "policy_id": str(policy.policy_id),
+                    "org_id": str(policy.organization_id),
+                    "borrower_type": policy.borrower_type.strip().lower(),
+                    "max_active_loans": policy.max_active_loans,
+                    "duration_days": policy.duration_days,
+                    "status": policy.status,
+                    "created_at": policy.created_at,
+                    "updated_at": policy.updated_at,
+                },
+            )
+        return policy
+
+
+def _borrower_policy_from_row(row: RowMapping) -> BorrowerPolicy:
+    return BorrowerPolicy(
+        policy_id=UUID(str(row["policy_id"])),
+        organization_id=UUID(str(row["organization_id"])),
+        borrower_type=str(row["borrower_type"]),
+        max_active_loans=int(row["max_active_loans"]),
+        duration_days=int(row["duration_days"]),
+        status=str(row["status"]),
+        created_at=row["created_at"],
+        updated_at=row["updated_at"],
+    )
 
 
 def _department_from_row(row: RowMapping) -> Department:
