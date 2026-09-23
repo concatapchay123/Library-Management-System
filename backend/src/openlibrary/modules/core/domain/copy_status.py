@@ -10,12 +10,13 @@ class CopyStatus:
 
     AVAILABLE: Final[str] = "available"
     BORROWED: Final[str] = "borrowed"
+    RESERVED: Final[str] = "reserved"
     LOST: Final[str] = "lost"
     DAMAGED: Final[str] = "damaged"
     MAINTENANCE: Final[str] = "maintenance"
 
     ALL: Final[frozenset[str]] = frozenset(
-        {AVAILABLE, BORROWED, LOST, DAMAGED, MAINTENANCE}
+        {AVAILABLE, BORROWED, RESERVED, LOST, DAMAGED, MAINTENANCE}
     )
 
 
@@ -24,9 +25,16 @@ ALLOWED_TRANSITIONS: Final[frozenset[tuple[str, str]]] = frozenset(
     {
         # From available
         (CopyStatus.AVAILABLE, CopyStatus.BORROWED),
+        (CopyStatus.AVAILABLE, CopyStatus.RESERVED),
         (CopyStatus.AVAILABLE, CopyStatus.MAINTENANCE),
         (CopyStatus.AVAILABLE, CopyStatus.DAMAGED),
         (CopyStatus.AVAILABLE, CopyStatus.LOST),
+        # From reserved
+        (CopyStatus.RESERVED, CopyStatus.AVAILABLE),
+        (CopyStatus.RESERVED, CopyStatus.BORROWED),
+        (CopyStatus.RESERVED, CopyStatus.MAINTENANCE),
+        (CopyStatus.RESERVED, CopyStatus.DAMAGED),
+        (CopyStatus.RESERVED, CopyStatus.LOST),
         # From borrowed
         (CopyStatus.BORROWED, CopyStatus.AVAILABLE),
         (CopyStatus.BORROWED, CopyStatus.MAINTENANCE),

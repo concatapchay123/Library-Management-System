@@ -34,6 +34,10 @@ from openlibrary.modules.core.application.copy_status import CopyStatusService
 from openlibrary.modules.core.infrastructure.copy_status import SqlServerCopyStatusStore
 from openlibrary.modules.core.application.loans import LoanService
 from openlibrary.modules.core.infrastructure.loans import SqlServerLoanStore
+from openlibrary.modules.core.application.reservations import ReservationService
+from openlibrary.modules.core.infrastructure.reservations import (
+    SqlServerReservationStore,
+)
 from openlibrary.modules.ops.infrastructure.sqlserver import SqlServerAuditedTransaction
 from openlibrary.modules.core.infrastructure.rbac import SqlServerRbacStore
 from openlibrary.modules.core.infrastructure.tenancy import (
@@ -134,6 +138,13 @@ def create_app_from_environ(
         transaction=audited_tx,
         connection_provider=tenant_context.connection,
     )
+    reservation_service = ReservationService(
+        reservation_store=SqlServerReservationStore(settings.database_runtime_url),
+        copy_store=copy_store,
+        authorizer=authorization,
+        transaction=audited_tx,
+        connection_provider=tenant_context.connection,
+    )
     app = create_app(
         AppConfig(
             readiness_probe=readiness_probe or _dependencies_are_unverified,
@@ -154,6 +165,7 @@ def create_app_from_environ(
             inventory=inventory_service,
             copy_status=copy_status_service,
             loan_service=loan_service,
+            reservation_service=reservation_service,
             tenant_request_context=TenantRequestContext(tenant_context),
         )
     )

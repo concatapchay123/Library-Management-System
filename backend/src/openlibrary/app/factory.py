@@ -15,6 +15,7 @@ from openlibrary.modules.core.api.inventory import (
 )
 from openlibrary.modules.core.api.loans import create_loans_blueprint
 from openlibrary.modules.core.api.organizations import create_organizations_blueprint
+from openlibrary.modules.core.api.reservations import create_reservations_blueprint
 
 
 def create_app(config: AppConfig) -> Flask:
@@ -96,6 +97,16 @@ def create_app(config: AppConfig) -> Flask:
                 config.access_tokens,
                 config.tenant_request_context,
                 idempotency=config.idempotency_service,
+            )
+        )
+    if config.reservation_service is not None:
+        if config.access_tokens is None:
+            raise ValueError("Reservation routes require access token verification")
+        app.register_blueprint(
+            create_reservations_blueprint(
+                config.reservation_service,
+                config.access_tokens,
+                config.tenant_request_context,
             )
         )
     return app
