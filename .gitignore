@@ -33,3 +33,7 @@ Thumbs.db
 # Local infrastructure data
 infra/volumes/
 *.log
+
+# Knowledge graph cache
+graphify-out/
+

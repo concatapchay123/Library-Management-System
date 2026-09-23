@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass, field
+from datetime import datetime
 import json
 import re
 from typing import Protocol, TypeVar
@@ -137,3 +138,39 @@ class AuditedTransaction(Protocol):
         outbox_events: Sequence[OutboxEvent],
     ) -> T:
         """Write all protected records atomically in the caller's transaction."""
+
+
+@dataclass(frozen=True, slots=True)
+class ClaimedOutboxEvent:
+    """One claimed event returned from ops.claim_outbox_event."""
+
+    event_id: UUID
+    organization_id: UUID
+    event_type: str
+    aggregate_type: str
+    aggregate_id: UUID
+    payload_version: int
+    payload_json: str
+    correlation_id: UUID
+    idempotency_key: str
+    attempts: int
+    lease_token: UUID
+    lease_expires_at: datetime
+    created_at: datetime
+
+
+@dataclass(frozen=True, slots=True)
+class JobRecord:
+    """A record of one background job associated with an outbox event."""
+
+    job_id: UUID
+    organization_id: UUID
+    outbox_event_id: UUID
+    job_type: str
+    payload_version: int
+    status: str
+    attempts: int
+    created_at: datetime
+    updated_at: datetime
+    next_run_at: datetime | None = None
+    last_error: str | None = None
