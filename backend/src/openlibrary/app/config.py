@@ -8,6 +8,7 @@ if TYPE_CHECKING:
     from openlibrary.modules.core.application.access_tokens import AccessTokenService
     from openlibrary.modules.core.application.authorization import AuthorizationService
     from openlibrary.modules.core.application.books import BookCatalogService
+    from openlibrary.modules.core.application.inventory import InventoryService
     from openlibrary.modules.core.application.login import LoginService
     from openlibrary.modules.core.application.organization_settings import (
         OrganizationSettingsService,
@@ -31,4 +32,5 @@ class AppConfig:
     authorization: "AuthorizationService | None" = None
     organization_settings: "OrganizationSettingsService | None" = None
     book_catalog: "BookCatalogService | None" = None
+    inventory: "InventoryService | None" = None
     tenant_request_context: "TenantRequestContext | None" = None

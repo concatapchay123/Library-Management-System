@@ -8,6 +8,11 @@ from openlibrary.app.errors import install_problem_details_handlers
 from openlibrary.app.health import create_health_blueprint
 from openlibrary.modules.core.api.auth import create_auth_blueprint
 from openlibrary.modules.core.api.books import create_books_blueprint
+from openlibrary.modules.core.api.inventory import (
+    create_book_copies_blueprint,
+    create_copies_blueprint,
+    create_locations_blueprint,
+)
 from openlibrary.modules.core.api.organizations import create_organizations_blueprint
 
 
@@ -49,6 +54,30 @@ def create_app(config: AppConfig) -> Flask:
         app.register_blueprint(
             create_books_blueprint(
                 config.book_catalog,
+                config.access_tokens,
+                config.tenant_request_context,
+            )
+        )
+    if config.inventory is not None:
+        if config.access_tokens is None:
+            raise ValueError("Inventory routes require access token verification")
+        app.register_blueprint(
+            create_locations_blueprint(
+                config.inventory,
+                config.access_tokens,
+                config.tenant_request_context,
+            )
+        )
+        app.register_blueprint(
+            create_book_copies_blueprint(
+                config.inventory,
+                config.access_tokens,
+                config.tenant_request_context,
+            )
+        )
+        app.register_blueprint(
+            create_copies_blueprint(
+                config.inventory,
                 config.access_tokens,
                 config.tenant_request_context,
             )

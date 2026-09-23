@@ -5,13 +5,33 @@
     "version": "1.0.0",
     "description": "The versioned public API contract. Breaking changes require a new API major version."
   },
-  "servers": [{"url": "/api/v1"}],
+  "servers": [
+    {
+      "url": "/api/v1"
+    }
+  ],
   "paths": {
     "/health/live": {
       "get": {
         "operationId": "getLiveHealth",
         "summary": "Report whether the process is live.",
-        "responses": {"200": {"description": "The process is live.", "headers": {"X-Request-ID": {"$ref": "#/components/headers/X-Request-ID"}}, "content": {"application/json": {"schema": {"$ref": "#/components/schemas/HealthStatus"}}}}}
+        "responses": {
+          "200": {
+            "description": "The process is live.",
+            "headers": {
+              "X-Request-ID": {
+                "$ref": "#/components/headers/X-Request-ID"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HealthStatus"
+                }
+              }
+            }
+          }
+        }
       }
     },
     "/health/ready": {
@@ -19,8 +39,36 @@
         "operationId": "getReadinessHealth",
         "summary": "Report whether required dependencies are ready.",
         "responses": {
-          "200": {"description": "Dependencies are ready.", "headers": {"X-Request-ID": {"$ref": "#/components/headers/X-Request-ID"}}, "content": {"application/json": {"schema": {"$ref": "#/components/schemas/HealthStatus"}}}},
-          "503": {"description": "A required dependency is unavailable.", "headers": {"X-Request-ID": {"$ref": "#/components/headers/X-Request-ID"}}, "content": {"application/problem+json": {"schema": {"$ref": "#/components/schemas/ProblemDetails"}}}}
+          "200": {
+            "description": "Dependencies are ready.",
+            "headers": {
+              "X-Request-ID": {
+                "$ref": "#/components/headers/X-Request-ID"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HealthStatus"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "A required dependency is unavailable.",
+            "headers": {
+              "X-Request-ID": {
+                "$ref": "#/components/headers/X-Request-ID"
+              }
+            },
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
         }
       }
     },
@@ -28,123 +76,1503 @@
       "post": {
         "operationId": "login",
         "summary": "Authenticate in the named organization.",
-        "requestBody": {"required": true, "content": {"application/json": {"schema": {"$ref": "#/components/schemas/LoginRequest"}}}},
-        "responses": {"200": {"$ref": "#/components/responses/AccessToken"}, "401": {"$ref": "#/components/responses/AuthenticationFailed"}}
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LoginRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/AccessToken"
+          },
+          "401": {
+            "$ref": "#/components/responses/AuthenticationFailed"
+          }
+        }
       }
     },
     "/auth/refresh": {
       "post": {
         "operationId": "refreshAccessToken",
         "summary": "Rotate a refresh session and issue a new access token.",
-        "security": [{"CsrfToken": []}],
-        "responses": {"200": {"$ref": "#/components/responses/AccessToken"}, "401": {"$ref": "#/components/responses/AuthenticationFailed"}, "403": {"$ref": "#/components/responses/ProblemDetails"}}
+        "security": [
+          {
+            "CsrfToken": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/AccessToken"
+          },
+          "401": {
+            "$ref": "#/components/responses/AuthenticationFailed"
+          },
+          "403": {
+            "$ref": "#/components/responses/ProblemDetails"
+          }
+        }
       }
     },
     "/auth/logout": {
       "post": {
         "operationId": "logout",
         "summary": "Revoke the current refresh session chain.",
-        "security": [{"BearerAuth": [], "CsrfToken": []}],
-        "responses": {"204": {"description": "The session was revoked.", "headers": {"X-Request-ID": {"$ref": "#/components/headers/X-Request-ID"}}}, "401": {"$ref": "#/components/responses/AuthenticationFailed"}, "403": {"$ref": "#/components/responses/ProblemDetails"}}
+        "security": [
+          {
+            "BearerAuth": [],
+            "CsrfToken": []
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "The session was revoked.",
+            "headers": {
+              "X-Request-ID": {
+                "$ref": "#/components/headers/X-Request-ID"
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/AuthenticationFailed"
+          },
+          "403": {
+            "$ref": "#/components/responses/ProblemDetails"
+          }
+        }
       }
     },
     "/auth/me": {
       "get": {
         "operationId": "getCurrentPrincipal",
         "summary": "Return only the authenticated user, organization, and session identifiers.",
-        "security": [{"BearerAuth": []}],
-        "responses": {"200": {"description": "The authenticated principal and live effective permissions.", "headers": {"X-Request-ID": {"$ref": "#/components/headers/X-Request-ID"}}, "content": {"application/json": {"schema": {"$ref": "#/components/schemas/AccessPrincipal"}}}}, "401": {"$ref": "#/components/responses/AuthenticationFailed"}}
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The authenticated principal and live effective permissions.",
+            "headers": {
+              "X-Request-ID": {
+                "$ref": "#/components/headers/X-Request-ID"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AccessPrincipal"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/AuthenticationFailed"
+          }
+        }
       }
     },
     "/organizations/settings": {
       "get": {
         "operationId": "getOrganizationSettings",
         "summary": "Return settings for the authenticated organization.",
-        "security": [{"BearerAuth": []}],
-        "responses": {"200": {"description": "Tenant settings.", "headers": {"X-Request-ID": {"$ref": "#/components/headers/X-Request-ID"}}, "content": {"application/json": {"schema": {"$ref": "#/components/schemas/OrganizationSettings"}}}}, "401": {"$ref": "#/components/responses/AuthenticationFailed"}, "403": {"$ref": "#/components/responses/ProblemDetails"}}
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Tenant settings.",
+            "headers": {
+              "X-Request-ID": {
+                "$ref": "#/components/headers/X-Request-ID"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OrganizationSettings"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/AuthenticationFailed"
+          },
+          "403": {
+            "$ref": "#/components/responses/ProblemDetails"
+          }
+        }
       },
       "patch": {
         "operationId": "updateOrganizationSettings",
         "summary": "Update settings for the authenticated organization.",
-        "security": [{"BearerAuth": []}],
-        "requestBody": {"required": true, "content": {"application/json": {"schema": {"$ref": "#/components/schemas/OrganizationSettings"}}}},
-        "responses": {"200": {"description": "Updated tenant settings.", "headers": {"X-Request-ID": {"$ref": "#/components/headers/X-Request-ID"}}, "content": {"application/json": {"schema": {"$ref": "#/components/schemas/OrganizationSettings"}}}}, "400": {"$ref": "#/components/responses/ProblemDetails"}, "401": {"$ref": "#/components/responses/AuthenticationFailed"}, "403": {"$ref": "#/components/responses/ProblemDetails"}}
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/OrganizationSettings"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Updated tenant settings.",
+            "headers": {
+              "X-Request-ID": {
+                "$ref": "#/components/headers/X-Request-ID"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OrganizationSettings"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/ProblemDetails"
+          },
+          "401": {
+            "$ref": "#/components/responses/AuthenticationFailed"
+          },
+          "403": {
+            "$ref": "#/components/responses/ProblemDetails"
+          }
+        }
       }
     },
     "/books": {
       "get": {
         "operationId": "listBooks",
         "summary": "List bibliographic titles in the authenticated organization.",
-        "security": [{"BearerAuth": []}],
-        "parameters": [
-          {"name": "limit", "in": "query", "schema": {"type": "integer", "minimum": 1, "maximum": 100, "default": 20}},
-          {"name": "cursor", "in": "query", "schema": {"type": "string"}},
-          {"name": "title", "in": "query", "schema": {"type": "string", "maxLength": 512}},
-          {"name": "isbn", "in": "query", "schema": {"type": "string", "maxLength": 32}}
+        "security": [
+          {
+            "BearerAuth": []
+          }
         ],
-        "responses": {"200": {"description": "A stable page of bibliographic titles.", "headers": {"X-Request-ID": {"$ref": "#/components/headers/X-Request-ID"}}, "content": {"application/json": {"schema": {"$ref": "#/components/schemas/BookPage"}}}}, "400": {"$ref": "#/components/responses/ProblemDetails"}, "401": {"$ref": "#/components/responses/AuthenticationFailed"}, "403": {"$ref": "#/components/responses/ProblemDetails"}}
+        "parameters": [
+          {
+            "name": "limit",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100,
+              "default": 20
+            }
+          },
+          {
+            "name": "cursor",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "title",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "maxLength": 512
+            }
+          },
+          {
+            "name": "isbn",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "maxLength": 32
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "A stable page of bibliographic titles.",
+            "headers": {
+              "X-Request-ID": {
+                "$ref": "#/components/headers/X-Request-ID"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BookPage"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/ProblemDetails"
+          },
+          "401": {
+            "$ref": "#/components/responses/AuthenticationFailed"
+          },
+          "403": {
+            "$ref": "#/components/responses/ProblemDetails"
+          }
+        }
       },
       "post": {
         "operationId": "createBook",
         "summary": "Create a bibliographic title in the authenticated organization.",
-        "security": [{"BearerAuth": []}],
-        "requestBody": {"required": true, "content": {"application/json": {"schema": {"$ref": "#/components/schemas/BookWrite"}}}},
-        "responses": {"201": {"description": "Bibliographic title created.", "headers": {"X-Request-ID": {"$ref": "#/components/headers/X-Request-ID"}}, "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Book"}}}}, "400": {"$ref": "#/components/responses/ProblemDetails"}, "401": {"$ref": "#/components/responses/AuthenticationFailed"}, "403": {"$ref": "#/components/responses/ProblemDetails"}}
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/BookWrite"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Bibliographic title created.",
+            "headers": {
+              "X-Request-ID": {
+                "$ref": "#/components/headers/X-Request-ID"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Book"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/ProblemDetails"
+          },
+          "401": {
+            "$ref": "#/components/responses/AuthenticationFailed"
+          },
+          "403": {
+            "$ref": "#/components/responses/ProblemDetails"
+          }
+        }
       }
     },
     "/books/{book_id}": {
-      "parameters": [{"name": "book_id", "in": "path", "required": true, "schema": {"type": "string", "format": "uuid"}}],
+      "parameters": [
+        {
+          "name": "book_id",
+          "in": "path",
+          "required": true,
+          "schema": {
+            "type": "string",
+            "format": "uuid"
+          }
+        }
+      ],
       "get": {
         "operationId": "getBook",
         "summary": "Get one bibliographic title in the authenticated organization.",
-        "security": [{"BearerAuth": []}],
-        "responses": {"200": {"description": "Bibliographic title.", "headers": {"X-Request-ID": {"$ref": "#/components/headers/X-Request-ID"}}, "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Book"}}}}, "400": {"$ref": "#/components/responses/ProblemDetails"}, "401": {"$ref": "#/components/responses/AuthenticationFailed"}, "403": {"$ref": "#/components/responses/ProblemDetails"}, "404": {"$ref": "#/components/responses/ProblemDetails"}}
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Bibliographic title.",
+            "headers": {
+              "X-Request-ID": {
+                "$ref": "#/components/headers/X-Request-ID"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Book"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/ProblemDetails"
+          },
+          "401": {
+            "$ref": "#/components/responses/AuthenticationFailed"
+          },
+          "403": {
+            "$ref": "#/components/responses/ProblemDetails"
+          },
+          "404": {
+            "$ref": "#/components/responses/ProblemDetails"
+          }
+        }
       },
       "patch": {
         "operationId": "updateBook",
         "summary": "Replace bibliographic title fields in the authenticated organization.",
-        "security": [{"BearerAuth": []}],
-        "requestBody": {"required": true, "content": {"application/json": {"schema": {"$ref": "#/components/schemas/BookWrite"}}}},
-        "responses": {"200": {"description": "Bibliographic title updated.", "headers": {"X-Request-ID": {"$ref": "#/components/headers/X-Request-ID"}}, "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Book"}}}}, "400": {"$ref": "#/components/responses/ProblemDetails"}, "401": {"$ref": "#/components/responses/AuthenticationFailed"}, "403": {"$ref": "#/components/responses/ProblemDetails"}, "404": {"$ref": "#/components/responses/ProblemDetails"}}
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/BookWrite"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Bibliographic title updated.",
+            "headers": {
+              "X-Request-ID": {
+                "$ref": "#/components/headers/X-Request-ID"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Book"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/ProblemDetails"
+          },
+          "401": {
+            "$ref": "#/components/responses/AuthenticationFailed"
+          },
+          "403": {
+            "$ref": "#/components/responses/ProblemDetails"
+          },
+          "404": {
+            "$ref": "#/components/responses/ProblemDetails"
+          }
+        }
       }
     },
     "/auth/password/change": {
       "post": {
         "operationId": "changePassword",
         "summary": "Change the authenticated user's password.",
-        "security": [{"BearerAuth": [], "CsrfToken": []}],
-        "requestBody": {"required": true, "content": {"application/json": {"schema": {"$ref": "#/components/schemas/PasswordChangeRequest"}}}},
-        "responses": {"204": {"description": "The password was changed.", "headers": {"X-Request-ID": {"$ref": "#/components/headers/X-Request-ID"}}}, "400": {"$ref": "#/components/responses/ProblemDetails"}, "401": {"$ref": "#/components/responses/AuthenticationFailed"}, "403": {"$ref": "#/components/responses/ProblemDetails"}}
+        "security": [
+          {
+            "BearerAuth": [],
+            "CsrfToken": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PasswordChangeRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "204": {
+            "description": "The password was changed.",
+            "headers": {
+              "X-Request-ID": {
+                "$ref": "#/components/headers/X-Request-ID"
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/ProblemDetails"
+          },
+          "401": {
+            "$ref": "#/components/responses/AuthenticationFailed"
+          },
+          "403": {
+            "$ref": "#/components/responses/ProblemDetails"
+          }
+        }
+      }
+    },
+    "/locations": {
+      "get": {
+        "operationId": "listLocations",
+        "summary": "List physical or logical locations in the authenticated organization.",
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Locations in the organization.",
+            "headers": {
+              "X-Request-ID": {
+                "$ref": "#/components/headers/X-Request-ID"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LocationPage"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/AuthenticationFailed"
+          },
+          "403": {
+            "$ref": "#/components/responses/ProblemDetails"
+          }
+        }
+      },
+      "post": {
+        "operationId": "createLocation",
+        "summary": "Create a location in the authenticated organization.",
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LocationWrite"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Location created.",
+            "headers": {
+              "X-Request-ID": {
+                "$ref": "#/components/headers/X-Request-ID"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Location"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/ProblemDetails"
+          },
+          "401": {
+            "$ref": "#/components/responses/AuthenticationFailed"
+          },
+          "403": {
+            "$ref": "#/components/responses/ProblemDetails"
+          },
+          "409": {
+            "$ref": "#/components/responses/ProblemDetails"
+          }
+        }
+      }
+    },
+    "/locations/{location_id}": {
+      "parameters": [
+        {
+          "name": "location_id",
+          "in": "path",
+          "required": true,
+          "schema": {
+            "type": "string",
+            "format": "uuid"
+          }
+        }
+      ],
+      "get": {
+        "operationId": "getLocation",
+        "summary": "Get one location in the authenticated organization.",
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Location details.",
+            "headers": {
+              "X-Request-ID": {
+                "$ref": "#/components/headers/X-Request-ID"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Location"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/ProblemDetails"
+          },
+          "401": {
+            "$ref": "#/components/responses/AuthenticationFailed"
+          },
+          "403": {
+            "$ref": "#/components/responses/ProblemDetails"
+          },
+          "404": {
+            "$ref": "#/components/responses/ProblemDetails"
+          }
+        }
+      },
+      "patch": {
+        "operationId": "updateLocation",
+        "summary": "Update a location in the authenticated organization.",
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LocationWrite"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Location updated.",
+            "headers": {
+              "X-Request-ID": {
+                "$ref": "#/components/headers/X-Request-ID"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Location"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/ProblemDetails"
+          },
+          "401": {
+            "$ref": "#/components/responses/AuthenticationFailed"
+          },
+          "403": {
+            "$ref": "#/components/responses/ProblemDetails"
+          },
+          "404": {
+            "$ref": "#/components/responses/ProblemDetails"
+          },
+          "409": {
+            "$ref": "#/components/responses/ProblemDetails"
+          }
+        }
+      }
+    },
+    "/books/{book_id}/copies": {
+      "parameters": [
+        {
+          "name": "book_id",
+          "in": "path",
+          "required": true,
+          "schema": {
+            "type": "string",
+            "format": "uuid"
+          }
+        }
+      ],
+      "get": {
+        "operationId": "listBookCopies",
+        "summary": "List physical copies for a bibliographic title.",
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Physical copies of the book.",
+            "headers": {
+              "X-Request-ID": {
+                "$ref": "#/components/headers/X-Request-ID"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BookCopyPage"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/ProblemDetails"
+          },
+          "401": {
+            "$ref": "#/components/responses/AuthenticationFailed"
+          },
+          "403": {
+            "$ref": "#/components/responses/ProblemDetails"
+          },
+          "404": {
+            "$ref": "#/components/responses/ProblemDetails"
+          }
+        }
+      },
+      "post": {
+        "operationId": "createBookCopy",
+        "summary": "Register a physical copy for a bibliographic title.",
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/BookCopyWrite"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Physical copy created.",
+            "headers": {
+              "X-Request-ID": {
+                "$ref": "#/components/headers/X-Request-ID"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BookCopy"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/ProblemDetails"
+          },
+          "401": {
+            "$ref": "#/components/responses/AuthenticationFailed"
+          },
+          "403": {
+            "$ref": "#/components/responses/ProblemDetails"
+          },
+          "404": {
+            "$ref": "#/components/responses/ProblemDetails"
+          },
+          "409": {
+            "$ref": "#/components/responses/ProblemDetails"
+          }
+        }
+      }
+    },
+    "/books/{book_id}/copies/{copy_id}": {
+      "parameters": [
+        {
+          "name": "book_id",
+          "in": "path",
+          "required": true,
+          "schema": {
+            "type": "string",
+            "format": "uuid"
+          }
+        },
+        {
+          "name": "copy_id",
+          "in": "path",
+          "required": true,
+          "schema": {
+            "type": "string",
+            "format": "uuid"
+          }
+        }
+      ],
+      "get": {
+        "operationId": "getBookCopy",
+        "summary": "Get one physical copy for a bibliographic title.",
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Physical copy details.",
+            "headers": {
+              "X-Request-ID": {
+                "$ref": "#/components/headers/X-Request-ID"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BookCopy"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/ProblemDetails"
+          },
+          "401": {
+            "$ref": "#/components/responses/AuthenticationFailed"
+          },
+          "403": {
+            "$ref": "#/components/responses/ProblemDetails"
+          },
+          "404": {
+            "$ref": "#/components/responses/ProblemDetails"
+          }
+        }
+      },
+      "patch": {
+        "operationId": "updateBookCopy",
+        "summary": "Update physical copy condition or location assignment.",
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/BookCopyUpdate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Physical copy updated.",
+            "headers": {
+              "X-Request-ID": {
+                "$ref": "#/components/headers/X-Request-ID"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BookCopy"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/ProblemDetails"
+          },
+          "401": {
+            "$ref": "#/components/responses/AuthenticationFailed"
+          },
+          "403": {
+            "$ref": "#/components/responses/ProblemDetails"
+          },
+          "404": {
+            "$ref": "#/components/responses/ProblemDetails"
+          }
+        }
+      }
+    },
+    "/copies/{copy_id}": {
+      "parameters": [
+        {
+          "name": "copy_id",
+          "in": "path",
+          "required": true,
+          "schema": {
+            "type": "string",
+            "format": "uuid"
+          }
+        }
+      ],
+      "get": {
+        "operationId": "getCopy",
+        "summary": "Get one physical copy by its unique copy identifier.",
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Physical copy details.",
+            "headers": {
+              "X-Request-ID": {
+                "$ref": "#/components/headers/X-Request-ID"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BookCopy"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/ProblemDetails"
+          },
+          "401": {
+            "$ref": "#/components/responses/AuthenticationFailed"
+          },
+          "403": {
+            "$ref": "#/components/responses/ProblemDetails"
+          },
+          "404": {
+            "$ref": "#/components/responses/ProblemDetails"
+          }
+        }
+      },
+      "patch": {
+        "operationId": "updateCopy",
+        "summary": "Update physical copy condition or location assignment.",
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/BookCopyUpdate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Physical copy updated.",
+            "headers": {
+              "X-Request-ID": {
+                "$ref": "#/components/headers/X-Request-ID"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BookCopy"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/ProblemDetails"
+          },
+          "401": {
+            "$ref": "#/components/responses/AuthenticationFailed"
+          },
+          "403": {
+            "$ref": "#/components/responses/ProblemDetails"
+          },
+          "404": {
+            "$ref": "#/components/responses/ProblemDetails"
+          }
+        }
       }
     }
   },
   "components": {
     "headers": {
-      "X-Request-ID": {"description": "Server-generated correlation identifier, or a syntactically valid client value.", "schema": {"type": "string"}}
+      "X-Request-ID": {
+        "description": "Server-generated correlation identifier, or a syntactically valid client value.",
+        "schema": {
+          "type": "string"
+        }
+      }
     },
     "securitySchemes": {
-      "BearerAuth": {"type": "http", "scheme": "bearer", "bearerFormat": "JWT"},
-      "CsrfToken": {"type": "apiKey", "in": "header", "name": "X-CSRF-Token"}
+      "BearerAuth": {
+        "type": "http",
+        "scheme": "bearer",
+        "bearerFormat": "JWT"
+      },
+      "CsrfToken": {
+        "type": "apiKey",
+        "in": "header",
+        "name": "X-CSRF-Token"
+      }
     },
     "schemas": {
-      "HealthStatus": {"type": "object", "required": ["status"], "properties": {"status": {"type": "string", "const": "ok"}}, "additionalProperties": false},
-      "ProblemDetails": {"type": "object", "required": ["type", "title", "status", "detail", "instance", "request_id"], "properties": {"type": {"type": "string", "format": "uri-reference"}, "title": {"type": "string"}, "status": {"type": "integer", "minimum": 400, "maximum": 599}, "detail": {"type": "string"}, "instance": {"type": "string", "format": "uri-reference"}, "request_id": {"type": "string", "pattern": "^[A-Za-z0-9._-]{1,128}$"}, "errors": {"type": "array", "items": {"type": "object"}}}, "additionalProperties": false},
-      "LoginRequest": {"type": "object", "required": ["organization_slug", "email", "password"], "properties": {"organization_slug": {"type": "string", "pattern": "^[a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?$"}, "email": {"type": "string", "format": "email"}, "password": {"type": "string", "format": "password"}}, "additionalProperties": false},
-      "LoginAccepted": {"type": "object", "required": ["status"], "properties": {"status": {"type": "string", "const": "authenticated"}}, "additionalProperties": false},
-      "AccessToken": {"type": "object", "required": ["access_token", "token_type", "expires_in"], "properties": {"access_token": {"type": "string"}, "token_type": {"type": "string", "const": "Bearer"}, "expires_in": {"type": "integer", "minimum": 1}}, "additionalProperties": false},
-      "Principal": {"type": "object", "required": ["user_id", "organization_id", "permissions"], "properties": {"user_id": {"type": "string", "format": "uuid"}, "organization_id": {"type": "string", "format": "uuid"}, "permissions": {"type": "array", "items": {"type": "string"}, "uniqueItems": true}}, "additionalProperties": false},
-      "AccessPrincipal": {"type": "object", "required": ["user_id", "organization_id", "session_id", "permissions"], "properties": {"user_id": {"type": "string", "format": "uuid"}, "organization_id": {"type": "string", "format": "uuid"}, "session_id": {"type": "string", "format": "uuid"}, "permissions": {"type": "array", "items": {"type": "string"}, "uniqueItems": true}}, "additionalProperties": false},
-      "PasswordChangeRequest": {"type": "object", "required": ["current_password", "new_password"], "properties": {"current_password": {"type": "string", "format": "password"}, "new_password": {"type": "string", "format": "password", "minLength": 12}}, "additionalProperties": false},
-      "BookWrite": {"type": "object", "required": ["title", "authors"], "properties": {"title": {"type": "string", "minLength": 1, "maxLength": 512}, "isbn": {"type": ["string", "null"], "maxLength": 32}, "authors": {"type": "array", "minItems": 1, "maxItems": 32, "items": {"type": "string", "minLength": 1, "maxLength": 256}}, "published_year": {"type": ["integer", "null"], "minimum": 1, "maximum": 9999}}, "additionalProperties": false},
-      "Book": {"type": "object", "required": ["book_id", "title", "authors"], "properties": {"book_id": {"type": "string", "format": "uuid"}, "title": {"type": "string"}, "isbn": {"type": ["string", "null"]}, "authors": {"type": "array", "items": {"type": "string"}}, "published_year": {"type": ["integer", "null"]}}, "additionalProperties": false},
-      "BookPage": {"type": "object", "required": ["items", "next_cursor"], "properties": {"items": {"type": "array", "items": {"$ref": "#/components/schemas/Book"}}, "next_cursor": {"type": ["string", "null"]}}, "additionalProperties": false},
-      "OrganizationSettings": {"type": "object", "required": ["timezone", "settings"], "properties": {"timezone": {"type": "string", "minLength": 1, "maxLength": 64}, "settings": {"type": "object", "additionalProperties": true}}, "additionalProperties": false}
+      "HealthStatus": {
+        "type": "object",
+        "required": [
+          "status"
+        ],
+        "properties": {
+          "status": {
+            "type": "string",
+            "const": "ok"
+          }
+        },
+        "additionalProperties": false
+      },
+      "ProblemDetails": {
+        "type": "object",
+        "required": [
+          "type",
+          "title",
+          "status",
+          "detail",
+          "instance",
+          "request_id"
+        ],
+        "properties": {
+          "type": {
+            "type": "string",
+            "format": "uri-reference"
+          },
+          "title": {
+            "type": "string"
+          },
+          "status": {
+            "type": "integer",
+            "minimum": 400,
+            "maximum": 599
+          },
+          "detail": {
+            "type": "string"
+          },
+          "instance": {
+            "type": "string",
+            "format": "uri-reference"
+          },
+          "request_id": {
+            "type": "string",
+            "pattern": "^[A-Za-z0-9._-]{1,128}$"
+          },
+          "errors": {
+            "type": "array",
+            "items": {
+              "type": "object"
+            }
+          }
+        },
+        "additionalProperties": false
+      },
+      "LoginRequest": {
+        "type": "object",
+        "required": [
+          "organization_slug",
+          "email",
+          "password"
+        ],
+        "properties": {
+          "organization_slug": {
+            "type": "string",
+            "pattern": "^[a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?$"
+          },
+          "email": {
+            "type": "string",
+            "format": "email"
+          },
+          "password": {
+            "type": "string",
+            "format": "password"
+          }
+        },
+        "additionalProperties": false
+      },
+      "LoginAccepted": {
+        "type": "object",
+        "required": [
+          "status"
+        ],
+        "properties": {
+          "status": {
+            "type": "string",
+            "const": "authenticated"
+          }
+        },
+        "additionalProperties": false
+      },
+      "AccessToken": {
+        "type": "object",
+        "required": [
+          "access_token",
+          "token_type",
+          "expires_in"
+        ],
+        "properties": {
+          "access_token": {
+            "type": "string"
+          },
+          "token_type": {
+            "type": "string",
+            "const": "Bearer"
+          },
+          "expires_in": {
+            "type": "integer",
+            "minimum": 1
+          }
+        },
+        "additionalProperties": false
+      },
+      "Principal": {
+        "type": "object",
+        "required": [
+          "user_id",
+          "organization_id",
+          "permissions"
+        ],
+        "properties": {
+          "user_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "organization_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "permissions": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "uniqueItems": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "AccessPrincipal": {
+        "type": "object",
+        "required": [
+          "user_id",
+          "organization_id",
+          "session_id",
+          "permissions"
+        ],
+        "properties": {
+          "user_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "organization_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "session_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "permissions": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "uniqueItems": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "PasswordChangeRequest": {
+        "type": "object",
+        "required": [
+          "current_password",
+          "new_password"
+        ],
+        "properties": {
+          "current_password": {
+            "type": "string",
+            "format": "password"
+          },
+          "new_password": {
+            "type": "string",
+            "format": "password",
+            "minLength": 12
+          }
+        },
+        "additionalProperties": false
+      },
+      "BookWrite": {
+        "type": "object",
+        "required": [
+          "title",
+          "authors"
+        ],
+        "properties": {
+          "title": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 512
+          },
+          "isbn": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "maxLength": 32
+          },
+          "authors": {
+            "type": "array",
+            "minItems": 1,
+            "maxItems": 32,
+            "items": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 256
+            }
+          },
+          "published_year": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "minimum": 1,
+            "maximum": 9999
+          }
+        },
+        "additionalProperties": false
+      },
+      "Book": {
+        "type": "object",
+        "required": [
+          "book_id",
+          "title",
+          "authors"
+        ],
+        "properties": {
+          "book_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "title": {
+            "type": "string"
+          },
+          "isbn": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "authors": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "published_year": {
+            "type": [
+              "integer",
+              "null"
+            ]
+          }
+        },
+        "additionalProperties": false
+      },
+      "BookPage": {
+        "type": "object",
+        "required": [
+          "items",
+          "next_cursor"
+        ],
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Book"
+            }
+          },
+          "next_cursor": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "additionalProperties": false
+      },
+      "OrganizationSettings": {
+        "type": "object",
+        "required": [
+          "timezone",
+          "settings"
+        ],
+        "properties": {
+          "timezone": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 64
+          },
+          "settings": {
+            "type": "object",
+            "additionalProperties": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "LocationWrite": {
+        "type": "object",
+        "required": [
+          "name",
+          "code"
+        ],
+        "properties": {
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 255
+          },
+          "code": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 64
+          },
+          "parent_location_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "uuid"
+          },
+          "status": {
+            "type": "string",
+            "maxLength": 32
+          }
+        },
+        "additionalProperties": false
+      },
+      "Location": {
+        "type": "object",
+        "required": [
+          "location_id",
+          "name",
+          "code",
+          "status"
+        ],
+        "properties": {
+          "location_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "name": {
+            "type": "string"
+          },
+          "code": {
+            "type": "string"
+          },
+          "parent_location_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "uuid"
+          },
+          "status": {
+            "type": "string"
+          }
+        },
+        "additionalProperties": false
+      },
+      "LocationPage": {
+        "type": "object",
+        "required": [
+          "items"
+        ],
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Location"
+            }
+          }
+        },
+        "additionalProperties": false
+      },
+      "BookCopyWrite": {
+        "type": "object",
+        "required": [
+          "location_id",
+          "barcode"
+        ],
+        "properties": {
+          "location_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "barcode": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 64
+          },
+          "condition_code": {
+            "type": "string",
+            "maxLength": 32
+          }
+        },
+        "additionalProperties": false
+      },
+      "BookCopyUpdate": {
+        "type": "object",
+        "properties": {
+          "location_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "uuid"
+          },
+          "condition_code": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "maxLength": 32
+          }
+        },
+        "additionalProperties": false
+      },
+      "BookCopy": {
+        "type": "object",
+        "required": [
+          "copy_id",
+          "book_id",
+          "barcode",
+          "location_id",
+          "status",
+          "condition_code"
+        ],
+        "properties": {
+          "copy_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "book_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "barcode": {
+            "type": "string"
+          },
+          "location_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "status": {
+            "type": "string"
+          },
+          "condition_code": {
+            "type": "string"
+          },
+          "acquired_at": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "additionalProperties": false
+      },
+      "BookCopyPage": {
+        "type": "object",
+        "required": [
+          "items"
+        ],
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/BookCopy"
+            }
+          }
+        },
+        "additionalProperties": false
+      }
     },
     "responses": {
-      "LoginAccepted": {"description": "Credentials were validated; token issuance is introduced by BE-008.", "headers": {"X-Request-ID": {"$ref": "#/components/headers/X-Request-ID"}}, "content": {"application/json": {"schema": {"$ref": "#/components/schemas/LoginAccepted"}}}},
-      "AccessToken": {"description": "A short-lived access token.", "headers": {"X-Request-ID": {"$ref": "#/components/headers/X-Request-ID"}}, "content": {"application/json": {"schema": {"$ref": "#/components/schemas/AccessToken"}}}},
-      "AuthenticationFailed": {"description": "Authentication failed without revealing account or tenant state.", "headers": {"X-Request-ID": {"$ref": "#/components/headers/X-Request-ID"}}, "content": {"application/problem+json": {"schema": {"$ref": "#/components/schemas/ProblemDetails"}}}},
-      "ProblemDetails": {"description": "An RFC Problem Details error response.", "headers": {"X-Request-ID": {"$ref": "#/components/headers/X-Request-ID"}}, "content": {"application/problem+json": {"schema": {"$ref": "#/components/schemas/ProblemDetails"}}}}
+      "LoginAccepted": {
+        "description": "Credentials were validated; token issuance is introduced by BE-008.",
+        "headers": {
+          "X-Request-ID": {
+            "$ref": "#/components/headers/X-Request-ID"
+          }
+        },
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/LoginAccepted"
+            }
+          }
+        }
+      },
+      "AccessToken": {
+        "description": "A short-lived access token.",
+        "headers": {
+          "X-Request-ID": {
+            "$ref": "#/components/headers/X-Request-ID"
+          }
+        },
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/AccessToken"
+            }
+          }
+        }
+      },
+      "AuthenticationFailed": {
+        "description": "Authentication failed without revealing account or tenant state.",
+        "headers": {
+          "X-Request-ID": {
+            "$ref": "#/components/headers/X-Request-ID"
+          }
+        },
+        "content": {
+          "application/problem+json": {
+            "schema": {
+              "$ref": "#/components/schemas/ProblemDetails"
+            }
+          }
+        }
+      },
+      "ProblemDetails": {
+        "description": "An RFC Problem Details error response.",
+        "headers": {
+          "X-Request-ID": {
+            "$ref": "#/components/headers/X-Request-ID"
+          }
+        },
+        "content": {
+          "application/problem+json": {
+            "schema": {
+              "$ref": "#/components/schemas/ProblemDetails"
+            }
+          }
+        }
+      }
     }
   }
 }
