@@ -28,6 +28,13 @@ from openlibrary.modules.core.application.organization_settings import (
 from openlibrary.modules.core.infrastructure.organization_settings import (
     SqlServerOrganizationSettingsStore,
 )
+from openlibrary.modules.core.application.inventory import InventoryService
+from openlibrary.modules.core.infrastructure.inventory import SqlServerInventoryStore
+from openlibrary.modules.core.application.copy_status import CopyStatusService
+from openlibrary.modules.core.infrastructure.copy_status import SqlServerCopyStatusStore
+from openlibrary.modules.core.application.loans import LoanService
+from openlibrary.modules.core.infrastructure.loans import SqlServerLoanStore
+from openlibrary.modules.ops.infrastructure.sqlserver import SqlServerAuditedTransaction
 from openlibrary.modules.core.infrastructure.rbac import SqlServerRbacStore
 from openlibrary.modules.core.infrastructure.tenancy import (
     SqlServerTenantContext,
@@ -107,6 +114,26 @@ def create_app_from_environ(
     authorization = AuthorizationService(
         SqlServerRbacStore(settings.database_runtime_url)
     )
+    copy_store = SqlServerCopyStatusStore(settings.database_runtime_url)
+    loan_store = SqlServerLoanStore(settings.database_runtime_url)
+    inventory_store = SqlServerInventoryStore(settings.database_runtime_url)
+    audited_tx = SqlServerAuditedTransaction()
+    inventory_service = InventoryService(
+        store=inventory_store, authorizer=authorization
+    )
+    copy_status_service = CopyStatusService(
+        store=copy_store,
+        authorizer=authorization,
+        transaction=audited_tx,
+        connection_provider=tenant_context.connection,
+    )
+    loan_service = LoanService(
+        loan_store=loan_store,
+        copy_store=copy_store,
+        authorizer=authorization,
+        transaction=audited_tx,
+        connection_provider=tenant_context.connection,
+    )
     app = create_app(
         AppConfig(
             readiness_probe=readiness_probe or _dependencies_are_unverified,
@@ -124,6 +151,9 @@ def create_app_from_environ(
             book_catalog=BookCatalogService(
                 SqlServerBookStore(settings.database_runtime_url), authorization
             ),
+            inventory=inventory_service,
+            copy_status=copy_status_service,
+            loan_service=loan_service,
             tenant_request_context=TenantRequestContext(tenant_context),
         )
     )

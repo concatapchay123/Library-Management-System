@@ -10,6 +10,7 @@ if TYPE_CHECKING:
     from openlibrary.modules.core.application.books import BookCatalogService
     from openlibrary.modules.core.application.copy_status import CopyStatusService
     from openlibrary.modules.core.application.inventory import InventoryService
+    from openlibrary.modules.core.application.loans import LoanService
     from openlibrary.modules.core.application.login import LoginService
     from openlibrary.modules.core.application.organization_settings import (
         OrganizationSettingsService,
@@ -35,4 +36,5 @@ class AppConfig:
     book_catalog: "BookCatalogService | None" = None
     inventory: "InventoryService | None" = None
     copy_status: "CopyStatusService | None" = None
+    loan_service: "LoanService | None" = None
     tenant_request_context: "TenantRequestContext | None" = None

@@ -13,6 +13,7 @@ from openlibrary.modules.core.api.inventory import (
     create_copies_blueprint,
     create_locations_blueprint,
 )
+from openlibrary.modules.core.api.loans import create_loans_blueprint
 from openlibrary.modules.core.api.organizations import create_organizations_blueprint
 
 
@@ -82,6 +83,18 @@ def create_app(config: AppConfig) -> Flask:
                 config.access_tokens,
                 config.tenant_request_context,
                 copy_status=config.copy_status,
+            )
+        )
+    if config.loan_service is not None:
+        if config.access_tokens is None:
+            raise ValueError(
+                "Circulation loan routes require access token verification"
+            )
+        app.register_blueprint(
+            create_loans_blueprint(
+                config.loan_service,
+                config.access_tokens,
+                config.tenant_request_context,
             )
         )
     return app
