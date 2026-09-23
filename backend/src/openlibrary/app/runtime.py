@@ -44,6 +44,8 @@ from openlibrary.modules.core.infrastructure.tenancy import (
     SqlServerTenantContext,
     TenantRequestContext,
 )
+from openlibrary.modules.education.application import EducationService
+from openlibrary.modules.education.infrastructure import SqlServerEducationStore
 
 
 class ConfigurationError(ValueError):
@@ -145,6 +147,10 @@ def create_app_from_environ(
         transaction=audited_tx,
         connection_provider=tenant_context.connection,
     )
+    education_service = EducationService(
+        store=SqlServerEducationStore(settings.database_runtime_url),
+        authorizer=authorization,
+    )
     app = create_app(
         AppConfig(
             readiness_probe=readiness_probe or _dependencies_are_unverified,
@@ -166,6 +172,7 @@ def create_app_from_environ(
             copy_status=copy_status_service,
             loan_service=loan_service,
             reservation_service=reservation_service,
+            education_service=education_service,
             tenant_request_context=TenantRequestContext(tenant_context),
         )
     )

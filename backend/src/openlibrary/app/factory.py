@@ -16,6 +16,7 @@ from openlibrary.modules.core.api.inventory import (
 from openlibrary.modules.core.api.loans import create_loans_blueprint
 from openlibrary.modules.core.api.organizations import create_organizations_blueprint
 from openlibrary.modules.core.api.reservations import create_reservations_blueprint
+from openlibrary.modules.education.api import create_education_blueprint
 
 
 def create_app(config: AppConfig) -> Flask:
@@ -107,6 +108,25 @@ def create_app(config: AppConfig) -> Flask:
                 config.reservation_service,
                 config.access_tokens,
                 config.tenant_request_context,
+            )
+        )
+    if config.education_service is not None:
+        if config.access_tokens is None:
+            raise ValueError("Education routes require access token verification")
+        app.register_blueprint(
+            create_education_blueprint(
+                config.education_service,
+                config.access_tokens,
+                config.tenant_request_context,
+                url_prefix="/api/v1/education",
+            )
+        )
+        app.register_blueprint(
+            create_education_blueprint(
+                config.education_service,
+                config.access_tokens,
+                config.tenant_request_context,
+                url_prefix="/education",
             )
         )
     return app

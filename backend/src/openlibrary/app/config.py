@@ -20,6 +20,7 @@ if TYPE_CHECKING:
     )
     from openlibrary.modules.core.application.reservations import ReservationService
     from openlibrary.modules.core.infrastructure.tenancy import TenantRequestContext
+    from openlibrary.modules.education.application import EducationService
     from openlibrary.modules.ops.application.idempotency import IdempotencyService
 
 ReadinessProbe = Callable[[], bool]
@@ -41,4 +42,5 @@ class AppConfig:
     loan_service: "LoanService | None" = None
     reservation_service: "ReservationService | None" = None
     idempotency_service: "IdempotencyService | None" = None
+    education_service: "EducationService | None" = None
     tenant_request_context: "TenantRequestContext | None" = None
