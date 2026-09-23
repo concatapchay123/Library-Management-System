@@ -23,6 +23,7 @@ build/
 !.env.example
 *.pem
 *.key
+*.crt
 
 # IDE and OS
 .idea/

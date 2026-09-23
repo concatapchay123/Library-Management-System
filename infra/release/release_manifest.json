@@ -1,0 +1,111 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "release_version": "1.0.0",
+  "release_tag": "v1.0.0",
+  "release_date": "2026-09-23T23:00:00Z",
+  "policy_owner": "OpenLibrary Security & Operations",
+  "jurisdiction": "VN",
+  "legal_hold_supported": true,
+  "retention_policy": {
+    "profile_retention_days": 365,
+    "audit_retention_days": 2555,
+    "payment_retention_days": 3650,
+    "log_retention_days": 90
+  },
+  "disaster_recovery": {
+    "availability_objective_pct": 99.5,
+    "rpo_minutes": 15,
+    "rto_hours": 4,
+    "backup_retention_days": 35,
+    "backup_schedule": {
+      "full": "weekly (Sunday 02:00 UTC)",
+      "differential": "daily (02:00 UTC Monday-Saturday)",
+      "transaction_log": "every 15 minutes"
+    },
+    "encryption": "AES-256 with key managed outside database host"
+  },
+  "immutable_images": {
+    "backend": "openlibrary/backend:1.0.0",
+    "database": "mcr.microsoft.com/mssql/server:2022-CU14-ubuntu-22.04",
+    "redis": "redis:7.4.2-alpine",
+    "nginx": "nginx:1.27.4-alpine"
+  },
+  "migration_rollback_matrix": {
+    "0001_database_identities": {
+      "action": "rollback",
+      "rationale": "Reversible: drops core, ops, education, and public_library schemas and permissions during initial empty-state rollback."
+    },
+    "0002_organizations_rls": {
+      "action": "forward-fix",
+      "rationale": "Non-reversible once organizations exist: dropping core.organizations destroys tenant master keys and root tenant identities; requires forward-fix script."
+    },
+    "0003_audit_outbox": {
+      "action": "forward-fix",
+      "rationale": "Destructive: audit_events and outbox_events are append-only compliance logs prohibited from hard deletion by retention policy."
+    },
+    "0004_users_profiles": {
+      "action": "forward-fix",
+      "rationale": "Destructive: dropping core.users and core.user_profiles causes permanent loss of user credentials and PII; requires forward-fix script."
+    },
+    "0005_refresh_sessions": {
+      "action": "rollback",
+      "rationale": "Reversible: refresh session state is short-lived; revocation and table drop during rollback safely invalidates active sessions without data corruption."
+    },
+    "0006_rbac": {
+      "action": "forward-fix",
+      "rationale": "Destructive: dropping roles, permissions, and user assignments destroys tenant access control matrix; requires forward-fix migration."
+    },
+    "0007_tenant_context_catalog": {
+      "action": "rollback",
+      "rationale": "Reversible: drops security catalog stored procedure and verification functions cleanly."
+    },
+    "0008_books": {
+      "action": "forward-fix",
+      "rationale": "Destructive: dropping core.books causes irreversible bibliographic data loss; forward-fix migration required once catalog is populated."
+    },
+    "0009_locations_and_book_copies": {
+      "action": "forward-fix",
+      "rationale": "Destructive: dropping physical copy inventory and library locations destroys item barcodes and asset records; requires forward-fix."
+    },
+    "0010_copy_status_history": {
+      "action": "forward-fix",
+      "rationale": "Destructive: historical copy transition log is required for audit trail; hard deletion prohibited by retention contract."
+    },
+    "0011_outbox_claim_jobs": {
+      "action": "rollback",
+      "rationale": "Reversible: drops ops.claim_outbox_event and ops.job_records without breaking outbox event persistence."
+    },
+    "0012_loans": {
+      "action": "forward-fix",
+      "rationale": "Destructive: loans and checkout history are subject to statutory financial/asset retention; cannot be dropped; forward-fix required."
+    },
+    "0013_idempotency_keys": {
+      "action": "rollback",
+      "rationale": "Reversible: idempotency keys have 24-hour TTL; dropping table forces fresh evaluations without permanent data loss."
+    },
+    "0014_reservations": {
+      "action": "forward-fix",
+      "rationale": "Destructive: patron reservation holds and queues cannot be dropped without patron disruption; requires forward-fix."
+    },
+    "0015_education_entities": {
+      "action": "forward-fix",
+      "rationale": "Destructive: academic courses, classes, reading lists, and student rosters must not be deleted; forward-fix required."
+    },
+    "0016_public_library_memberships": {
+      "action": "forward-fix",
+      "rationale": "Destructive: active patron membership cards, plans, and subscriptions must be preserved; forward-fix required."
+    },
+    "0017_public_library_fines_invoices": {
+      "action": "forward-fix",
+      "rationale": "Destructive: ledger fines and invoices are subject to financial accounting regulations; hard deletion prohibited; forward-fix required."
+    },
+    "0018_public_library_payment_webhooks": {
+      "action": "forward-fix",
+      "rationale": "Destructive: payment transaction records and payment allocations represent financial ledger entries; forward-fix required."
+    },
+    "0019_notifications": {
+      "action": "rollback",
+      "rationale": "Reversible: notifications are delivered representations; dropping table is reversible prior to relying features or can be recreated."
+    }
+  }
+}

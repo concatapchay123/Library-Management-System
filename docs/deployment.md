@@ -59,3 +59,10 @@ Rollback ưu tiên deploy image trước đó nếu migration backward-compatibl
 ## Database identities
 
 Migration job dùng identity tách khỏi runtime app. Runtime identity không có `db_owner`, DDL, `CONTROL`, `IMPERSONATE` hoặc quyền thay đổi RLS policy; migration identity không được cấp cho app/worker container. Deployment smoke test phải xác minh grants này, RLS catalog coverage và việc app không dùng credential migration.
+
+## Operational runbooks
+
+- [Production Release Runbook](runbooks/release.md)
+- [Disaster Recovery & Restore Runbook](runbooks/restore.md)
+- [Rollback & Forward-Fix Runbook](runbooks/rollback.md)
+- [Production Release Manifest](../infra/release/release_manifest.json)

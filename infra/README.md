@@ -42,4 +42,23 @@ inside the private Docker network:
 docker compose --env-file backend/.env -f infra/docker-compose.yml --profile test run --rm tests
 ```
 
-Infrastructure Phase 1 sẽ tạo Docker Compose, Nginx và environment templates cho `app`, `worker`, `database`, `redis` và `nginx`. Production rules nằm trong [deployment guide](../docs/deployment.md).
+## Production Compose profile and release verification
+
+Production deployment uses the `production` profile, immutable image tags, separate migration identities, and readiness-gated orchestration. Production configuration is verified via `infra/tests/test_production_release.ps1` and governed by the release manifest at `infra/release/release_manifest.json`.
+
+```powershell
+# Run release verification gates
+powershell -ExecutionPolicy Bypass -File infra/tests/test_production_release.ps1
+
+# Run disaster recovery and rehearsal checks
+python infra/scripts/manage_dr.py
+
+# Deploy production profile on clean host
+docker compose --env-file production.env -f infra/docker-compose.yml --profile production-migration run --rm migration
+docker compose --env-file production.env -f infra/docker-compose.yml up -d app worker nginx
+```
+
+Operational runbooks:
+- [Production Release Runbook](../docs/runbooks/release.md)
+- [Disaster Recovery & Restore Runbook](../docs/runbooks/restore.md)
+- [Rollback & Forward-Fix Runbook](../docs/runbooks/rollback.md)
