@@ -13,6 +13,10 @@ from openlibrary.modules.core.api.auth import (
     _require_principal,
 )
 from openlibrary.modules.core.application.access_tokens import AccessTokenService
+from openlibrary.modules.core.application.copy_status import (
+    CopyStatusHistory,
+    CopyStatusService,
+)
 from openlibrary.modules.core.application.inventory import (
     BookCopy,
     DuplicateBarcodeError,
@@ -20,6 +24,7 @@ from openlibrary.modules.core.application.inventory import (
     InventoryService,
     Location,
 )
+from openlibrary.modules.core.domain.copy_status import InvalidCopyStatusTransitionError
 from openlibrary.modules.core.infrastructure.tenancy import TenantRequestContext
 
 
@@ -136,6 +141,7 @@ def create_book_copies_blueprint(
     service: InventoryService,
     access_tokens: AccessTokenService,
     tenant_request_context: TenantRequestContext | None,
+    copy_status: CopyStatusService | None = None,
 ) -> Blueprint:
     """Expose copy operations nested under book resources."""
     book_copies = Blueprint(
@@ -243,6 +249,73 @@ def create_book_copies_blueprint(
             return _bad_request(str(err))
         return jsonify(_copy_response(copy))
 
+    @book_copies.post("/<copy_id>/status")
+    @_require_principal(access_tokens, tenant_request_context)
+    def transition_copy_status(book_id: str, copy_id: str) -> Response:
+        try:
+            UUID(book_id)
+            copy_uuid = UUID(copy_id)
+        except ValueError:
+            return _bad_request("Invalid UUID format.")
+        if copy_status is None:
+            return _problem_response(
+                501, "Not Implemented", "Copy status transitions not supported."
+            )
+        payload = request.get_json(silent=True)
+        if not isinstance(payload, dict):
+            return _bad_request("Invalid JSON payload.")
+        to_status = payload.get("to_status")
+        reason = payload.get("reason")
+        if not isinstance(to_status, str) or not isinstance(reason, str):
+            return _bad_request("to_status and reason must be strings.")
+        try:
+            req_id_str = request_id()
+            corr_id: UUID | None = None
+            try:
+                corr_id = UUID(req_id_str)
+            except ValueError:
+                pass
+            updated = copy_status.transition_status(
+                actor=_principal_from_request(),
+                copy_id=copy_uuid,
+                to_status=to_status,
+                reason=reason,
+                correlation_id=corr_id,
+            )
+        except InvalidCopyStatusTransitionError as err:
+            return _problem_response(
+                err.status_code,
+                err.title,
+                str(err),
+                type_uri=err.problem_type,
+            )
+        except KeyError:
+            return _not_found("Copy not found.")
+        except ValueError as err:
+            return _bad_request(str(err))
+        return jsonify(_copy_response(updated))
+
+    @book_copies.get("/<copy_id>/history")
+    @_require_principal(access_tokens, tenant_request_context)
+    def list_copy_history(book_id: str, copy_id: str) -> Response:
+        try:
+            UUID(book_id)
+            copy_uuid = UUID(copy_id)
+        except ValueError:
+            return _bad_request("Invalid UUID format.")
+        if copy_status is None:
+            return _problem_response(
+                501, "Not Implemented", "Copy status history not supported."
+            )
+        try:
+            history = copy_status.list_copy_history(
+                actor=_principal_from_request(),
+                copy_id=copy_uuid,
+            )
+        except KeyError:
+            return _not_found("Copy not found.")
+        return jsonify({"items": [_copy_history_response(h) for h in history]})
+
     return book_copies
 
 
@@ -250,6 +323,7 @@ def create_copies_blueprint(
     service: InventoryService,
     access_tokens: AccessTokenService,
     tenant_request_context: TenantRequestContext | None,
+    copy_status: CopyStatusService | None = None,
 ) -> Blueprint:
     """Expose direct copy operations by copy_id."""
     copies = Blueprint("copies", __name__, url_prefix="/api/v1/copies")
@@ -299,6 +373,71 @@ def create_copies_blueprint(
             return _bad_request(str(err))
         return jsonify(_copy_response(copy))
 
+    @copies.post("/<copy_id>/status")
+    @_require_principal(access_tokens, tenant_request_context)
+    def transition_copy_status(copy_id: str) -> Response:
+        if copy_status is None:
+            return _problem_response(
+                501, "Not Implemented", "Copy status transitions not supported."
+            )
+        try:
+            copy_uuid = UUID(copy_id)
+        except ValueError:
+            return _bad_request("Invalid copy_id UUID format.")
+        payload = request.get_json(silent=True)
+        if not isinstance(payload, dict):
+            return _bad_request("Invalid JSON payload.")
+        to_status = payload.get("to_status")
+        reason = payload.get("reason")
+        if not isinstance(to_status, str) or not isinstance(reason, str):
+            return _bad_request("to_status and reason must be strings.")
+        try:
+            req_id_str = request_id()
+            corr_id: UUID | None = None
+            try:
+                corr_id = UUID(req_id_str)
+            except ValueError:
+                pass
+            updated = copy_status.transition_status(
+                actor=_principal_from_request(),
+                copy_id=copy_uuid,
+                to_status=to_status,
+                reason=reason,
+                correlation_id=corr_id,
+            )
+        except InvalidCopyStatusTransitionError as err:
+            return _problem_response(
+                err.status_code,
+                err.title,
+                str(err),
+                type_uri=err.problem_type,
+            )
+        except KeyError:
+            return _not_found("Copy not found.")
+        except ValueError as err:
+            return _bad_request(str(err))
+        return jsonify(_copy_response(updated))
+
+    @copies.get("/<copy_id>/history")
+    @_require_principal(access_tokens, tenant_request_context)
+    def list_copy_history(copy_id: str) -> Response:
+        if copy_status is None:
+            return _problem_response(
+                501, "Not Implemented", "Copy status history not supported."
+            )
+        try:
+            copy_uuid = UUID(copy_id)
+        except ValueError:
+            return _bad_request("Invalid copy_id UUID format.")
+        try:
+            history = copy_status.list_copy_history(
+                actor=_principal_from_request(),
+                copy_id=copy_uuid,
+            )
+        except KeyError:
+            return _not_found("Copy not found.")
+        return jsonify({"items": [_copy_history_response(h) for h in history]})
+
     return copies
 
 
@@ -326,17 +465,33 @@ def _copy_response(copy: BookCopy) -> dict[str, Any]:
     }
 
 
-def _problem_response(status: int, title: str, detail: str) -> Response:
-    type_suffix = "bad-request"
-    if status == 404:
-        type_suffix = "not-found"
-    elif status == 409:
-        type_suffix = "conflict"
-    elif status == 403:
-        type_suffix = "forbidden"
+def _copy_history_response(h: CopyStatusHistory) -> dict[str, Any]:
+    return {
+        "history_id": str(h.history_id),
+        "copy_id": str(h.copy_id),
+        "from_status": h.from_status,
+        "to_status": h.to_status,
+        "reason": h.reason,
+        "actor_id": str(h.actor_id),
+        "created_at": h.created_at.isoformat(),
+    }
+
+
+def _problem_response(
+    status: int, title: str, detail: str, *, type_uri: str | None = None
+) -> Response:
+    if type_uri is None:
+        type_suffix = "bad-request"
+        if status == 404:
+            type_suffix = "not-found"
+        elif status == 409:
+            type_suffix = "conflict"
+        elif status == 403:
+            type_suffix = "forbidden"
+        type_uri = f"https://openlibraryos.example/problems/{type_suffix}"
     response = jsonify(
         {
-            "type": f"https://openlibraryos.example/problems/{type_suffix}",
+            "type": type_uri,
             "title": title,
             "status": status,
             "detail": detail,

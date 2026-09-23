@@ -73,6 +73,7 @@ def create_app(config: AppConfig) -> Flask:
                 config.inventory,
                 config.access_tokens,
                 config.tenant_request_context,
+                copy_status=config.copy_status,
             )
         )
         app.register_blueprint(
@@ -80,6 +81,7 @@ def create_app(config: AppConfig) -> Flask:
                 config.inventory,
                 config.access_tokens,
                 config.tenant_request_context,
+                copy_status=config.copy_status,
             )
         )
     return app

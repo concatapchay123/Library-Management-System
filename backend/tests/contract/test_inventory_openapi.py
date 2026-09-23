@@ -37,6 +37,16 @@ def test_inventory_contract_exposes_locations_and_book_copies() -> None:
 
     # Direct copies
     assert {"get", "patch"} <= set(paths["/copies/{copy_id}"])
+    assert "post" in paths["/copies/{copy_id}/status"]
+    assert paths["/copies/{copy_id}/status"]["post"]["responses"]["200"]["content"][
+        "application/json"
+    ]["schema"] == {"$ref": "#/components/schemas/BookCopy"}
+    assert "409" in paths["/copies/{copy_id}/status"]["post"]["responses"]
+
+    assert "get" in paths["/copies/{copy_id}/history"]
+    assert paths["/copies/{copy_id}/history"]["get"]["responses"]["200"]["content"][
+        "application/json"
+    ]["schema"] == {"$ref": "#/components/schemas/CopyStatusHistoryPage"}
 
     # Schemas
     schemas = contract["components"]["schemas"]
@@ -51,3 +61,14 @@ def test_inventory_contract_exposes_locations_and_book_copies() -> None:
         "condition_code",
     ]
     assert schemas["BookCopyWrite"]["required"] == ["location_id", "barcode"]
+    assert schemas["CopyStatusTransition"]["required"] == ["to_status", "reason"]
+    assert schemas["CopyStatusHistoryRecord"]["required"] == [
+        "history_id",
+        "copy_id",
+        "from_status",
+        "to_status",
+        "reason",
+        "actor_id",
+        "created_at",
+    ]
+    assert schemas["CopyStatusHistoryPage"]["required"] == ["items"]

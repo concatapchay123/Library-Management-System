@@ -1005,6 +1005,121 @@
           }
         }
       }
+    },
+    "/copies/{copy_id}/status": {
+      "parameters": [
+        {
+          "name": "copy_id",
+          "in": "path",
+          "required": true,
+          "schema": {
+            "type": "string",
+            "format": "uuid"
+          }
+        }
+      ],
+      "post": {
+        "operationId": "transitionCopyStatus",
+        "summary": "Transition physical copy status with reason and actor-attributed history.",
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CopyStatusTransition"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Physical copy status updated.",
+            "headers": {
+              "X-Request-ID": {
+                "$ref": "#/components/headers/X-Request-ID"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BookCopy"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/ProblemDetails"
+          },
+          "401": {
+            "$ref": "#/components/responses/AuthenticationFailed"
+          },
+          "403": {
+            "$ref": "#/components/responses/ProblemDetails"
+          },
+          "404": {
+            "$ref": "#/components/responses/ProblemDetails"
+          },
+          "409": {
+            "$ref": "#/components/responses/ProblemDetails"
+          }
+        }
+      }
+    },
+    "/copies/{copy_id}/history": {
+      "parameters": [
+        {
+          "name": "copy_id",
+          "in": "path",
+          "required": true,
+          "schema": {
+            "type": "string",
+            "format": "uuid"
+          }
+        }
+      ],
+      "get": {
+        "operationId": "listCopyStatusHistory",
+        "summary": "List append-only status transition history for a physical copy.",
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "History of status transitions for the copy.",
+            "headers": {
+              "X-Request-ID": {
+                "$ref": "#/components/headers/X-Request-ID"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CopyStatusHistoryPage"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/ProblemDetails"
+          },
+          "401": {
+            "$ref": "#/components/responses/AuthenticationFailed"
+          },
+          "403": {
+            "$ref": "#/components/responses/ProblemDetails"
+          },
+          "404": {
+            "$ref": "#/components/responses/ProblemDetails"
+          }
+        }
+      }
     }
   },
   "components": {
@@ -1506,6 +1621,86 @@
             "type": "array",
             "items": {
               "$ref": "#/components/schemas/BookCopy"
+            }
+          }
+        },
+        "additionalProperties": false
+      },
+      "CopyStatusTransition": {
+        "type": "object",
+        "required": [
+          "to_status",
+          "reason"
+        ],
+        "properties": {
+          "to_status": {
+            "type": "string",
+            "enum": [
+              "available",
+              "borrowed",
+              "lost",
+              "damaged",
+              "maintenance"
+            ]
+          },
+          "reason": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 500
+          }
+        },
+        "additionalProperties": false
+      },
+      "CopyStatusHistoryRecord": {
+        "type": "object",
+        "required": [
+          "history_id",
+          "copy_id",
+          "from_status",
+          "to_status",
+          "reason",
+          "actor_id",
+          "created_at"
+        ],
+        "properties": {
+          "history_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "copy_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "from_status": {
+            "type": "string"
+          },
+          "to_status": {
+            "type": "string"
+          },
+          "reason": {
+            "type": "string"
+          },
+          "actor_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "additionalProperties": false
+      },
+      "CopyStatusHistoryPage": {
+        "type": "object",
+        "required": [
+          "items"
+        ],
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CopyStatusHistoryRecord"
             }
           }
         },

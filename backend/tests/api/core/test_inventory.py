@@ -7,17 +7,29 @@ from uuid import UUID, uuid4
 
 import pytest
 
+from datetime import datetime, timezone
+
 from openlibrary.app.config import AppConfig
 from openlibrary.app.factory import create_app
 from openlibrary.modules.core.application.access_tokens import Principal
 from openlibrary.modules.core.application.authorization import AuthorizationDenied
 from openlibrary.modules.core.application.books import Book
+from openlibrary.modules.core.application.copy_status import (
+    CopyStatusHistory,
+    CopyStatusService,
+)
 from openlibrary.modules.core.application.inventory import (
     BookCopy,
     DuplicateBarcodeError,
     DuplicateLocationCodeError,
     InventoryService,
     Location,
+)
+from openlibrary.modules.core.domain.copy_status import CopyStatus
+from openlibrary.modules.ops.application.persistence import (
+    AuditEvent,
+    AuditedTransaction,
+    OutboxEvent,
 )
 
 ORGANIZATION_A = uuid4()
@@ -31,6 +43,7 @@ class _InMemoryInventoryStore:
     locations: dict[UUID, Location] = field(default_factory=dict)
     copies: dict[UUID, BookCopy] = field(default_factory=dict)
     books: dict[UUID, Book] = field(default_factory=dict)
+    history: list[CopyStatusHistory] = field(default_factory=list)
 
     def create_location(self, location: Location, *, actor: Principal) -> Location:
         assert location.organization_id == actor.organization_id
@@ -124,6 +137,55 @@ class _InMemoryInventoryStore:
             for c in self.copies.values()
             if c.organization_id == organization_id and c.book_id == book_id
         ]
+
+    def update_copy_status(
+        self, organization_id: UUID, copy_id: UUID, to_status: str
+    ) -> BookCopy:
+        copy = self.get_copy(organization_id, copy_id)
+        updated = BookCopy(
+            copy_id=copy.copy_id,
+            organization_id=copy.organization_id,
+            book_id=copy.book_id,
+            barcode=copy.barcode,
+            location_id=copy.location_id,
+            status=to_status,
+            condition_code=copy.condition_code,
+            acquired_at=copy.acquired_at,
+            created_at=copy.created_at,
+            updated_at=datetime.now(timezone.utc),
+        )
+        self.copies[copy_id] = updated
+        return updated
+
+    def append_history(self, record: CopyStatusHistory) -> CopyStatusHistory:
+        self.history.append(record)
+        return record
+
+    def list_history_for_copy(
+        self, organization_id: UUID, copy_id: UUID
+    ) -> list[CopyStatusHistory]:
+        return [
+            h
+            for h in self.history
+            if h.organization_id == organization_id and h.copy_id == copy_id
+        ]
+
+
+class _InMemoryAuditedTx(AuditedTransaction):
+    def __init__(self) -> None:
+        self.audit_events: list[AuditEvent] = []
+        self.outbox_events: list[OutboxEvent] = []
+
+    def run(
+        self,
+        connection: object,
+        mutation: object,
+        audit_event: AuditEvent,
+        outbox_events: object,
+    ) -> object:
+        result = mutation(connection)  # type: ignore[operator]
+        self.audit_events.append(audit_event)
+        return result
 
 
 class _Authorizer:
@@ -494,3 +556,126 @@ def test_inventory_http_endpoints_and_tenant_isolation() -> None:
         headers={"Authorization": "Bearer tenant-a"},
     )
     assert resp_bad_uuid.status_code == 400
+
+
+def test_copy_status_http_endpoints_and_history() -> None:
+    store = _InMemoryInventoryStore()
+    inv_service = InventoryService(
+        store, _Authorizer({"inventory.manage", "inventory.read", "catalog.read"})
+    )
+    tx = _InMemoryAuditedTx()
+    status_service = CopyStatusService(
+        store=store,
+        authorizer=_Authorizer({"inventory.manage", "inventory.read", "catalog.read"}),
+        transaction=tx,
+    )
+
+    book = _make_book(ORGANIZATION_A, "Status Test Title")
+    store.books[book.book_id] = book
+
+    loc = inv_service.create_location(
+        actor=ACTOR_A, name="Main Shelf", code="MAIN-SH", parent_location_id=None
+    )
+    copy = inv_service.create_copy(
+        actor=ACTOR_A,
+        book_id=book.book_id,
+        location_id=loc.location_id,
+        barcode="BC-STATUS-001",
+    )
+    assert copy.status == CopyStatus.AVAILABLE
+
+    app = create_app(
+        AppConfig(
+            readiness_probe=lambda: True,
+            access_tokens=_AccessTokens(),  # type: ignore[arg-type]
+            inventory=inv_service,
+            copy_status=status_service,
+        )
+    )
+    client = app.test_client()
+
+    # 1. POST /api/v1/copies/<copy_id>/status: transition to maintenance
+    resp_trans = client.post(
+        f"/api/v1/copies/{copy.copy_id}/status",
+        headers={"Authorization": "Bearer tenant-a"},
+        json={
+            "to_status": CopyStatus.MAINTENANCE,
+            "reason": "Routine rebinding and spine repair",
+        },
+    )
+    assert resp_trans.status_code == 200
+    data = resp_trans.get_json()
+    assert data["status"] == CopyStatus.MAINTENANCE
+
+    # Exactly 1 audit record written
+    assert len(tx.audit_events) == 1
+    assert tx.audit_events[0].action == "copy.status_changed"
+
+    # 2. GET /api/v1/copies/<copy_id>/history
+    resp_hist = client.get(
+        f"/api/v1/copies/{copy.copy_id}/history",
+        headers={"Authorization": "Bearer tenant-a"},
+    )
+    assert resp_hist.status_code == 200
+    hist_items = resp_hist.get_json()["items"]
+    assert len(hist_items) == 1
+    assert hist_items[0]["from_status"] == CopyStatus.AVAILABLE
+    assert hist_items[0]["to_status"] == CopyStatus.MAINTENANCE
+    assert hist_items[0]["reason"] == "Routine rebinding and spine repair"
+    assert hist_items[0]["actor_id"] == str(ACTOR_A.user_id)
+
+    # 3. Rejected transition: maintenance -> borrowed returns 409 Problem Details
+    resp_rejected = client.post(
+        f"/api/v1/copies/{copy.copy_id}/status",
+        headers={"Authorization": "Bearer tenant-a"},
+        json={
+            "to_status": CopyStatus.BORROWED,
+            "reason": "Attempting invalid checkout from maintenance",
+        },
+    )
+    assert resp_rejected.status_code == 409
+    assert resp_rejected.mimetype == "application/problem+json"
+    problem = resp_rejected.get_json()
+    assert (
+        problem["type"]
+        == "https://openlibraryos.example/problems/invalid-copy-status-transition"
+    )
+    assert problem["status"] == 409
+    assert "Cannot transition copy status" in problem["detail"]
+
+    # 4. Nested route: POST /api/v1/books/<book_id>/copies/<copy_id>/status: restore to available
+    resp_nested = client.post(
+        f"/api/v1/books/{book.book_id}/copies/{copy.copy_id}/status",
+        headers={"Authorization": "Bearer tenant-a"},
+        json={
+            "to_status": CopyStatus.AVAILABLE,
+            "reason": "Maintenance complete, returned to circulation",
+        },
+    )
+    assert resp_nested.status_code == 200
+    assert resp_nested.get_json()["status"] == CopyStatus.AVAILABLE
+
+    # 5. Nested route: GET /api/v1/books/<book_id>/copies/<copy_id>/history
+    resp_nested_hist = client.get(
+        f"/api/v1/books/{book.book_id}/copies/{copy.copy_id}/history",
+        headers={"Authorization": "Bearer tenant-a"},
+    )
+    assert resp_nested_hist.status_code == 200
+    assert len(resp_nested_hist.get_json()["items"]) == 2
+
+    # 6. Invalid payload: empty reason returns 400
+    resp_bad = client.post(
+        f"/api/v1/copies/{copy.copy_id}/status",
+        headers={"Authorization": "Bearer tenant-a"},
+        json={"to_status": CopyStatus.DAMAGED, "reason": "  "},
+    )
+    assert resp_bad.status_code == 400
+    assert resp_bad.mimetype == "application/problem+json"
+
+    # 7. Tenant isolation: Tenant B cannot transition Tenant A's copy
+    resp_tenant_b = client.post(
+        f"/api/v1/copies/{copy.copy_id}/status",
+        headers={"Authorization": "Bearer tenant-b"},
+        json={"to_status": CopyStatus.DAMAGED, "reason": "Tenant cross test"},
+    )
+    assert resp_tenant_b.status_code == 404
