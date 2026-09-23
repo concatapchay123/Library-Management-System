@@ -31,6 +31,8 @@ from openlibrary.modules.public_library.domain import (
     MembershipPlan,
     Payment,
     PaymentAllocation,
+    PaymentEvent,
+    PaymentNotFoundError,
     ProfileAlreadyExistsError,
     Subscription,
 )
@@ -847,6 +849,33 @@ class SqlServerPublicLibraryStore(PublicLibraryStore):
             rows = connection.execute(text(sql), params).mappings().all()
         return [_payment_from_row(r) for r in rows]
 
+    def get_payment_by_provider_reference(
+        self,
+        organization_id: UUID,
+        provider: str,
+        provider_reference: str,
+    ) -> Payment | None:
+        with self._tenant_connection(organization_id) as connection:
+            row = (
+                connection.execute(
+                    text(
+                        "SELECT payment_id, organization_id, member_id, amount, currency, provider, provider_reference, provider_event_id, status, paid_at, created_at, updated_at "
+                        "FROM public_library.payments "
+                        "WHERE organization_id = :org_id AND provider = :provider AND provider_reference = :provider_reference"
+                    ),
+                    {
+                        "org_id": str(organization_id),
+                        "provider": provider,
+                        "provider_reference": provider_reference,
+                    },
+                )
+                .mappings()
+                .one_or_none()
+            )
+        if row is None:
+            return None
+        return _payment_from_row(row)
+
     def update_payment(self, payment: Payment) -> Payment:
         with self._tenant_connection(payment.organization_id) as connection:
             connection.execute(
@@ -864,6 +893,91 @@ class SqlServerPublicLibraryStore(PublicLibraryStore):
                 },
             )
         return payment
+
+    def update_payment_status(
+        self,
+        organization_id: UUID,
+        payment_id: UUID,
+        status: str,
+        updated_at: datetime,
+        *,
+        paid_at: datetime | None = None,
+        provider_event_id: str | None = None,
+    ) -> Payment:
+        with self._tenant_connection(organization_id) as connection:
+            connection.execute(
+                text(
+                    "UPDATE public_library.payments "
+                    "SET status = :status, "
+                    "paid_at = COALESCE(:paid_at, paid_at), "
+                    "provider_event_id = COALESCE(:provider_event_id, provider_event_id), "
+                    "updated_at = :updated_at "
+                    "WHERE organization_id = :org_id AND payment_id = :payment_id"
+                ),
+                {
+                    "status": status,
+                    "paid_at": paid_at,
+                    "provider_event_id": provider_event_id,
+                    "updated_at": updated_at,
+                    "org_id": str(organization_id),
+                    "payment_id": str(payment_id),
+                },
+            )
+        payment = self.get_payment(organization_id, payment_id)
+        if payment is None:
+            raise PaymentNotFoundError(f"Payment {payment_id} not found")
+        return payment
+
+    def record_payment_event(self, event: PaymentEvent) -> PaymentEvent:
+        with self._tenant_connection(event.organization_id) as connection:
+            connection.execute(
+                text(
+                    "INSERT INTO public_library.payment_events ("
+                    "event_id, organization_id, provider, provider_event_id, event_type, payload_hash, payment_id, status, created_at"
+                    ") VALUES ("
+                    ":event_id, :org_id, :provider, :provider_event_id, :event_type, :payload_hash, :payment_id, :status, :created_at"
+                    ")"
+                ),
+                {
+                    "event_id": str(event.event_id),
+                    "org_id": str(event.organization_id),
+                    "provider": event.provider,
+                    "provider_event_id": event.provider_event_id,
+                    "event_type": event.event_type,
+                    "payload_hash": event.payload_hash,
+                    "payment_id": str(event.payment_id) if event.payment_id else None,
+                    "status": event.status,
+                    "created_at": event.created_at,
+                },
+            )
+        return event
+
+    def get_payment_event(
+        self,
+        organization_id: UUID,
+        provider: str,
+        provider_event_id: str,
+    ) -> PaymentEvent | None:
+        with self._tenant_connection(organization_id) as connection:
+            row = (
+                connection.execute(
+                    text(
+                        "SELECT event_id, organization_id, provider, provider_event_id, event_type, payload_hash, payment_id, status, created_at "
+                        "FROM public_library.payment_events "
+                        "WHERE organization_id = :org_id AND provider = :provider AND provider_event_id = :provider_event_id"
+                    ),
+                    {
+                        "org_id": str(organization_id),
+                        "provider": provider,
+                        "provider_event_id": provider_event_id,
+                    },
+                )
+                .mappings()
+                .one_or_none()
+            )
+        if row is None:
+            return None
+        return _payment_event_from_row(row)
 
     # --- Allocations ---
 
@@ -1080,4 +1194,19 @@ def _allocation_from_row(row: RowMapping) -> PaymentAllocation:
         allocation_type=str(row["allocation_type"]),
         created_at=row["created_at"],
         invoice_id=UUID(str(inv_val)) if inv_val is not None else None,
+    )
+
+
+def _payment_event_from_row(row: RowMapping) -> PaymentEvent:
+    pay_id_val = row["payment_id"]
+    return PaymentEvent(
+        event_id=UUID(str(row["event_id"])),
+        organization_id=UUID(str(row["organization_id"])),
+        provider=str(row["provider"]),
+        provider_event_id=str(row["provider_event_id"]),
+        event_type=str(row["event_type"]),
+        payload_hash=str(row["payload_hash"]),
+        status=str(row["status"]),
+        created_at=row["created_at"],
+        payment_id=UUID(str(pay_id_val)) if pay_id_val is not None else None,
     )

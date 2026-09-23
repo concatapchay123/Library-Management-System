@@ -27,14 +27,18 @@ from openlibrary.modules.public_library.domain import (
     AllocationType,
     CurrencyMismatchError,
     DuplicateIdentifierError,
+    DuplicateProviderEventError,
+    DuplicateProviderReferenceError,
     EditionUnavailableError,
     Fine,
     FineAlreadyClosedError,
     FineNotFoundError,
     InvalidAllocationAmountError,
     InvalidMoneyError,
+    InvalidPaymentStateTransitionError,
     InvalidPlanError,
     InvalidSubscriptionDatesError,
+    InvalidWebhookSignatureError,
     Invoice,
     InvoiceImmutableError,
     InvoiceLine,
@@ -43,11 +47,14 @@ from openlibrary.modules.public_library.domain import (
     MemberNotFoundError,
     MembershipPlan,
     MembershipPlanNotFoundError,
+    MissingWebhookSignatureError,
     OverAllocationError,
+    OverRefundError,
     Payment,
     PaymentAllocation,
     PaymentNotFoundError,
     ProfileAlreadyExistsError,
+    StaleWebhookTimestampError,
     Subscription,
     SubscriptionInactiveError,
     SubscriptionNotFoundError,
@@ -232,9 +239,32 @@ def _handle_public_library_error(err: Exception) -> Response:
     ):
         return _problem(404, "Not Found", str(err), "not-found")
     if isinstance(
-        err, (InvoiceImmutableError, OverAllocationError, FineAlreadyClosedError)
+        err,
+        (
+            InvoiceImmutableError,
+            OverAllocationError,
+            FineAlreadyClosedError,
+            DuplicateProviderReferenceError,
+            DuplicateProviderEventError,
+            InvalidPaymentStateTransitionError,
+            OverRefundError,
+        ),
     ):
         return _problem(409, "Financial Conflict", str(err), "financial-conflict")
+    if isinstance(err, InvalidWebhookSignatureError):
+        return _problem(
+            401,
+            "Invalid Webhook Signature",
+            str(err),
+            "invalid-webhook-signature",
+        )
+    if isinstance(err, (MissingWebhookSignatureError, StaleWebhookTimestampError)):
+        return _problem(
+            400,
+            "Bad Webhook Request",
+            str(err),
+            "bad-webhook-request",
+        )
     if isinstance(
         err,
         (
@@ -893,6 +923,76 @@ def create_public_library_blueprint(
                 payment_id=payment_id,
             )
             return jsonify({"items": [_allocation_dict(a) for a in allocs]})
+        except Exception as err:
+            return _handle_public_library_error(err)
+
+    @bp.post("/payments/<uuid:payment_id>/refund")
+    @_require_principal(access_tokens, tenant_request_context)
+    def refund_payment(payment_id: UUID) -> Response:
+        try:
+            body = request.get_json(force=True) or {}
+            amount = _parse_decimal(body.get("amount"), "amount")
+            raw_fine_id = body.get("fine_id")
+            fine_id = UUID(str(raw_fine_id)) if raw_fine_id else None
+            reason = str(body.get("reason", ""))
+
+            allocation = fin_service.refund_payment(
+                actor=_principal_from_request(),
+                payment_id=payment_id,
+                amount=amount,
+                fine_id=fine_id,
+                reason=reason,
+            )
+            response = jsonify(_allocation_dict(allocation))
+            response.status_code = 201
+            return response
+        except Exception as err:
+            return _handle_public_library_error(err)
+
+    @bp.post("/payments/<uuid:payment_id>/reconcile")
+    @_require_principal(access_tokens, tenant_request_context)
+    def reconcile_payment(payment_id: UUID) -> Response:
+        try:
+            principal = _principal_from_request()
+            payment = fin_service.reconcile_pending_payment(
+                organization_id=principal.organization_id,
+                payment_id=payment_id,
+            )
+            return jsonify(_payment_dict(payment))
+        except Exception as err:
+            return _handle_public_library_error(err)
+
+    @bp.post("/payments/webhooks/<provider>")
+    def handle_payment_webhook(provider: str) -> Response:
+        try:
+            raw_org_id = request.args.get("organization_id") or request.headers.get(
+                "X-Organization-Id"
+            )
+            if not raw_org_id:
+                raise ValueError(
+                    "organization_id query parameter or X-Organization-Id header is required"
+                )
+            try:
+                org_id = UUID(str(raw_org_id))
+            except Exception as e:
+                raise ValueError(f"Invalid organization_id UUID: {raw_org_id}") from e
+
+            raw_body = request.get_data()
+            headers = dict(request.headers)
+
+            def _process() -> Response:
+                payment = fin_service.handle_payment_webhook(
+                    organization_id=org_id,
+                    provider=provider,
+                    raw_body=raw_body,
+                    headers=headers,
+                )
+                return jsonify(_payment_dict(payment))
+
+            if tenant_request_context is not None:
+                with tenant_request_context.request(org_id):
+                    return _process()
+            return _process()
         except Exception as err:
             return _handle_public_library_error(err)
 

@@ -2,10 +2,12 @@
 
 from __future__ import annotations
 
-from collections.abc import Callable
+from collections.abc import Callable, Mapping
 from contextlib import AbstractContextManager
 from datetime import datetime, timezone
 from decimal import Decimal
+import hashlib
+import json
 from typing import Any, Protocol, TypeVar
 from uuid import UUID, uuid4
 
@@ -22,6 +24,7 @@ from openlibrary.modules.public_library.domain import (
     AllocationType,
     CurrencyMismatchError,
     DuplicateIdentifierError,
+    DuplicateProviderReferenceError,
     EditionUnavailableError,
     Fine,
     FineAlreadyClosedError,
@@ -29,7 +32,9 @@ from openlibrary.modules.public_library.domain import (
     FineStatus,
     InvalidAllocationAmountError,
     InvalidMoneyError,
+    InvalidPaymentStateTransitionError,
     InvalidPlanError,
+    InvalidWebhookSignatureError,
     Invoice,
     InvoiceImmutableError,
     InvoiceLine,
@@ -42,8 +47,10 @@ from openlibrary.modules.public_library.domain import (
     MembershipPlanNotFoundError,
     Money,
     OverAllocationError,
+    OverRefundError,
     Payment,
     PaymentAllocation,
+    PaymentEvent,
     PaymentNotFoundError,
     PaymentStatus,
     PlanStatus,
@@ -53,8 +60,13 @@ from openlibrary.modules.public_library.domain import (
     SubscriptionNotFoundError,
     SubscriptionStatus,
     calculate_overdue_fine,
+    validate_payment_transition,
     validate_plan_limits,
     validate_subscription_dates,
+)
+from openlibrary.modules.public_library.webhooks import (
+    PaymentProviderPort,
+    WebhookSignatureVerifier,
 )
 
 T = TypeVar("T")
@@ -173,6 +185,13 @@ class PublicLibraryStore(Protocol):
         self, organization_id: UUID, payment_id: UUID
     ) -> Payment | None: ...
 
+    def get_payment_by_provider_reference(
+        self,
+        organization_id: UUID,
+        provider: str,
+        provider_reference: str,
+    ) -> Payment | None: ...
+
     def list_payments(
         self,
         organization_id: UUID,
@@ -182,6 +201,26 @@ class PublicLibraryStore(Protocol):
     ) -> list[Payment]: ...
 
     def update_payment(self, payment: Payment) -> Payment: ...
+
+    def update_payment_status(
+        self,
+        organization_id: UUID,
+        payment_id: UUID,
+        status: str,
+        updated_at: datetime,
+        *,
+        paid_at: datetime | None = None,
+        provider_event_id: str | None = None,
+    ) -> Payment: ...
+
+    def record_payment_event(self, event: PaymentEvent) -> PaymentEvent: ...
+
+    def get_payment_event(
+        self,
+        organization_id: UUID,
+        provider: str,
+        provider_event_id: str,
+    ) -> PaymentEvent | None: ...
 
     # --- Allocations ---
 
@@ -555,12 +594,16 @@ class PublicLibraryFinanceService:
         connection_provider: Callable[[UUID], AbstractContextManager[Any]]
         | None = None,
         clock: Callable[[], datetime] | None = None,
+        payment_provider: PaymentProviderPort | None = None,
+        webhook_verifier: WebhookSignatureVerifier | None = None,
     ) -> None:
         self._store = store
         self._authorizer = authorizer
         self._transaction = transaction
         self._connection_provider = connection_provider
         self._clock = clock or _system_now
+        self._payment_provider = payment_provider
+        self._webhook_verifier = webhook_verifier or WebhookSignatureVerifier()
 
     def _ensure_edition_enabled(self, organization_id: UUID) -> None:
         if not self._store.is_edition_enabled(organization_id):
@@ -1077,10 +1120,25 @@ class PublicLibraryFinanceService:
         provider: str = "manual",
         provider_reference: str | None = None,
         provider_event_id: str | None = None,
+        initial_status: str = PaymentStatus.SUCCEEDED,
         correlation_id: UUID | None = None,
     ) -> Payment:
         self._ensure_edition_enabled(actor.organization_id)
         self._authorizer.require(actor, "public_library.manage")
+
+        if initial_status not in PaymentStatus.ALL:
+            raise InvalidPaymentStateTransitionError(
+                f"Invalid payment status: {initial_status}"
+            )
+
+        if provider_reference is not None:
+            existing_ref = self._store.get_payment_by_provider_reference(
+                actor.organization_id, provider, provider_reference
+            )
+            if existing_ref is not None:
+                raise DuplicateProviderReferenceError(
+                    f"Payment with provider '{provider}' and reference '{provider_reference}' already exists for organization {actor.organization_id}"
+                )
 
         member = self._store.get_member(actor.organization_id, member_id)
         if member is None:
@@ -1091,6 +1149,7 @@ class PublicLibraryFinanceService:
         money = Money(amount, currency)
         now = self._clock()
         pay_id = uuid4()
+        paid_at = now if initial_status == PaymentStatus.SUCCEEDED else None
         payment = Payment(
             payment_id=pay_id,
             organization_id=actor.organization_id,
@@ -1098,12 +1157,12 @@ class PublicLibraryFinanceService:
             amount=money.amount,
             currency=money.currency,
             provider=provider,
-            status=PaymentStatus.SUCCEEDED,
+            status=initial_status,
             created_at=now,
             updated_at=now,
             provider_reference=provider_reference,
             provider_event_id=provider_event_id,
-            paid_at=now,
+            paid_at=paid_at,
         )
 
         audit_corr = correlation_id or uuid4()
@@ -1118,7 +1177,7 @@ class PublicLibraryFinanceService:
                 "amount": str(money.amount),
                 "currency": money.currency,
                 "provider": provider,
-                "status": PaymentStatus.SUCCEEDED,
+                "status": initial_status,
             },
             correlation_id=audit_corr,
             actor_user_id=actor.user_id,
@@ -1136,6 +1195,7 @@ class PublicLibraryFinanceService:
                 "amount": str(money.amount),
                 "currency": money.currency,
                 "provider": provider,
+                "status": initial_status,
             },
             correlation_id=audit_corr,
             idempotency_key=f"payment:{pay_id}:recorded",
@@ -1144,6 +1204,373 @@ class PublicLibraryFinanceService:
         return self._execute_transaction(
             actor.organization_id,
             lambda conn: self._store.create_payment(payment),
+            audit_event,
+            outbox_event,
+        )
+
+    def transition_payment_status(
+        self,
+        *,
+        actor: Principal,
+        payment_id: UUID,
+        new_status: str,
+        provider_event_id: str | None = None,
+        correlation_id: UUID | None = None,
+    ) -> Payment:
+        self._ensure_edition_enabled(actor.organization_id)
+        self._authorizer.require(actor, "public_library.manage")
+
+        payment = self.get_payment(actor=actor, payment_id=payment_id)
+        if payment.status == new_status:
+            return payment
+
+        validate_payment_transition(payment.status, new_status)
+        now = self._clock()
+        paid_at = payment.paid_at
+        if new_status == PaymentStatus.SUCCEEDED and paid_at is None:
+            paid_at = now
+
+        audit_corr = correlation_id or uuid4()
+        audit_event = AuditEvent(
+            action="payment.status_changed",
+            entity_type="payment",
+            entity_id=payment_id,
+            payload={
+                "payment_id": str(payment_id),
+                "organization_id": str(actor.organization_id),
+                "previous_status": payment.status,
+                "new_status": new_status,
+            },
+            correlation_id=audit_corr,
+            actor_user_id=actor.user_id,
+            actor_type="user",
+        )
+        outbox_event = OutboxEvent(
+            event_type="public_library.payment_status_changed",
+            aggregate_type="payment",
+            aggregate_id=payment_id,
+            payload_version=1,
+            payload={
+                "payment_id": str(payment_id),
+                "organization_id": str(actor.organization_id),
+                "previous_status": payment.status,
+                "new_status": new_status,
+            },
+            correlation_id=audit_corr,
+            idempotency_key=f"payment:{payment_id}:status:{new_status}",
+        )
+
+        return self._execute_transaction(
+            actor.organization_id,
+            lambda conn: self._store.update_payment_status(
+                actor.organization_id,
+                payment_id,
+                new_status,
+                now,
+                paid_at=paid_at,
+                provider_event_id=provider_event_id,
+            ),
+            audit_event,
+            outbox_event,
+        )
+
+    def handle_payment_webhook(
+        self,
+        *,
+        organization_id: UUID,
+        provider: str,
+        raw_body: bytes,
+        headers: Mapping[str, str],
+        secret: str | None = None,
+        correlation_id: UUID | None = None,
+    ) -> Payment:
+        """Verify provider signature on raw body, deduplicate events, and update payment state."""
+        self._ensure_edition_enabled(organization_id)
+
+        if secret is None:
+            if self._payment_provider is not None:
+                if hasattr(self._payment_provider, "get_webhook_secret"):
+                    secret = self._payment_provider.get_webhook_secret(
+                        organization_id=organization_id, provider=provider
+                    )
+                elif hasattr(self._payment_provider, "secret"):
+                    secret = getattr(self._payment_provider, "secret")
+            if not secret:
+                import os
+
+                secret = os.environ.get(
+                    f"PAYMENT_WEBHOOK_SECRET_{provider.upper()}",
+                    os.environ.get("PAYMENT_WEBHOOK_SECRET", ""),
+                )
+            if not secret:
+                raise InvalidWebhookSignatureError(
+                    f"No webhook secret configured for payment provider '{provider}'"
+                )
+
+        # 1. Verify signature on raw request body BEFORE payload parsing
+        self._webhook_verifier.verify(
+            provider=provider,
+            raw_body=raw_body,
+            headers=headers,
+            secret=secret,
+            current_time=self._clock(),
+        )
+
+        # 2. Parse payload ONLY after signature verification succeeds
+        try:
+            body = json.loads(raw_body.decode("utf-8"))
+        except Exception as exc:
+            raise ValueError("Malformed JSON payload in webhook body") from exc
+
+        if not isinstance(body, dict):
+            raise ValueError("Webhook body must be a JSON object")
+
+        event_id = str(body.get("event_id") or body.get("id") or "").strip()
+        if not event_id:
+            raise ValueError("Webhook payload missing event identifier")
+
+        event_type = str(
+            body.get("event_type") or body.get("type") or "payment.succeeded"
+        ).strip()
+        data_raw = body.get("data")
+        data: dict[str, Any] = data_raw if isinstance(data_raw, dict) else body
+        provider_ref = (
+            str(data.get("provider_reference") or data.get("id") or "").strip() or None
+        )
+
+        # 3. Check duplicate provider event: (organization_id, provider, provider_event_id)
+        existing_event = self._store.get_payment_event(
+            organization_id, provider, event_id
+        )
+        if existing_event is not None:
+            if existing_event.payment_id is not None:
+                existing_payment = self._store.get_payment(
+                    organization_id, existing_event.payment_id
+                )
+                if existing_payment is not None:
+                    return existing_payment
+            if provider_ref is not None:
+                existing_payment = self._store.get_payment_by_provider_reference(
+                    organization_id, provider, provider_ref
+                )
+                if existing_payment is not None:
+                    return existing_payment
+
+        now = self._clock()
+        payload_hash = hashlib.sha256(raw_body).hexdigest()
+
+        # 4. Map event_type to target payment status
+        if event_type in (
+            "payment.succeeded",
+            "charge.succeeded",
+            "payment_intent.succeeded",
+        ):
+            target_status = PaymentStatus.SUCCEEDED
+        elif event_type in (
+            "payment.failed",
+            "charge.failed",
+            "payment_intent.payment_failed",
+        ):
+            target_status = PaymentStatus.FAILED
+        elif event_type in ("payment.refunded", "charge.refunded"):
+            target_status = PaymentStatus.REFUNDED
+        elif event_type in ("payment.disputed", "charge.dispute.created"):
+            target_status = PaymentStatus.DISPUTED
+        elif event_type in (
+            "payment.authorized",
+            "payment_intent.amount_capturable_updated",
+        ):
+            target_status = PaymentStatus.AUTHORIZED
+        else:
+            target_status = PaymentStatus.PENDING
+
+        # 5. Resolve target payment
+        target_payment: Payment | None = None
+        if provider_ref:
+            target_payment = self._store.get_payment_by_provider_reference(
+                organization_id, provider, provider_ref
+            )
+
+        paid_at = now if target_status == PaymentStatus.SUCCEEDED else None
+
+        if target_payment is not None:
+            if target_status != target_payment.status:
+                validate_payment_transition(target_payment.status, target_status)
+                if target_payment.paid_at is not None:
+                    paid_at = target_payment.paid_at
+
+                target_payment = self._store.update_payment_status(
+                    organization_id,
+                    target_payment.payment_id,
+                    target_status,
+                    now,
+                    paid_at=paid_at,
+                    provider_event_id=event_id,
+                )
+        else:
+            raw_member_id = data.get("member_id")
+            if not raw_member_id:
+                raise PaymentNotFoundError(
+                    f"No existing payment found for provider reference '{provider_ref}' and member_id not provided"
+                )
+            amount_val = Decimal(str(data.get("amount", "0")))
+            currency_val = str(data.get("currency", "USD"))
+            money = Money(amount_val, currency_val)
+            pay_id = uuid4()
+            created_payment = Payment(
+                payment_id=pay_id,
+                organization_id=organization_id,
+                member_id=UUID(str(raw_member_id)),
+                amount=money.amount,
+                currency=money.currency,
+                provider=provider,
+                status=target_status,
+                created_at=now,
+                updated_at=now,
+                provider_reference=provider_ref,
+                provider_event_id=event_id,
+                paid_at=paid_at,
+            )
+            target_payment = self._store.create_payment(created_payment)
+
+        # 6. Record PaymentEvent for deduplication
+        event_record = PaymentEvent(
+            event_id=uuid4(),
+            organization_id=organization_id,
+            provider=provider,
+            provider_event_id=event_id,
+            event_type=event_type,
+            payload_hash=payload_hash,
+            status="processed",
+            created_at=now,
+            payment_id=target_payment.payment_id,
+        )
+        self._store.record_payment_event(event_record)
+
+        # 7. Audit & Outbox: sanitized fields only! NEVER raw body, secrets, card data
+        audit_corr = correlation_id or uuid4()
+        audit_event = AuditEvent(
+            action="payment.webhook_processed",
+            entity_type="payment",
+            entity_id=target_payment.payment_id,
+            payload={
+                "payment_id": str(target_payment.payment_id),
+                "organization_id": str(organization_id),
+                "provider": provider,
+                "provider_event_id": event_id,
+                "event_type": event_type,
+                "status": target_payment.status,
+                "amount": str(target_payment.amount),
+                "currency": target_payment.currency,
+            },
+            correlation_id=audit_corr,
+            actor_type="system",
+        )
+        outbox_event = OutboxEvent(
+            event_type="public_library.payment_webhook_processed",
+            aggregate_type="payment",
+            aggregate_id=target_payment.payment_id,
+            payload_version=1,
+            payload={
+                "payment_id": str(target_payment.payment_id),
+                "organization_id": str(organization_id),
+                "provider": provider,
+                "provider_event_id": event_id,
+                "event_type": event_type,
+                "status": target_payment.status,
+            },
+            correlation_id=audit_corr,
+            idempotency_key=f"payment_event:{organization_id}:{provider}:{event_id}",
+        )
+
+        return self._execute_transaction(
+            organization_id,
+            lambda conn: target_payment,
+            audit_event,
+            outbox_event,
+        )
+
+    def reconcile_pending_payment(
+        self,
+        *,
+        organization_id: UUID,
+        payment_id: UUID,
+        correlation_id: UUID | None = None,
+    ) -> Payment:
+        """Query provider out-of-band to reconcile pending payment without failing on timeout."""
+        self._ensure_edition_enabled(organization_id)
+        payment = self._store.get_payment(organization_id, payment_id)
+        if payment is None:
+            raise PaymentNotFoundError(
+                f"Payment {payment_id} not found in organization {organization_id}"
+            )
+
+        if payment.status != PaymentStatus.PENDING:
+            return payment
+
+        if payment.provider_reference is None or self._payment_provider is None:
+            return payment
+
+        try:
+            status_res = self._payment_provider.get_payment_status(
+                provider=payment.provider,
+                provider_reference=payment.provider_reference,
+            )
+        except Exception:
+            # Remote timeout or error: payment remains pending
+            return payment
+
+        if status_res.status == PaymentStatus.PENDING:
+            # Provider indicates still pending: remain pending
+            return payment
+
+        now = self._clock()
+        paid_at = status_res.paid_at or (
+            now if status_res.status == PaymentStatus.SUCCEEDED else None
+        )
+
+        validate_payment_transition(payment.status, status_res.status)
+
+        audit_corr = correlation_id or uuid4()
+        audit_event = AuditEvent(
+            action="payment.reconciled",
+            entity_type="payment",
+            entity_id=payment_id,
+            payload={
+                "payment_id": str(payment_id),
+                "organization_id": str(organization_id),
+                "provider": payment.provider,
+                "provider_reference": payment.provider_reference,
+                "status": status_res.status,
+            },
+            correlation_id=audit_corr,
+            actor_type="system",
+        )
+        outbox_event = OutboxEvent(
+            event_type="public_library.payment_reconciled",
+            aggregate_type="payment",
+            aggregate_id=payment_id,
+            payload_version=1,
+            payload={
+                "payment_id": str(payment_id),
+                "organization_id": str(organization_id),
+                "provider": payment.provider,
+                "provider_reference": payment.provider_reference,
+                "status": status_res.status,
+            },
+            correlation_id=audit_corr,
+            idempotency_key=f"payment:{payment_id}:reconciled:{status_res.status}",
+        )
+
+        return self._execute_transaction(
+            organization_id,
+            lambda conn: self._store.update_payment_status(
+                organization_id,
+                payment_id,
+                status_res.status,
+                now,
+                paid_at=paid_at,
+            ),
             audit_event,
             outbox_event,
         )
@@ -1382,4 +1809,168 @@ class PublicLibraryFinanceService:
         self._authorizer.require(actor, "public_library.read")
         return self._store.list_allocations_for_payment(
             actor.organization_id, payment_id
+        )
+
+    def refund_payment(
+        self,
+        *,
+        actor: Principal,
+        payment_id: UUID,
+        amount: Decimal,
+        fine_id: UUID | None = None,
+        reason: str | None = None,
+        correlation_id: UUID | None = None,
+    ) -> PaymentAllocation:
+        """Record an immutable refund allocation against a payment and optional fine balance."""
+        self._ensure_edition_enabled(actor.organization_id)
+        self._authorizer.require(actor, "public_library.manage")
+
+        if isinstance(amount, float):
+            raise TypeError(
+                "Floating-point money amounts are rejected; use Decimal instead."
+            )
+        if not isinstance(amount, Decimal):
+            raise InvalidMoneyError(
+                f"Refund amount must be Decimal, got {type(amount).__name__}"
+            )
+        if amount <= Decimal("0.0000"):
+            raise InvalidAllocationAmountError(
+                f"Refund amount must be strictly positive, got {amount}"
+            )
+
+        payment = self.get_payment(actor=actor, payment_id=payment_id)
+        if payment.status not in (
+            PaymentStatus.SUCCEEDED,
+            PaymentStatus.PARTIALLY_REFUNDED,
+        ):
+            raise InvalidPaymentStateTransitionError(
+                f"Cannot refund payment in status '{payment.status}'; must be succeeded or partially_refunded"
+            )
+
+        existing_allocs = self._store.list_allocations_for_payment(
+            actor.organization_id, payment_id
+        )
+        existing_refunds = [
+            a for a in existing_allocs if a.allocation_type == AllocationType.REFUND
+        ]
+        total_refunded = sum((a.amount for a in existing_refunds), Decimal("0.0000"))
+        remaining_refundable = payment.amount - total_refunded
+        if amount > remaining_refundable:
+            raise OverRefundError(
+                f"Refund amount {amount} {payment.currency} exceeds remaining refundable balance of {remaining_refundable} {payment.currency}"
+            )
+
+        now = self._clock()
+        if fine_id is not None:
+            fine = self.get_fine(actor=actor, fine_id=fine_id)
+            if payment.currency != fine.currency:
+                raise CurrencyMismatchError(
+                    f"Payment currency '{payment.currency}' does not match fine currency '{fine.currency}'"
+                )
+            fine_allocs = self._store.list_allocations_for_fine(
+                actor.organization_id, fine_id
+            )
+            net_allocated = sum(
+                (
+                    a.amount
+                    if a.allocation_type != AllocationType.REFUND
+                    else -a.amount
+                    for a in fine_allocs
+                ),
+                Decimal("0.0000"),
+            )
+            if amount > net_allocated:
+                raise OverRefundError(
+                    f"Refund amount {amount} {fine.currency} exceeds fine net allocated amount of {net_allocated} {fine.currency}"
+                )
+            net_after = net_allocated - amount
+            if net_after <= Decimal("0.0000"):
+                new_fine_status = FineStatus.ASSESSED
+            elif net_after < fine.amount:
+                new_fine_status = FineStatus.PARTIALLY_PAID
+            else:
+                new_fine_status = fine.status
+
+            if new_fine_status != fine.status:
+                updated_fine = Fine(
+                    fine_id=fine.fine_id,
+                    organization_id=fine.organization_id,
+                    member_id=fine.member_id,
+                    amount=fine.amount,
+                    currency=fine.currency,
+                    status=new_fine_status,
+                    reason=fine.reason,
+                    assessed_at=fine.assessed_at,
+                    created_at=fine.created_at,
+                    updated_at=now,
+                    loan_id=fine.loan_id,
+                )
+                self._store.update_fine(updated_fine)
+
+        new_total_refunded = total_refunded + amount
+        new_pay_status = (
+            PaymentStatus.REFUNDED
+            if new_total_refunded >= payment.amount
+            else PaymentStatus.PARTIALLY_REFUNDED
+        )
+        self._store.update_payment_status(
+            actor.organization_id,
+            payment_id,
+            new_pay_status,
+            now,
+            paid_at=payment.paid_at,
+        )
+
+        alloc_id = uuid4()
+        allocation = PaymentAllocation(
+            allocation_id=alloc_id,
+            organization_id=actor.organization_id,
+            payment_id=payment_id,
+            fine_id=fine_id or uuid4(),
+            amount=amount,
+            allocation_type=AllocationType.REFUND,
+            created_at=now,
+        )
+
+        audit_corr = correlation_id or uuid4()
+        audit_event = AuditEvent(
+            action="payment.refunded",
+            entity_type="payment",
+            entity_id=payment_id,
+            payload={
+                "payment_id": str(payment_id),
+                "allocation_id": str(alloc_id),
+                "organization_id": str(actor.organization_id),
+                "fine_id": str(fine_id) if fine_id else None,
+                "amount": str(amount),
+                "currency": payment.currency,
+                "new_status": new_pay_status,
+                "reason": reason,
+            },
+            correlation_id=audit_corr,
+            actor_user_id=actor.user_id,
+            actor_type="user",
+        )
+        outbox_event = OutboxEvent(
+            event_type="public_library.payment_refunded",
+            aggregate_type="payment",
+            aggregate_id=payment_id,
+            payload_version=1,
+            payload={
+                "payment_id": str(payment_id),
+                "allocation_id": str(alloc_id),
+                "organization_id": str(actor.organization_id),
+                "amount": str(amount),
+                "currency": payment.currency,
+                "new_status": new_pay_status,
+            },
+            correlation_id=audit_corr,
+            idempotency_key=f"refund:{alloc_id}:recorded",
+        )
+
+        return self._execute_transaction(
+            actor.organization_id,
+            lambda conn: self._store.create_allocation(allocation),
+            audit_event,
+            outbox_event,
         )

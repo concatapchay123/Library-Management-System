@@ -4253,6 +4253,201 @@
         }
       }
     },
+    "/public-library/payments/{payment_id}/refund": {
+      "post": {
+        "operationId": "refundPublicLibraryPayment",
+        "summary": "Issue a full or partial refund for a payment.",
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "payment_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PublicLibraryRefundRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Refund processed.",
+            "headers": {
+              "X-Request-ID": {
+                "$ref": "#/components/headers/X-Request-ID"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicLibraryPaymentAllocation"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/AuthenticationFailed"
+          },
+          "403": {
+            "$ref": "#/components/responses/ProblemDetails"
+          },
+          "404": {
+            "$ref": "#/components/responses/ProblemDetails"
+          },
+          "409": {
+            "$ref": "#/components/responses/ProblemDetails"
+          }
+        }
+      }
+    },
+    "/public-library/payments/{payment_id}/reconcile": {
+      "post": {
+        "operationId": "reconcilePublicLibraryPayment",
+        "summary": "Reconcile a pending payment with the external provider.",
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "payment_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Reconciled payment.",
+            "headers": {
+              "X-Request-ID": {
+                "$ref": "#/components/headers/X-Request-ID"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicLibraryPayment"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/AuthenticationFailed"
+          },
+          "403": {
+            "$ref": "#/components/responses/ProblemDetails"
+          },
+          "404": {
+            "$ref": "#/components/responses/ProblemDetails"
+          }
+        }
+      }
+    },
+    "/public-library/payments/webhooks/{provider}": {
+      "post": {
+        "operationId": "handlePublicLibraryPaymentWebhook",
+        "summary": "Process a signed payment provider webhook event.",
+        "parameters": [
+          {
+            "name": "provider",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "organization_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "X-Organization-Id",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "X-Webhook-Signature",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "X-Webhook-Timestamp",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Webhook processed successfully.",
+            "headers": {
+              "X-Request-ID": {
+                "$ref": "#/components/headers/X-Request-ID"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicLibraryPayment"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/ProblemDetails"
+          },
+          "401": {
+            "$ref": "#/components/responses/ProblemDetails"
+          },
+          "409": {
+            "$ref": "#/components/responses/ProblemDetails"
+          }
+        }
+      }
+    },
     "/public-library/allocations": {
       "get": {
         "operationId": "listPublicLibraryAllocations",
@@ -6636,9 +6831,12 @@
             "type": "string",
             "enum": [
               "pending",
+              "authorized",
               "succeeded",
               "failed",
-              "refunded"
+              "refunded",
+              "partially_refunded",
+              "disputed"
             ]
           },
           "provider_reference": {
@@ -6805,6 +7003,28 @@
             "items": {
               "$ref": "#/components/schemas/PublicLibraryPaymentAllocation"
             }
+          }
+        },
+        "additionalProperties": false
+      },
+      "PublicLibraryRefundRequest": {
+        "type": "object",
+        "required": [
+          "amount"
+        ],
+        "properties": {
+          "amount": {
+            "type": "string"
+          },
+          "fine_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "uuid"
+          },
+          "reason": {
+            "type": "string"
           }
         },
         "additionalProperties": false

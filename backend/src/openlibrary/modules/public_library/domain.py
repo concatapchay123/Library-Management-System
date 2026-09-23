@@ -154,12 +154,61 @@ class PaymentStatus:
     """Allowed states for payment records."""
 
     PENDING = "pending"
+    AUTHORIZED = "authorized"
     SUCCEEDED = "succeeded"
     FAILED = "failed"
     REFUNDED = "refunded"
     PARTIALLY_REFUNDED = "partially_refunded"
+    DISPUTED = "disputed"
 
-    ALL = {PENDING, SUCCEEDED, FAILED, REFUNDED, PARTIALLY_REFUNDED}
+    ALL = {
+        PENDING,
+        AUTHORIZED,
+        SUCCEEDED,
+        FAILED,
+        REFUNDED,
+        PARTIALLY_REFUNDED,
+        DISPUTED,
+    }
+
+
+PAYMENT_TRANSITIONS: dict[str, set[str]] = {
+    PaymentStatus.PENDING: {
+        PaymentStatus.AUTHORIZED,
+        PaymentStatus.SUCCEEDED,
+        PaymentStatus.FAILED,
+    },
+    PaymentStatus.AUTHORIZED: {
+        PaymentStatus.SUCCEEDED,
+        PaymentStatus.FAILED,
+    },
+    PaymentStatus.SUCCEEDED: {
+        PaymentStatus.PARTIALLY_REFUNDED,
+        PaymentStatus.REFUNDED,
+        PaymentStatus.DISPUTED,
+    },
+    PaymentStatus.PARTIALLY_REFUNDED: {
+        PaymentStatus.REFUNDED,
+        PaymentStatus.DISPUTED,
+    },
+    PaymentStatus.DISPUTED: {
+        PaymentStatus.SUCCEEDED,
+        PaymentStatus.REFUNDED,
+    },
+    PaymentStatus.FAILED: set(),
+    PaymentStatus.REFUNDED: set(),
+}
+
+
+def validate_payment_transition(current_status: str, new_status: str) -> None:
+    """Ensure payment status transition is valid according to the published state machine."""
+    if current_status == new_status:
+        return
+    allowed = PAYMENT_TRANSITIONS.get(current_status, set())
+    if new_status not in allowed:
+        raise InvalidPaymentStateTransitionError(
+            f"Cannot transition payment from '{current_status}' to '{new_status}'"
+        )
 
 
 class AllocationType:
@@ -211,12 +260,44 @@ class OverAllocationError(PublicLibraryError):
     """Raised when an allocation exceeds the available unallocated fine or payment amount."""
 
 
+class OverRefundError(PublicLibraryError):
+    """Raised when a refund exceeds the payment amount or allocated balance."""
+
+
 class InvalidAllocationAmountError(PublicLibraryError):
     """Raised when an allocation amount is zero or negative."""
 
 
 class FineAlreadyClosedError(PublicLibraryError):
     """Raised when attempting to operate on an already paid or waived fine."""
+
+
+class InvalidPaymentStateTransitionError(PublicLibraryError):
+    """Raised when attempting an invalid payment state transition."""
+
+
+class DuplicateProviderEventError(PublicLibraryError):
+    """Raised when a duplicate provider webhook event is detected."""
+
+
+class DuplicateProviderReferenceError(PublicLibraryError):
+    """Raised when a provider reference already exists within the tenant boundary."""
+
+
+class WebhookVerificationError(PublicLibraryError):
+    """Base exception for payment provider webhook verification failures."""
+
+
+class InvalidWebhookSignatureError(WebhookVerificationError):
+    """Raised when provider signature verification fails on raw body."""
+
+
+class StaleWebhookTimestampError(WebhookVerificationError):
+    """Raised when provider webhook timestamp exceeds allowed replay window."""
+
+
+class MissingWebhookSignatureError(WebhookVerificationError):
+    """Raised when required webhook signature or timestamp headers are missing."""
 
 
 class EditionUnavailableError(PublicLibraryError):
@@ -391,6 +472,21 @@ class PaymentAllocation:
     allocation_type: str
     created_at: datetime
     invoice_id: UUID | None = None
+
+
+@dataclass(frozen=True, slots=True)
+class PaymentEvent:
+    """One recorded provider event deduplicated by (organization_id, provider, provider_event_id)."""
+
+    event_id: UUID
+    organization_id: UUID
+    provider: str
+    provider_event_id: str
+    event_type: str
+    payload_hash: str
+    status: str
+    created_at: datetime
+    payment_id: UUID | None = None
 
 
 def validate_subscription_dates(starts_at: datetime, ends_at: datetime) -> None:

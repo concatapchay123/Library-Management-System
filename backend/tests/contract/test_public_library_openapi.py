@@ -116,6 +116,15 @@ def test_public_library_contract_exposes_expected_endpoints() -> None:
     assert "/public-library/payments/{payment_id}/allocations" in paths
     assert "get" in paths["/public-library/payments/{payment_id}/allocations"]
 
+    assert "/public-library/payments/{payment_id}/refund" in paths
+    assert "post" in paths["/public-library/payments/{payment_id}/refund"]
+
+    assert "/public-library/payments/{payment_id}/reconcile" in paths
+    assert "post" in paths["/public-library/payments/{payment_id}/reconcile"]
+
+    assert "/public-library/payments/webhooks/{provider}" in paths
+    assert "post" in paths["/public-library/payments/webhooks/{provider}"]
+
     # 7. Allocations endpoints
     assert "/public-library/allocations" in paths
     assert {"get", "post"} <= set(paths["/public-library/allocations"])
