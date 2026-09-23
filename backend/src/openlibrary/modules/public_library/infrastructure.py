@@ -23,9 +23,14 @@ from openlibrary.modules.public_library.application import (
 )
 from openlibrary.modules.public_library.domain import (
     DuplicateIdentifierError,
+    Fine,
     InvalidSubscriptionDatesError,
+    Invoice,
+    InvoiceLine,
     Member,
     MembershipPlan,
+    Payment,
+    PaymentAllocation,
     ProfileAlreadyExistsError,
     Subscription,
 )
@@ -530,6 +535,421 @@ class SqlServerPublicLibraryStore(PublicLibraryStore):
             )
         return subscription
 
+    # --- Fines ---
+
+    def create_fine(self, fine: Fine) -> Fine:
+        with self._tenant_connection(fine.organization_id) as connection:
+            connection.execute(
+                text(
+                    "INSERT INTO public_library.fines ("
+                    "fine_id, organization_id, member_id, loan_id, amount, currency, status, reason, assessed_at, created_at, updated_at"
+                    ") VALUES ("
+                    ":fine_id, :org_id, :member_id, :loan_id, :amount, :currency, :status, :reason, :assessed_at, :created_at, :updated_at"
+                    ")"
+                ),
+                {
+                    "fine_id": str(fine.fine_id),
+                    "org_id": str(fine.organization_id),
+                    "member_id": str(fine.member_id),
+                    "loan_id": str(fine.loan_id) if fine.loan_id else None,
+                    "amount": fine.amount,
+                    "currency": fine.currency,
+                    "status": fine.status,
+                    "reason": fine.reason,
+                    "assessed_at": fine.assessed_at,
+                    "created_at": fine.created_at,
+                    "updated_at": fine.updated_at,
+                },
+            )
+        return fine
+
+    def get_fine(self, organization_id: UUID, fine_id: UUID) -> Fine | None:
+        with self._tenant_connection(organization_id) as connection:
+            row = (
+                connection.execute(
+                    text(
+                        "SELECT fine_id, organization_id, member_id, loan_id, amount, currency, status, reason, assessed_at, created_at, updated_at "
+                        "FROM public_library.fines "
+                        "WHERE organization_id = :org_id AND fine_id = :fine_id"
+                    ),
+                    {"org_id": str(organization_id), "fine_id": str(fine_id)},
+                )
+                .mappings()
+                .one_or_none()
+            )
+        if row is None:
+            return None
+        return _fine_from_row(row)
+
+    def list_fines(
+        self,
+        organization_id: UUID,
+        *,
+        member_id: UUID | None = None,
+        loan_id: UUID | None = None,
+        status: str | None = None,
+    ) -> list[Fine]:
+        clauses = ["organization_id = :org_id"]
+        params: dict[str, Any] = {"org_id": str(organization_id)}
+        if member_id is not None:
+            clauses.append("member_id = :member_id")
+            params["member_id"] = str(member_id)
+        if loan_id is not None:
+            clauses.append("loan_id = :loan_id")
+            params["loan_id"] = str(loan_id)
+        if status is not None:
+            clauses.append("status = :status")
+            params["status"] = status
+
+        sql = (
+            "SELECT fine_id, organization_id, member_id, loan_id, amount, currency, status, reason, assessed_at, created_at, updated_at "
+            "FROM public_library.fines "
+            f"WHERE {' AND '.join(clauses)} "
+            "ORDER BY created_at DESC"
+        )
+        with self._tenant_connection(organization_id) as connection:
+            rows = connection.execute(text(sql), params).mappings().all()
+        return [_fine_from_row(r) for r in rows]
+
+    def update_fine(self, fine: Fine) -> Fine:
+        with self._tenant_connection(fine.organization_id) as connection:
+            connection.execute(
+                text(
+                    "UPDATE public_library.fines "
+                    "SET status = :status, reason = :reason, updated_at = :updated_at "
+                    "WHERE organization_id = :org_id AND fine_id = :fine_id"
+                ),
+                {
+                    "status": fine.status,
+                    "reason": fine.reason,
+                    "updated_at": fine.updated_at,
+                    "org_id": str(fine.organization_id),
+                    "fine_id": str(fine.fine_id),
+                },
+            )
+        return fine
+
+    # --- Invoices ---
+
+    def create_invoice(self, invoice: Invoice, lines: list[InvoiceLine]) -> Invoice:
+        with self._tenant_connection(invoice.organization_id) as connection:
+            connection.execute(
+                text(
+                    "INSERT INTO public_library.invoices ("
+                    "invoice_id, organization_id, member_id, invoice_number, subtotal, tax, total, currency, status, issued_at, due_at, created_at, updated_at"
+                    ") VALUES ("
+                    ":invoice_id, :org_id, :member_id, :invoice_number, :subtotal, :tax, :total, :currency, :status, :issued_at, :due_at, :created_at, :updated_at"
+                    ")"
+                ),
+                {
+                    "invoice_id": str(invoice.invoice_id),
+                    "org_id": str(invoice.organization_id),
+                    "member_id": str(invoice.member_id),
+                    "invoice_number": invoice.invoice_number,
+                    "subtotal": invoice.subtotal,
+                    "tax": invoice.tax,
+                    "total": invoice.total,
+                    "currency": invoice.currency,
+                    "status": invoice.status,
+                    "issued_at": invoice.issued_at,
+                    "due_at": invoice.due_at,
+                    "created_at": invoice.created_at,
+                    "updated_at": invoice.updated_at,
+                },
+            )
+            for line in lines:
+                connection.execute(
+                    text(
+                        "INSERT INTO public_library.invoice_lines ("
+                        "invoice_line_id, organization_id, invoice_id, line_number, description, quantity, unit_price, amount, fine_id, created_at"
+                        ") VALUES ("
+                        ":line_id, :org_id, :inv_id, :line_number, :description, :quantity, :unit_price, :amount, :fine_id, :created_at"
+                        ")"
+                    ),
+                    {
+                        "line_id": str(line.invoice_line_id),
+                        "org_id": str(line.organization_id),
+                        "inv_id": str(line.invoice_id),
+                        "line_number": line.line_number,
+                        "description": line.description,
+                        "quantity": line.quantity,
+                        "unit_price": line.unit_price,
+                        "amount": line.amount,
+                        "fine_id": str(line.fine_id) if line.fine_id else None,
+                        "created_at": line.created_at,
+                    },
+                )
+        return invoice
+
+    def get_invoice(self, organization_id: UUID, invoice_id: UUID) -> Invoice | None:
+        with self._tenant_connection(organization_id) as connection:
+            inv_row = (
+                connection.execute(
+                    text(
+                        "SELECT invoice_id, organization_id, member_id, invoice_number, subtotal, tax, total, currency, status, issued_at, due_at, created_at, updated_at "
+                        "FROM public_library.invoices "
+                        "WHERE organization_id = :org_id AND invoice_id = :inv_id"
+                    ),
+                    {"org_id": str(organization_id), "inv_id": str(invoice_id)},
+                )
+                .mappings()
+                .one_or_none()
+            )
+            if inv_row is None:
+                return None
+            line_rows = (
+                connection.execute(
+                    text(
+                        "SELECT invoice_line_id, organization_id, invoice_id, line_number, description, quantity, unit_price, amount, fine_id, created_at "
+                        "FROM public_library.invoice_lines "
+                        "WHERE organization_id = :org_id AND invoice_id = :inv_id "
+                        "ORDER BY line_number ASC"
+                    ),
+                    {"org_id": str(organization_id), "inv_id": str(invoice_id)},
+                )
+                .mappings()
+                .all()
+            )
+        lines = [_invoice_line_from_row(r) for r in line_rows]
+        return _invoice_from_row(inv_row, lines)
+
+    def list_invoices(
+        self,
+        organization_id: UUID,
+        *,
+        member_id: UUID | None = None,
+        status: str | None = None,
+    ) -> list[Invoice]:
+        clauses = ["organization_id = :org_id"]
+        params: dict[str, Any] = {"org_id": str(organization_id)}
+        if member_id is not None:
+            clauses.append("member_id = :member_id")
+            params["member_id"] = str(member_id)
+        if status is not None:
+            clauses.append("status = :status")
+            params["status"] = status
+
+        sql = (
+            "SELECT invoice_id, organization_id, member_id, invoice_number, subtotal, tax, total, currency, status, issued_at, due_at, created_at, updated_at "
+            "FROM public_library.invoices "
+            f"WHERE {' AND '.join(clauses)} "
+            "ORDER BY created_at DESC"
+        )
+        with self._tenant_connection(organization_id) as connection:
+            rows = connection.execute(text(sql), params).mappings().all()
+            result: list[Invoice] = []
+            for r in rows:
+                inv_id = str(r["invoice_id"])
+                line_rows = (
+                    connection.execute(
+                        text(
+                            "SELECT invoice_line_id, organization_id, invoice_id, line_number, description, quantity, unit_price, amount, fine_id, created_at "
+                            "FROM public_library.invoice_lines "
+                            "WHERE organization_id = :org_id AND invoice_id = :inv_id "
+                            "ORDER BY line_number ASC"
+                        ),
+                        {"org_id": str(organization_id), "inv_id": inv_id},
+                    )
+                    .mappings()
+                    .all()
+                )
+                lines = [_invoice_line_from_row(lr) for lr in line_rows]
+                result.append(_invoice_from_row(r, lines))
+        return result
+
+    def update_invoice(self, invoice: Invoice) -> Invoice:
+        with self._tenant_connection(invoice.organization_id) as connection:
+            connection.execute(
+                text(
+                    "UPDATE public_library.invoices "
+                    "SET status = :status, updated_at = :updated_at "
+                    "WHERE organization_id = :org_id AND invoice_id = :inv_id"
+                ),
+                {
+                    "status": invoice.status,
+                    "updated_at": invoice.updated_at,
+                    "org_id": str(invoice.organization_id),
+                    "inv_id": str(invoice.invoice_id),
+                },
+            )
+        return invoice
+
+    # --- Payments ---
+
+    def create_payment(self, payment: Payment) -> Payment:
+        with self._tenant_connection(payment.organization_id) as connection:
+            connection.execute(
+                text(
+                    "INSERT INTO public_library.payments ("
+                    "payment_id, organization_id, member_id, amount, currency, provider, provider_reference, provider_event_id, status, paid_at, created_at, updated_at"
+                    ") VALUES ("
+                    ":payment_id, :org_id, :member_id, :amount, :currency, :provider, :provider_reference, :provider_event_id, :status, :paid_at, :created_at, :updated_at"
+                    ")"
+                ),
+                {
+                    "payment_id": str(payment.payment_id),
+                    "org_id": str(payment.organization_id),
+                    "member_id": str(payment.member_id),
+                    "amount": payment.amount,
+                    "currency": payment.currency,
+                    "provider": payment.provider,
+                    "provider_reference": payment.provider_reference,
+                    "provider_event_id": payment.provider_event_id,
+                    "status": payment.status,
+                    "paid_at": payment.paid_at,
+                    "created_at": payment.created_at,
+                    "updated_at": payment.updated_at,
+                },
+            )
+        return payment
+
+    def get_payment(self, organization_id: UUID, payment_id: UUID) -> Payment | None:
+        with self._tenant_connection(organization_id) as connection:
+            row = (
+                connection.execute(
+                    text(
+                        "SELECT payment_id, organization_id, member_id, amount, currency, provider, provider_reference, provider_event_id, status, paid_at, created_at, updated_at "
+                        "FROM public_library.payments "
+                        "WHERE organization_id = :org_id AND payment_id = :payment_id"
+                    ),
+                    {"org_id": str(organization_id), "payment_id": str(payment_id)},
+                )
+                .mappings()
+                .one_or_none()
+            )
+        if row is None:
+            return None
+        return _payment_from_row(row)
+
+    def list_payments(
+        self,
+        organization_id: UUID,
+        *,
+        member_id: UUID | None = None,
+        status: str | None = None,
+    ) -> list[Payment]:
+        clauses = ["organization_id = :org_id"]
+        params: dict[str, Any] = {"org_id": str(organization_id)}
+        if member_id is not None:
+            clauses.append("member_id = :member_id")
+            params["member_id"] = str(member_id)
+        if status is not None:
+            clauses.append("status = :status")
+            params["status"] = status
+
+        sql = (
+            "SELECT payment_id, organization_id, member_id, amount, currency, provider, provider_reference, provider_event_id, status, paid_at, created_at, updated_at "
+            "FROM public_library.payments "
+            f"WHERE {' AND '.join(clauses)} "
+            "ORDER BY created_at DESC"
+        )
+        with self._tenant_connection(organization_id) as connection:
+            rows = connection.execute(text(sql), params).mappings().all()
+        return [_payment_from_row(r) for r in rows]
+
+    def update_payment(self, payment: Payment) -> Payment:
+        with self._tenant_connection(payment.organization_id) as connection:
+            connection.execute(
+                text(
+                    "UPDATE public_library.payments "
+                    "SET status = :status, paid_at = :paid_at, updated_at = :updated_at "
+                    "WHERE organization_id = :org_id AND payment_id = :payment_id"
+                ),
+                {
+                    "status": payment.status,
+                    "paid_at": payment.paid_at,
+                    "updated_at": payment.updated_at,
+                    "org_id": str(payment.organization_id),
+                    "payment_id": str(payment.payment_id),
+                },
+            )
+        return payment
+
+    # --- Allocations ---
+
+    def create_allocation(self, allocation: PaymentAllocation) -> PaymentAllocation:
+        with self._tenant_connection(allocation.organization_id) as connection:
+            connection.execute(
+                text(
+                    "INSERT INTO public_library.payment_allocations ("
+                    "allocation_id, organization_id, payment_id, fine_id, invoice_id, amount, allocation_type, created_at"
+                    ") VALUES ("
+                    ":alloc_id, :org_id, :pay_id, :fine_id, :inv_id, :amount, :allocation_type, :created_at"
+                    ")"
+                ),
+                {
+                    "alloc_id": str(allocation.allocation_id),
+                    "org_id": str(allocation.organization_id),
+                    "pay_id": str(allocation.payment_id),
+                    "fine_id": str(allocation.fine_id),
+                    "inv_id": str(allocation.invoice_id)
+                    if allocation.invoice_id
+                    else None,
+                    "amount": allocation.amount,
+                    "allocation_type": allocation.allocation_type,
+                    "created_at": allocation.created_at,
+                },
+            )
+        return allocation
+
+    def get_allocation(
+        self, organization_id: UUID, allocation_id: UUID
+    ) -> PaymentAllocation | None:
+        with self._tenant_connection(organization_id) as connection:
+            row = (
+                connection.execute(
+                    text(
+                        "SELECT allocation_id, organization_id, payment_id, fine_id, invoice_id, amount, allocation_type, created_at "
+                        "FROM public_library.payment_allocations "
+                        "WHERE organization_id = :org_id AND allocation_id = :alloc_id"
+                    ),
+                    {"org_id": str(organization_id), "alloc_id": str(allocation_id)},
+                )
+                .mappings()
+                .one_or_none()
+            )
+        if row is None:
+            return None
+        return _allocation_from_row(row)
+
+    def list_allocations_for_fine(
+        self, organization_id: UUID, fine_id: UUID
+    ) -> list[PaymentAllocation]:
+        with self._tenant_connection(organization_id) as connection:
+            rows = (
+                connection.execute(
+                    text(
+                        "SELECT allocation_id, organization_id, payment_id, fine_id, invoice_id, amount, allocation_type, created_at "
+                        "FROM public_library.payment_allocations "
+                        "WHERE organization_id = :org_id AND fine_id = :fine_id "
+                        "ORDER BY created_at ASC"
+                    ),
+                    {"org_id": str(organization_id), "fine_id": str(fine_id)},
+                )
+                .mappings()
+                .all()
+            )
+        return [_allocation_from_row(r) for r in rows]
+
+    def list_allocations_for_payment(
+        self, organization_id: UUID, payment_id: UUID
+    ) -> list[PaymentAllocation]:
+        with self._tenant_connection(organization_id) as connection:
+            rows = (
+                connection.execute(
+                    text(
+                        "SELECT allocation_id, organization_id, payment_id, fine_id, invoice_id, amount, allocation_type, created_at "
+                        "FROM public_library.payment_allocations "
+                        "WHERE organization_id = :org_id AND payment_id = :payment_id "
+                        "ORDER BY created_at ASC"
+                    ),
+                    {"org_id": str(organization_id), "payment_id": str(payment_id)},
+                )
+                .mappings()
+                .all()
+            )
+        return [_allocation_from_row(r) for r in rows]
+
 
 def _member_from_row(row: RowMapping) -> Member:
     return Member(
@@ -573,4 +993,91 @@ def _subscription_from_row(row: RowMapping) -> Subscription:
         status=str(row["status"]),
         created_at=row["created_at"],
         updated_at=row["updated_at"],
+    )
+
+
+def _fine_from_row(row: RowMapping) -> Fine:
+    loan_val = row["loan_id"]
+    return Fine(
+        fine_id=UUID(str(row["fine_id"])),
+        organization_id=UUID(str(row["organization_id"])),
+        member_id=UUID(str(row["member_id"])),
+        amount=Decimal(str(row["amount"])),
+        currency=str(row["currency"]),
+        status=str(row["status"]),
+        reason=str(row["reason"]),
+        assessed_at=row["assessed_at"],
+        created_at=row["created_at"],
+        updated_at=row["updated_at"],
+        loan_id=UUID(str(loan_val)) if loan_val is not None else None,
+    )
+
+
+def _invoice_line_from_row(row: RowMapping) -> InvoiceLine:
+    fine_val = row["fine_id"]
+    return InvoiceLine(
+        invoice_line_id=UUID(str(row["invoice_line_id"])),
+        organization_id=UUID(str(row["organization_id"])),
+        invoice_id=UUID(str(row["invoice_id"])),
+        line_number=int(row["line_number"]),
+        description=str(row["description"]),
+        quantity=int(row["quantity"]),
+        unit_price=Decimal(str(row["unit_price"])),
+        amount=Decimal(str(row["amount"])),
+        created_at=row["created_at"],
+        fine_id=UUID(str(fine_val)) if fine_val is not None else None,
+    )
+
+
+def _invoice_from_row(row: RowMapping, lines: list[InvoiceLine]) -> Invoice:
+    due_val = row["due_at"]
+    return Invoice(
+        invoice_id=UUID(str(row["invoice_id"])),
+        organization_id=UUID(str(row["organization_id"])),
+        member_id=UUID(str(row["member_id"])),
+        invoice_number=str(row["invoice_number"]),
+        subtotal=Decimal(str(row["subtotal"])),
+        tax=Decimal(str(row["tax"])),
+        total=Decimal(str(row["total"])),
+        currency=str(row["currency"]),
+        status=str(row["status"]),
+        issued_at=row["issued_at"],
+        created_at=row["created_at"],
+        updated_at=row["updated_at"],
+        lines=lines,
+        due_at=due_val if due_val is not None else None,
+    )
+
+
+def _payment_from_row(row: RowMapping) -> Payment:
+    ref_val = row["provider_reference"]
+    event_val = row["provider_event_id"]
+    paid_val = row["paid_at"]
+    return Payment(
+        payment_id=UUID(str(row["payment_id"])),
+        organization_id=UUID(str(row["organization_id"])),
+        member_id=UUID(str(row["member_id"])),
+        amount=Decimal(str(row["amount"])),
+        currency=str(row["currency"]),
+        provider=str(row["provider"]),
+        status=str(row["status"]),
+        created_at=row["created_at"],
+        updated_at=row["updated_at"],
+        provider_reference=str(ref_val) if ref_val is not None else None,
+        provider_event_id=str(event_val) if event_val is not None else None,
+        paid_at=paid_val if paid_val is not None else None,
+    )
+
+
+def _allocation_from_row(row: RowMapping) -> PaymentAllocation:
+    inv_val = row["invoice_id"]
+    return PaymentAllocation(
+        allocation_id=UUID(str(row["allocation_id"])),
+        organization_id=UUID(str(row["organization_id"])),
+        payment_id=UUID(str(row["payment_id"])),
+        fine_id=UUID(str(row["fine_id"])),
+        amount=Decimal(str(row["amount"])),
+        allocation_type=str(row["allocation_type"]),
+        created_at=row["created_at"],
+        invoice_id=UUID(str(inv_val)) if inv_val is not None else None,
     )

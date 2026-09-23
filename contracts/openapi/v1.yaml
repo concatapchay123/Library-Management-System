@@ -3488,6 +3488,929 @@
           }
         }
       }
+    },
+    "/public-library/fines": {
+      "get": {
+        "operationId": "listPublicLibraryFines",
+        "summary": "List public library fines.",
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "member_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "loan_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "status",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "List of fines.",
+            "headers": {
+              "X-Request-ID": {
+                "$ref": "#/components/headers/X-Request-ID"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicLibraryFineList"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/AuthenticationFailed"
+          },
+          "403": {
+            "$ref": "#/components/responses/ProblemDetails"
+          }
+        }
+      },
+      "post": {
+        "operationId": "assessPublicLibraryFine",
+        "summary": "Assess a fine for a public library member.",
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PublicLibraryFineCreate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Fine assessed.",
+            "headers": {
+              "X-Request-ID": {
+                "$ref": "#/components/headers/X-Request-ID"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicLibraryFine"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/ProblemDetails"
+          },
+          "401": {
+            "$ref": "#/components/responses/AuthenticationFailed"
+          },
+          "403": {
+            "$ref": "#/components/responses/ProblemDetails"
+          },
+          "404": {
+            "$ref": "#/components/responses/ProblemDetails"
+          },
+          "422": {
+            "$ref": "#/components/responses/ProblemDetails"
+          }
+        }
+      }
+    },
+    "/public-library/fines/{fine_id}": {
+      "get": {
+        "operationId": "getPublicLibraryFine",
+        "summary": "Get fine by ID.",
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "fine_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Fine details.",
+            "headers": {
+              "X-Request-ID": {
+                "$ref": "#/components/headers/X-Request-ID"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicLibraryFine"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/AuthenticationFailed"
+          },
+          "403": {
+            "$ref": "#/components/responses/ProblemDetails"
+          },
+          "404": {
+            "$ref": "#/components/responses/ProblemDetails"
+          }
+        }
+      }
+    },
+    "/public-library/fines/calculate": {
+      "post": {
+        "operationId": "calculatePublicLibraryFine",
+        "summary": "Calculate overdue fine based on loan dates and rate.",
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PublicLibraryFineCalculate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Calculation result.",
+            "headers": {
+              "X-Request-ID": {
+                "$ref": "#/components/headers/X-Request-ID"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicLibraryFineCalculateResult"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/ProblemDetails"
+          },
+          "401": {
+            "$ref": "#/components/responses/AuthenticationFailed"
+          },
+          "403": {
+            "$ref": "#/components/responses/ProblemDetails"
+          },
+          "422": {
+            "$ref": "#/components/responses/ProblemDetails"
+          }
+        }
+      }
+    },
+    "/public-library/fines/{fine_id}/waive": {
+      "post": {
+        "operationId": "waivePublicLibraryFine",
+        "summary": "Waive an assessed fine.",
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "fine_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PublicLibraryFineWaive"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Fine waived.",
+            "headers": {
+              "X-Request-ID": {
+                "$ref": "#/components/headers/X-Request-ID"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicLibraryFine"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/ProblemDetails"
+          },
+          "401": {
+            "$ref": "#/components/responses/AuthenticationFailed"
+          },
+          "403": {
+            "$ref": "#/components/responses/ProblemDetails"
+          },
+          "404": {
+            "$ref": "#/components/responses/ProblemDetails"
+          },
+          "409": {
+            "$ref": "#/components/responses/ProblemDetails"
+          }
+        }
+      }
+    },
+    "/public-library/fines/{fine_id}/allocations": {
+      "get": {
+        "operationId": "listPublicLibraryFineAllocations",
+        "summary": "List allocations for a fine.",
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "fine_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "List of allocations.",
+            "headers": {
+              "X-Request-ID": {
+                "$ref": "#/components/headers/X-Request-ID"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicLibraryPaymentAllocationList"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/AuthenticationFailed"
+          },
+          "403": {
+            "$ref": "#/components/responses/ProblemDetails"
+          }
+        }
+      }
+    },
+    "/public-library/invoices": {
+      "get": {
+        "operationId": "listPublicLibraryInvoices",
+        "summary": "List public library invoices.",
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "member_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "status",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "List of invoices.",
+            "headers": {
+              "X-Request-ID": {
+                "$ref": "#/components/headers/X-Request-ID"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicLibraryInvoiceList"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/AuthenticationFailed"
+          },
+          "403": {
+            "$ref": "#/components/responses/ProblemDetails"
+          }
+        }
+      },
+      "post": {
+        "operationId": "issuePublicLibraryInvoice",
+        "summary": "Issue an invoice for public library charges.",
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PublicLibraryInvoiceCreate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Invoice issued.",
+            "headers": {
+              "X-Request-ID": {
+                "$ref": "#/components/headers/X-Request-ID"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicLibraryInvoice"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/ProblemDetails"
+          },
+          "401": {
+            "$ref": "#/components/responses/AuthenticationFailed"
+          },
+          "403": {
+            "$ref": "#/components/responses/ProblemDetails"
+          },
+          "404": {
+            "$ref": "#/components/responses/ProblemDetails"
+          },
+          "422": {
+            "$ref": "#/components/responses/ProblemDetails"
+          }
+        }
+      }
+    },
+    "/public-library/invoices/{invoice_id}": {
+      "get": {
+        "operationId": "getPublicLibraryInvoice",
+        "summary": "Get invoice by ID.",
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "invoice_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Invoice details.",
+            "headers": {
+              "X-Request-ID": {
+                "$ref": "#/components/headers/X-Request-ID"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicLibraryInvoice"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/AuthenticationFailed"
+          },
+          "403": {
+            "$ref": "#/components/responses/ProblemDetails"
+          },
+          "404": {
+            "$ref": "#/components/responses/ProblemDetails"
+          }
+        }
+      },
+      "put": {
+        "operationId": "updatePublicLibraryInvoice",
+        "summary": "Attempt to update an issued invoice (immutable, rejected).",
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "invoice_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "401": {
+            "$ref": "#/components/responses/AuthenticationFailed"
+          },
+          "403": {
+            "$ref": "#/components/responses/ProblemDetails"
+          },
+          "409": {
+            "$ref": "#/components/responses/ProblemDetails"
+          }
+        }
+      }
+    },
+    "/public-library/invoices/{invoice_id}/void": {
+      "post": {
+        "operationId": "voidPublicLibraryInvoice",
+        "summary": "Void an issued invoice.",
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "invoice_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PublicLibraryInvoiceVoid"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Invoice voided.",
+            "headers": {
+              "X-Request-ID": {
+                "$ref": "#/components/headers/X-Request-ID"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicLibraryInvoice"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/ProblemDetails"
+          },
+          "401": {
+            "$ref": "#/components/responses/AuthenticationFailed"
+          },
+          "403": {
+            "$ref": "#/components/responses/ProblemDetails"
+          },
+          "404": {
+            "$ref": "#/components/responses/ProblemDetails"
+          },
+          "409": {
+            "$ref": "#/components/responses/ProblemDetails"
+          }
+        }
+      }
+    },
+    "/public-library/payments": {
+      "get": {
+        "operationId": "listPublicLibraryPayments",
+        "summary": "List public library payments.",
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "member_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "status",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "List of payments.",
+            "headers": {
+              "X-Request-ID": {
+                "$ref": "#/components/headers/X-Request-ID"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicLibraryPaymentList"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/AuthenticationFailed"
+          },
+          "403": {
+            "$ref": "#/components/responses/ProblemDetails"
+          }
+        }
+      },
+      "post": {
+        "operationId": "recordPublicLibraryPayment",
+        "summary": "Record a payment made by a member.",
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PublicLibraryPaymentCreate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Payment recorded.",
+            "headers": {
+              "X-Request-ID": {
+                "$ref": "#/components/headers/X-Request-ID"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicLibraryPayment"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/ProblemDetails"
+          },
+          "401": {
+            "$ref": "#/components/responses/AuthenticationFailed"
+          },
+          "403": {
+            "$ref": "#/components/responses/ProblemDetails"
+          },
+          "404": {
+            "$ref": "#/components/responses/ProblemDetails"
+          },
+          "422": {
+            "$ref": "#/components/responses/ProblemDetails"
+          }
+        }
+      }
+    },
+    "/public-library/payments/{payment_id}": {
+      "get": {
+        "operationId": "getPublicLibraryPayment",
+        "summary": "Get payment by ID.",
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "payment_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Payment details.",
+            "headers": {
+              "X-Request-ID": {
+                "$ref": "#/components/headers/X-Request-ID"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicLibraryPayment"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/AuthenticationFailed"
+          },
+          "403": {
+            "$ref": "#/components/responses/ProblemDetails"
+          },
+          "404": {
+            "$ref": "#/components/responses/ProblemDetails"
+          }
+        }
+      }
+    },
+    "/public-library/payments/{payment_id}/allocations": {
+      "get": {
+        "operationId": "listPublicLibraryPaymentAllocations",
+        "summary": "List allocations for a payment.",
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "payment_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "List of allocations.",
+            "headers": {
+              "X-Request-ID": {
+                "$ref": "#/components/headers/X-Request-ID"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicLibraryPaymentAllocationList"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/AuthenticationFailed"
+          },
+          "403": {
+            "$ref": "#/components/responses/ProblemDetails"
+          }
+        }
+      }
+    },
+    "/public-library/allocations": {
+      "get": {
+        "operationId": "listPublicLibraryAllocations",
+        "summary": "List allocations by fine_id or payment_id.",
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "fine_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "payment_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "List of allocations.",
+            "headers": {
+              "X-Request-ID": {
+                "$ref": "#/components/headers/X-Request-ID"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicLibraryPaymentAllocationList"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/ProblemDetails"
+          },
+          "401": {
+            "$ref": "#/components/responses/AuthenticationFailed"
+          },
+          "403": {
+            "$ref": "#/components/responses/ProblemDetails"
+          }
+        }
+      },
+      "post": {
+        "operationId": "createPublicLibraryAllocation",
+        "summary": "Allocate a payment to a fine.",
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PublicLibraryPaymentAllocationCreate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Allocation created.",
+            "headers": {
+              "X-Request-ID": {
+                "$ref": "#/components/headers/X-Request-ID"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicLibraryPaymentAllocation"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/ProblemDetails"
+          },
+          "401": {
+            "$ref": "#/components/responses/AuthenticationFailed"
+          },
+          "403": {
+            "$ref": "#/components/responses/ProblemDetails"
+          },
+          "404": {
+            "$ref": "#/components/responses/ProblemDetails"
+          },
+          "409": {
+            "$ref": "#/components/responses/ProblemDetails"
+          },
+          "422": {
+            "$ref": "#/components/responses/ProblemDetails"
+          }
+        }
+      }
+    },
+    "/public-library/allocations/{allocation_id}": {
+      "get": {
+        "operationId": "getPublicLibraryAllocation",
+        "summary": "Get allocation by ID.",
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "allocation_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Allocation details.",
+            "headers": {
+              "X-Request-ID": {
+                "$ref": "#/components/headers/X-Request-ID"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicLibraryPaymentAllocation"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/AuthenticationFailed"
+          },
+          "403": {
+            "$ref": "#/components/responses/ProblemDetails"
+          },
+          "404": {
+            "$ref": "#/components/responses/ProblemDetails"
+          }
+        }
+      }
     }
   },
   "components": {
@@ -5267,6 +6190,620 @@
             "type": "array",
             "items": {
               "$ref": "#/components/schemas/PublicLibrarySubscription"
+            }
+          }
+        },
+        "additionalProperties": false
+      },
+      "PublicLibraryFine": {
+        "type": "object",
+        "required": [
+          "fine_id",
+          "organization_id",
+          "member_id",
+          "amount",
+          "currency",
+          "status",
+          "reason",
+          "assessed_at",
+          "created_at",
+          "updated_at"
+        ],
+        "properties": {
+          "fine_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "organization_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "member_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "loan_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "uuid"
+          },
+          "amount": {
+            "type": "string"
+          },
+          "currency": {
+            "type": "string",
+            "pattern": "^[A-Z]{3}$"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "assessed",
+              "invoiced",
+              "partially_paid",
+              "paid",
+              "waived",
+              "cancelled"
+            ]
+          },
+          "reason": {
+            "type": "string"
+          },
+          "assessed_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "additionalProperties": false
+      },
+      "PublicLibraryFineCreate": {
+        "type": "object",
+        "required": [
+          "member_id",
+          "amount",
+          "currency",
+          "reason"
+        ],
+        "properties": {
+          "member_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "loan_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "amount": {
+            "type": "string"
+          },
+          "currency": {
+            "type": "string",
+            "pattern": "^[A-Z]{3}$"
+          },
+          "reason": {
+            "type": "string"
+          }
+        },
+        "additionalProperties": false
+      },
+      "PublicLibraryFineList": {
+        "type": "object",
+        "required": [
+          "items"
+        ],
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PublicLibraryFine"
+            }
+          }
+        },
+        "additionalProperties": false
+      },
+      "PublicLibraryFineCalculate": {
+        "type": "object",
+        "required": [
+          "due_at",
+          "effective_return_at",
+          "daily_rate",
+          "currency"
+        ],
+        "properties": {
+          "due_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "effective_return_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "daily_rate": {
+            "type": "string"
+          },
+          "currency": {
+            "type": "string",
+            "pattern": "^[A-Z]{3}$"
+          },
+          "max_fine": {
+            "type": "string"
+          }
+        },
+        "additionalProperties": false
+      },
+      "PublicLibraryFineCalculateResult": {
+        "type": "object",
+        "required": [
+          "amount",
+          "currency"
+        ],
+        "properties": {
+          "amount": {
+            "type": "string"
+          },
+          "currency": {
+            "type": "string",
+            "pattern": "^[A-Z]{3}$"
+          }
+        },
+        "additionalProperties": false
+      },
+      "PublicLibraryFineWaive": {
+        "type": "object",
+        "required": [
+          "reason"
+        ],
+        "properties": {
+          "reason": {
+            "type": "string"
+          }
+        },
+        "additionalProperties": false
+      },
+      "PublicLibraryInvoiceLine": {
+        "type": "object",
+        "required": [
+          "invoice_line_id",
+          "organization_id",
+          "invoice_id",
+          "line_number",
+          "description",
+          "quantity",
+          "unit_price",
+          "amount",
+          "created_at"
+        ],
+        "properties": {
+          "invoice_line_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "organization_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "invoice_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "line_number": {
+            "type": "integer"
+          },
+          "description": {
+            "type": "string"
+          },
+          "quantity": {
+            "type": "integer"
+          },
+          "unit_price": {
+            "type": "string"
+          },
+          "amount": {
+            "type": "string"
+          },
+          "fine_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "uuid"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "additionalProperties": false
+      },
+      "PublicLibraryInvoiceLineCreate": {
+        "type": "object",
+        "required": [
+          "description",
+          "quantity",
+          "unit_price",
+          "amount"
+        ],
+        "properties": {
+          "description": {
+            "type": "string"
+          },
+          "quantity": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "unit_price": {
+            "type": "string"
+          },
+          "amount": {
+            "type": "string"
+          },
+          "fine_id": {
+            "type": "string",
+            "format": "uuid"
+          }
+        },
+        "additionalProperties": false
+      },
+      "PublicLibraryInvoice": {
+        "type": "object",
+        "required": [
+          "invoice_id",
+          "organization_id",
+          "member_id",
+          "invoice_number",
+          "subtotal",
+          "tax",
+          "total",
+          "currency",
+          "status",
+          "issued_at",
+          "created_at",
+          "updated_at",
+          "lines"
+        ],
+        "properties": {
+          "invoice_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "organization_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "member_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "invoice_number": {
+            "type": "string"
+          },
+          "subtotal": {
+            "type": "string"
+          },
+          "tax": {
+            "type": "string"
+          },
+          "total": {
+            "type": "string"
+          },
+          "currency": {
+            "type": "string",
+            "pattern": "^[A-Z]{3}$"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "issued",
+              "partially_paid",
+              "paid",
+              "void",
+              "cancelled"
+            ]
+          },
+          "issued_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "due_at": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "lines": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PublicLibraryInvoiceLine"
+            }
+          }
+        },
+        "additionalProperties": false
+      },
+      "PublicLibraryInvoiceCreate": {
+        "type": "object",
+        "required": [
+          "member_id",
+          "currency",
+          "lines"
+        ],
+        "properties": {
+          "member_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "currency": {
+            "type": "string",
+            "pattern": "^[A-Z]{3}$"
+          },
+          "tax": {
+            "type": "string"
+          },
+          "due_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "lines": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PublicLibraryInvoiceLineCreate"
+            }
+          }
+        },
+        "additionalProperties": false
+      },
+      "PublicLibraryInvoiceList": {
+        "type": "object",
+        "required": [
+          "items"
+        ],
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PublicLibraryInvoice"
+            }
+          }
+        },
+        "additionalProperties": false
+      },
+      "PublicLibraryInvoiceVoid": {
+        "type": "object",
+        "required": [
+          "reason"
+        ],
+        "properties": {
+          "reason": {
+            "type": "string"
+          }
+        },
+        "additionalProperties": false
+      },
+      "PublicLibraryPayment": {
+        "type": "object",
+        "required": [
+          "payment_id",
+          "organization_id",
+          "member_id",
+          "amount",
+          "currency",
+          "provider",
+          "status",
+          "created_at",
+          "updated_at"
+        ],
+        "properties": {
+          "payment_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "organization_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "member_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "amount": {
+            "type": "string"
+          },
+          "currency": {
+            "type": "string",
+            "pattern": "^[A-Z]{3}$"
+          },
+          "provider": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "pending",
+              "succeeded",
+              "failed",
+              "refunded"
+            ]
+          },
+          "provider_reference": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "provider_event_id": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "paid_at": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "additionalProperties": false
+      },
+      "PublicLibraryPaymentCreate": {
+        "type": "object",
+        "required": [
+          "member_id",
+          "amount",
+          "currency"
+        ],
+        "properties": {
+          "member_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "amount": {
+            "type": "string"
+          },
+          "currency": {
+            "type": "string",
+            "pattern": "^[A-Z]{3}$"
+          },
+          "provider": {
+            "type": "string"
+          },
+          "provider_reference": {
+            "type": "string"
+          },
+          "provider_event_id": {
+            "type": "string"
+          }
+        },
+        "additionalProperties": false
+      },
+      "PublicLibraryPaymentList": {
+        "type": "object",
+        "required": [
+          "items"
+        ],
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PublicLibraryPayment"
+            }
+          }
+        },
+        "additionalProperties": false
+      },
+      "PublicLibraryPaymentAllocation": {
+        "type": "object",
+        "required": [
+          "allocation_id",
+          "organization_id",
+          "payment_id",
+          "fine_id",
+          "amount",
+          "allocation_type",
+          "created_at"
+        ],
+        "properties": {
+          "allocation_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "organization_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "payment_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "fine_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "amount": {
+            "type": "string"
+          },
+          "allocation_type": {
+            "type": "string"
+          },
+          "invoice_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "uuid"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "additionalProperties": false
+      },
+      "PublicLibraryPaymentAllocationCreate": {
+        "type": "object",
+        "required": [
+          "payment_id",
+          "fine_id",
+          "amount"
+        ],
+        "properties": {
+          "payment_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "fine_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "amount": {
+            "type": "string"
+          },
+          "invoice_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "allocation_type": {
+            "type": "string"
+          }
+        },
+        "additionalProperties": false
+      },
+      "PublicLibraryPaymentAllocationList": {
+        "type": "object",
+        "required": [
+          "items"
+        ],
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PublicLibraryPaymentAllocation"
             }
           }
         },

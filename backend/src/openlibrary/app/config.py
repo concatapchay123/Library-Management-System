@@ -22,7 +22,10 @@ if TYPE_CHECKING:
     from openlibrary.modules.core.infrastructure.tenancy import TenantRequestContext
     from openlibrary.modules.education.application import EducationService
     from openlibrary.modules.ops.application.idempotency import IdempotencyService
-    from openlibrary.modules.public_library.application import PublicLibraryService
+    from openlibrary.modules.public_library.application import (
+        PublicLibraryFinanceService,
+        PublicLibraryService,
+    )
 
 ReadinessProbe = Callable[[], bool]
 
@@ -45,4 +48,5 @@ class AppConfig:
     idempotency_service: "IdempotencyService | None" = None
     education_service: "EducationService | None" = None
     public_library_service: "PublicLibraryService | None" = None
+    public_library_finance_service: "PublicLibraryFinanceService | None" = None
     tenant_request_context: "TenantRequestContext | None" = None

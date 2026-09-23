@@ -50,7 +50,10 @@ from openlibrary.modules.core.infrastructure.tenancy import (
 from openlibrary.modules.education.application import EducationService
 from openlibrary.modules.education.infrastructure import SqlServerEducationStore
 from openlibrary.modules.education.policy import EducationBorrowerPolicyAdapter
-from openlibrary.modules.public_library.application import PublicLibraryService
+from openlibrary.modules.public_library.application import (
+    PublicLibraryFinanceService,
+    PublicLibraryService,
+)
 from openlibrary.modules.public_library.infrastructure import (
     SqlServerPublicLibraryStore,
 )
@@ -154,6 +157,12 @@ def create_app_from_environ(
         store=public_library_store,
         authorizer=authorization,
     )
+    public_library_finance_service = PublicLibraryFinanceService(
+        store=public_library_store,
+        authorizer=authorization,
+        transaction=audited_tx,
+        connection_provider=tenant_context.connection,
+    )
     education_policy = EducationBorrowerPolicyAdapter(
         store=education_store,
         fallback_resolver=DefaultBorrowingPolicyResolver(),
@@ -200,6 +209,7 @@ def create_app_from_environ(
             reservation_service=reservation_service,
             education_service=education_service,
             public_library_service=public_library_service,
+            public_library_finance_service=public_library_finance_service,
             tenant_request_context=TenantRequestContext(tenant_context),
         )
     )

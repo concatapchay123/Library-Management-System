@@ -5,7 +5,7 @@ from __future__ import annotations
 from datetime import datetime
 from decimal import Decimal
 from typing import Any
-from uuid import UUID
+from uuid import UUID, uuid4
 
 from flask import Blueprint, Response, jsonify, request
 
@@ -17,17 +17,36 @@ from openlibrary.modules.core.api.auth import (
 from openlibrary.modules.core.application.access_tokens import AccessTokenService
 from openlibrary.modules.core.application.authorization import AuthorizationDenied
 from openlibrary.modules.core.infrastructure.tenancy import TenantRequestContext
-from openlibrary.modules.public_library.application import PublicLibraryService
+from openlibrary.modules.public_library.application import (
+    PublicLibraryFinanceService,
+    PublicLibraryService,
+)
 from openlibrary.modules.public_library.domain import (
     ActiveSubscriptionExistsError,
+    AllocationNotFoundError,
+    AllocationType,
+    CurrencyMismatchError,
     DuplicateIdentifierError,
     EditionUnavailableError,
+    Fine,
+    FineAlreadyClosedError,
+    FineNotFoundError,
+    InvalidAllocationAmountError,
+    InvalidMoneyError,
     InvalidPlanError,
     InvalidSubscriptionDatesError,
+    Invoice,
+    InvoiceImmutableError,
+    InvoiceLine,
+    InvoiceNotFoundError,
     Member,
     MemberNotFoundError,
     MembershipPlan,
     MembershipPlanNotFoundError,
+    OverAllocationError,
+    Payment,
+    PaymentAllocation,
+    PaymentNotFoundError,
     ProfileAlreadyExistsError,
     Subscription,
     SubscriptionInactiveError,
@@ -37,6 +56,86 @@ from openlibrary.modules.public_library.domain import (
 
 def _iso(dt: datetime | None) -> str | None:
     return dt.isoformat() if dt is not None else None
+
+
+def _fine_dict(f: Fine) -> dict[str, Any]:
+    return {
+        "fine_id": str(f.fine_id),
+        "organization_id": str(f.organization_id),
+        "member_id": str(f.member_id),
+        "loan_id": str(f.loan_id) if f.loan_id else None,
+        "amount": str(f.amount),
+        "currency": f.currency,
+        "status": f.status,
+        "reason": f.reason,
+        "assessed_at": _iso(f.assessed_at),
+        "created_at": _iso(f.created_at),
+        "updated_at": _iso(f.updated_at),
+    }
+
+
+def _invoice_line_dict(line: InvoiceLine) -> dict[str, Any]:
+    return {
+        "invoice_line_id": str(line.invoice_line_id),
+        "organization_id": str(line.organization_id),
+        "invoice_id": str(line.invoice_id),
+        "line_number": line.line_number,
+        "description": line.description,
+        "quantity": line.quantity,
+        "unit_price": str(line.unit_price),
+        "amount": str(line.amount),
+        "fine_id": str(line.fine_id) if line.fine_id else None,
+        "created_at": _iso(line.created_at),
+    }
+
+
+def _invoice_dict(inv: Invoice) -> dict[str, Any]:
+    return {
+        "invoice_id": str(inv.invoice_id),
+        "organization_id": str(inv.organization_id),
+        "member_id": str(inv.member_id),
+        "invoice_number": inv.invoice_number,
+        "subtotal": str(inv.subtotal),
+        "tax": str(inv.tax),
+        "total": str(inv.total),
+        "currency": inv.currency,
+        "status": inv.status,
+        "issued_at": _iso(inv.issued_at),
+        "due_at": _iso(inv.due_at),
+        "created_at": _iso(inv.created_at),
+        "updated_at": _iso(inv.updated_at),
+        "lines": [_invoice_line_dict(line) for line in inv.lines],
+    }
+
+
+def _payment_dict(p: Payment) -> dict[str, Any]:
+    return {
+        "payment_id": str(p.payment_id),
+        "organization_id": str(p.organization_id),
+        "member_id": str(p.member_id),
+        "amount": str(p.amount),
+        "currency": p.currency,
+        "provider": p.provider,
+        "status": p.status,
+        "provider_reference": p.provider_reference,
+        "provider_event_id": p.provider_event_id,
+        "paid_at": _iso(p.paid_at),
+        "created_at": _iso(p.created_at),
+        "updated_at": _iso(p.updated_at),
+    }
+
+
+def _allocation_dict(a: PaymentAllocation) -> dict[str, Any]:
+    return {
+        "allocation_id": str(a.allocation_id),
+        "organization_id": str(a.organization_id),
+        "payment_id": str(a.payment_id),
+        "fine_id": str(a.fine_id),
+        "amount": str(a.amount),
+        "allocation_type": a.allocation_type,
+        "invoice_id": str(a.invoice_id) if a.invoice_id else None,
+        "created_at": _iso(a.created_at),
+    }
 
 
 def _member_dict(m: Member) -> dict[str, Any]:
@@ -121,30 +220,56 @@ def _handle_public_library_error(err: Exception) -> Response:
         )
     if isinstance(
         err,
-        (MemberNotFoundError, MembershipPlanNotFoundError, SubscriptionNotFoundError),
+        (
+            MemberNotFoundError,
+            MembershipPlanNotFoundError,
+            SubscriptionNotFoundError,
+            FineNotFoundError,
+            InvoiceNotFoundError,
+            PaymentNotFoundError,
+            AllocationNotFoundError,
+        ),
     ):
         return _problem(404, "Not Found", str(err), "not-found")
-    if isinstance(err, InvalidSubscriptionDatesError):
+    if isinstance(
+        err, (InvoiceImmutableError, OverAllocationError, FineAlreadyClosedError)
+    ):
+        return _problem(409, "Financial Conflict", str(err), "financial-conflict")
+    if isinstance(
+        err,
+        (
+            InvalidSubscriptionDatesError,
+            SubscriptionInactiveError,
+            InvalidPlanError,
+            CurrencyMismatchError,
+            InvalidMoneyError,
+            InvalidAllocationAmountError,
+        ),
+    ):
         return _problem(
             422,
-            "Invalid subscription dates",
+            "Unprocessable Content",
             str(err),
-            "invalid-subscription-dates",
+            "unprocessable-content",
         )
-    if isinstance(err, SubscriptionInactiveError):
-        return _problem(
-            422,
-            "Subscription inactive",
-            str(err),
-            "subscription-inactive",
-        )
-    if isinstance(err, InvalidPlanError):
-        return _problem(422, "Invalid plan", str(err), "invalid-plan")
     if isinstance(err, AuthorizationDenied):
         return _problem(403, "Forbidden", "Authorization denied.", "forbidden")
-    if isinstance(err, ValueError):
+    if isinstance(err, (TypeError, ValueError)):
         return _problem(400, "Bad Request", str(err), "bad-request")
     raise err
+
+
+def _parse_decimal(val: Any, field_name: str) -> Decimal:
+    if val is None:
+        raise ValueError(f"{field_name} is required")
+    if isinstance(val, float):
+        raise TypeError(
+            f"Floating-point money amounts are rejected for {field_name}; use a string or Decimal instead."
+        )
+    try:
+        return Decimal(str(val))
+    except Exception as exc:
+        raise ValueError(f"Invalid decimal value for {field_name}: {val}") from exc
 
 
 def create_public_library_blueprint(
@@ -152,10 +277,17 @@ def create_public_library_blueprint(
     access_tokens: AccessTokenService,
     tenant_request_context: TenantRequestContext | None = None,
     url_prefix: str = "/api/v1/public-library",
+    finance_service: PublicLibraryFinanceService | None = None,
 ) -> Blueprint:
     """Create blueprint for public library endpoints."""
     bp_name = f"public_library_{url_prefix.replace('/', '_').strip('_')}"
     bp = Blueprint(bp_name, __name__, url_prefix=url_prefix)
+
+    fin_service = finance_service or PublicLibraryFinanceService(
+        store=service._store,
+        authorizer=service._authorizer,
+        clock=service._clock,
+    )
 
     # --- Members ---
 
@@ -432,6 +564,401 @@ def create_public_library_blueprint(
                 actor=_principal_from_request(), subscription_id=subscription_id
             )
             return jsonify(_subscription_dict(sub))
+        except Exception as err:
+            return _handle_public_library_error(err)
+
+    # --- Fines ---
+
+    @bp.post("/fines")
+    @_require_principal(access_tokens, tenant_request_context)
+    def assess_fine() -> Response:
+        try:
+            body = request.get_json(force=True) or {}
+            raw_member_id = body.get("member_id")
+            if not raw_member_id:
+                raise ValueError("member_id is required")
+            raw_amount = body.get("amount")
+            amount = _parse_decimal(raw_amount, "amount")
+            currency = body.get("currency")
+            if not currency:
+                raise ValueError("currency is required")
+            reason = body.get("reason")
+            if not reason:
+                raise ValueError("reason is required")
+            raw_loan_id = body.get("loan_id")
+            loan_id = UUID(str(raw_loan_id)) if raw_loan_id else None
+
+            fine = fin_service.assess_fine(
+                actor=_principal_from_request(),
+                member_id=UUID(str(raw_member_id)),
+                amount=amount,
+                currency=str(currency),
+                reason=str(reason),
+                loan_id=loan_id,
+            )
+            response = jsonify(_fine_dict(fine))
+            response.status_code = 201
+            return response
+        except Exception as err:
+            return _handle_public_library_error(err)
+
+    @bp.get("/fines")
+    @_require_principal(access_tokens, tenant_request_context)
+    def list_fines() -> Response:
+        try:
+            raw_member_id = request.args.get("member_id")
+            member_id = UUID(raw_member_id) if raw_member_id else None
+            raw_loan_id = request.args.get("loan_id")
+            loan_id = UUID(raw_loan_id) if raw_loan_id else None
+            status = request.args.get("status")
+            fines = fin_service.list_fines(
+                actor=_principal_from_request(),
+                member_id=member_id,
+                loan_id=loan_id,
+                status=status,
+            )
+            return jsonify({"items": [_fine_dict(f) for f in fines]})
+        except Exception as err:
+            return _handle_public_library_error(err)
+
+    @bp.get("/fines/<uuid:fine_id>")
+    @_require_principal(access_tokens, tenant_request_context)
+    def get_fine(fine_id: UUID) -> Response:
+        try:
+            fine = fin_service.get_fine(
+                actor=_principal_from_request(), fine_id=fine_id
+            )
+            return jsonify(_fine_dict(fine))
+        except Exception as err:
+            return _handle_public_library_error(err)
+
+    @bp.post("/fines/calculate")
+    @_require_principal(access_tokens, tenant_request_context)
+    def calculate_fine() -> Response:
+        try:
+            body = request.get_json(force=True) or {}
+            raw_due_at = body.get("due_at")
+            raw_return_at = body.get("effective_return_at")
+            if not raw_due_at or not raw_return_at:
+                raise ValueError("due_at and effective_return_at are required")
+            due_at = datetime.fromisoformat(str(raw_due_at))
+            effective_return_at = datetime.fromisoformat(str(raw_return_at))
+            daily_rate = _parse_decimal(body.get("daily_rate"), "daily_rate")
+            currency = body.get("currency")
+            if not currency:
+                raise ValueError("currency is required")
+            max_fine = (
+                _parse_decimal(body["max_fine"], "max_fine")
+                if "max_fine" in body and body["max_fine"] is not None
+                else None
+            )
+
+            money = fin_service.calculate_overdue_fine(
+                due_at=due_at,
+                effective_return_at=effective_return_at,
+                daily_rate=daily_rate,
+                currency=str(currency),
+                max_fine=max_fine,
+            )
+            return jsonify({"amount": str(money.amount), "currency": money.currency})
+        except Exception as err:
+            return _handle_public_library_error(err)
+
+    @bp.post("/fines/<uuid:fine_id>/waive")
+    @_require_principal(access_tokens, tenant_request_context)
+    def waive_fine(fine_id: UUID) -> Response:
+        try:
+            body = request.get_json(force=True) or {}
+            reason = body.get("reason")
+            if not reason:
+                raise ValueError("reason is required")
+            waived = fin_service.waive_fine(
+                actor=_principal_from_request(),
+                fine_id=fine_id,
+                reason=str(reason),
+            )
+            return jsonify(_fine_dict(waived))
+        except Exception as err:
+            return _handle_public_library_error(err)
+
+    @bp.get("/fines/<uuid:fine_id>/allocations")
+    @_require_principal(access_tokens, tenant_request_context)
+    def list_fine_allocations(fine_id: UUID) -> Response:
+        try:
+            allocs = fin_service.list_allocations_for_fine(
+                actor=_principal_from_request(),
+                fine_id=fine_id,
+            )
+            return jsonify({"items": [_allocation_dict(a) for a in allocs]})
+        except Exception as err:
+            return _handle_public_library_error(err)
+
+    # --- Invoices ---
+
+    @bp.post("/invoices")
+    @_require_principal(access_tokens, tenant_request_context)
+    def issue_invoice() -> Response:
+        try:
+            body = request.get_json(force=True) or {}
+            raw_member_id = body.get("member_id")
+            if not raw_member_id:
+                raise ValueError("member_id is required")
+            currency = body.get("currency")
+            if not currency:
+                raise ValueError("currency is required")
+
+            raw_tax = body.get("tax")
+            tax = _parse_decimal(raw_tax, "tax") if raw_tax is not None else None
+
+            raw_due_at = body.get("due_at")
+            due_at = datetime.fromisoformat(str(raw_due_at)) if raw_due_at else None
+
+            raw_lines = body.get("lines")
+            if not raw_lines or not isinstance(raw_lines, list):
+                raise ValueError("lines must be a non-empty list")
+
+            lines: list[InvoiceLine] = []
+            for idx, raw_line in enumerate(raw_lines, start=1):
+                if not isinstance(raw_line, dict):
+                    raise ValueError(f"Line {idx} must be an object")
+                desc = raw_line.get("description")
+                if not desc:
+                    raise ValueError(f"Line {idx} description is required")
+                qty = int(raw_line.get("quantity", 1))
+                unit_price = _parse_decimal(
+                    raw_line.get("unit_price"), f"Line {idx} unit_price"
+                )
+                amount = _parse_decimal(raw_line.get("amount"), f"Line {idx} amount")
+                raw_fine_id = raw_line.get("fine_id")
+                fine_id = UUID(str(raw_fine_id)) if raw_fine_id else None
+
+                lines.append(
+                    InvoiceLine(
+                        invoice_line_id=uuid4(),
+                        organization_id=_principal_from_request().organization_id,
+                        invoice_id=uuid4(),
+                        line_number=idx,
+                        description=str(desc),
+                        quantity=qty,
+                        unit_price=unit_price,
+                        amount=amount,
+                        created_at=datetime.now(),
+                        fine_id=fine_id,
+                    )
+                )
+
+            inv = fin_service.issue_invoice(
+                actor=_principal_from_request(),
+                member_id=UUID(str(raw_member_id)),
+                lines=lines,
+                currency=str(currency),
+                tax=tax,
+                due_at=due_at,
+            )
+            response = jsonify(_invoice_dict(inv))
+            response.status_code = 201
+            return response
+        except Exception as err:
+            return _handle_public_library_error(err)
+
+    @bp.get("/invoices")
+    @_require_principal(access_tokens, tenant_request_context)
+    def list_invoices() -> Response:
+        try:
+            raw_member_id = request.args.get("member_id")
+            member_id = UUID(raw_member_id) if raw_member_id else None
+            status = request.args.get("status")
+            invoices = fin_service.list_invoices(
+                actor=_principal_from_request(),
+                member_id=member_id,
+                status=status,
+            )
+            return jsonify({"items": [_invoice_dict(inv) for inv in invoices]})
+        except Exception as err:
+            return _handle_public_library_error(err)
+
+    @bp.get("/invoices/<uuid:invoice_id>")
+    @_require_principal(access_tokens, tenant_request_context)
+    def get_invoice(invoice_id: UUID) -> Response:
+        try:
+            invoice = fin_service.get_invoice(
+                actor=_principal_from_request(),
+                invoice_id=invoice_id,
+            )
+            return jsonify(_invoice_dict(invoice))
+        except Exception as err:
+            return _handle_public_library_error(err)
+
+    @bp.put("/invoices/<uuid:invoice_id>")
+    @bp.put("/invoices/<uuid:invoice_id>/lines")
+    @bp.patch("/invoices/<uuid:invoice_id>")
+    @_require_principal(access_tokens, tenant_request_context)
+    def update_invoice(invoice_id: UUID) -> Response:
+        try:
+            fin_service.modify_invoice_lines(
+                actor=_principal_from_request(),
+                invoice_id=invoice_id,
+                new_lines=[],
+            )
+            return jsonify({"status": "ok"})
+        except Exception as err:
+            return _handle_public_library_error(err)
+
+    @bp.post("/invoices/<uuid:invoice_id>/void")
+    @_require_principal(access_tokens, tenant_request_context)
+    def void_invoice(invoice_id: UUID) -> Response:
+        try:
+            body = request.get_json(force=True) or {}
+            reason = body.get("reason")
+            if not reason:
+                raise ValueError("reason is required")
+            voided = fin_service.void_invoice(
+                actor=_principal_from_request(),
+                invoice_id=invoice_id,
+                reason=str(reason),
+            )
+            return jsonify(_invoice_dict(voided))
+        except Exception as err:
+            return _handle_public_library_error(err)
+
+    # --- Payments ---
+
+    @bp.post("/payments")
+    @_require_principal(access_tokens, tenant_request_context)
+    def record_payment() -> Response:
+        try:
+            body = request.get_json(force=True) or {}
+            raw_member_id = body.get("member_id")
+            if not raw_member_id:
+                raise ValueError("member_id is required")
+            amount = _parse_decimal(body.get("amount"), "amount")
+            currency = body.get("currency")
+            if not currency:
+                raise ValueError("currency is required")
+            provider = body.get("provider", "manual")
+            provider_reference = body.get("provider_reference")
+            provider_event_id = body.get("provider_event_id")
+
+            payment = fin_service.record_payment(
+                actor=_principal_from_request(),
+                member_id=UUID(str(raw_member_id)),
+                amount=amount,
+                currency=str(currency),
+                provider=str(provider),
+                provider_reference=str(provider_reference)
+                if provider_reference
+                else None,
+                provider_event_id=str(provider_event_id) if provider_event_id else None,
+            )
+            response = jsonify(_payment_dict(payment))
+            response.status_code = 201
+            return response
+        except Exception as err:
+            return _handle_public_library_error(err)
+
+    @bp.get("/payments")
+    @_require_principal(access_tokens, tenant_request_context)
+    def list_payments() -> Response:
+        try:
+            raw_member_id = request.args.get("member_id")
+            member_id = UUID(raw_member_id) if raw_member_id else None
+            status = request.args.get("status")
+            payments = fin_service.list_payments(
+                actor=_principal_from_request(),
+                member_id=member_id,
+                status=status,
+            )
+            return jsonify({"items": [_payment_dict(p) for p in payments]})
+        except Exception as err:
+            return _handle_public_library_error(err)
+
+    @bp.get("/payments/<uuid:payment_id>")
+    @_require_principal(access_tokens, tenant_request_context)
+    def get_payment(payment_id: UUID) -> Response:
+        try:
+            payment = fin_service.get_payment(
+                actor=_principal_from_request(),
+                payment_id=payment_id,
+            )
+            return jsonify(_payment_dict(payment))
+        except Exception as err:
+            return _handle_public_library_error(err)
+
+    @bp.get("/payments/<uuid:payment_id>/allocations")
+    @_require_principal(access_tokens, tenant_request_context)
+    def list_payment_allocations(payment_id: UUID) -> Response:
+        try:
+            allocs = fin_service.list_allocations_for_payment(
+                actor=_principal_from_request(),
+                payment_id=payment_id,
+            )
+            return jsonify({"items": [_allocation_dict(a) for a in allocs]})
+        except Exception as err:
+            return _handle_public_library_error(err)
+
+    # --- Allocations ---
+
+    @bp.post("/allocations")
+    @_require_principal(access_tokens, tenant_request_context)
+    def allocate_payment() -> Response:
+        try:
+            body = request.get_json(force=True) or {}
+            raw_payment_id = body.get("payment_id")
+            raw_fine_id = body.get("fine_id")
+            if not raw_payment_id or not raw_fine_id:
+                raise ValueError("payment_id and fine_id are required")
+            amount = _parse_decimal(body.get("amount"), "amount")
+            raw_invoice_id = body.get("invoice_id")
+            invoice_id = UUID(str(raw_invoice_id)) if raw_invoice_id else None
+            allocation_type = body.get("allocation_type", AllocationType.PAYMENT)
+
+            allocation = fin_service.allocate_payment(
+                actor=_principal_from_request(),
+                payment_id=UUID(str(raw_payment_id)),
+                fine_id=UUID(str(raw_fine_id)),
+                amount=amount,
+                invoice_id=invoice_id,
+                allocation_type=str(allocation_type),
+            )
+            response = jsonify(_allocation_dict(allocation))
+            response.status_code = 201
+            return response
+        except Exception as err:
+            return _handle_public_library_error(err)
+
+    @bp.get("/allocations/<uuid:allocation_id>")
+    @_require_principal(access_tokens, tenant_request_context)
+    def get_allocation(allocation_id: UUID) -> Response:
+        try:
+            allocation = fin_service.get_allocation(
+                actor=_principal_from_request(),
+                allocation_id=allocation_id,
+            )
+            return jsonify(_allocation_dict(allocation))
+        except Exception as err:
+            return _handle_public_library_error(err)
+
+    @bp.get("/allocations")
+    @_require_principal(access_tokens, tenant_request_context)
+    def list_allocations() -> Response:
+        try:
+            raw_fine_id = request.args.get("fine_id")
+            raw_payment_id = request.args.get("payment_id")
+            if raw_fine_id:
+                allocs = fin_service.list_allocations_for_fine(
+                    actor=_principal_from_request(),
+                    fine_id=UUID(raw_fine_id),
+                )
+            elif raw_payment_id:
+                allocs = fin_service.list_allocations_for_payment(
+                    actor=_principal_from_request(),
+                    payment_id=UUID(raw_payment_id),
+                )
+            else:
+                raise ValueError(
+                    "Either fine_id or payment_id is required to list allocations"
+                )
+            return jsonify({"items": [_allocation_dict(a) for a in allocs]})
         except Exception as err:
             return _handle_public_library_error(err)
 

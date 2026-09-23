@@ -139,6 +139,7 @@ def create_app(config: AppConfig) -> Flask:
                 config.access_tokens,
                 config.tenant_request_context,
                 url_prefix="/api/v1/public-library",
+                finance_service=config.public_library_finance_service,
             )
         )
         app.register_blueprint(
@@ -147,6 +148,7 @@ def create_app(config: AppConfig) -> Flask:
                 config.access_tokens,
                 config.tenant_request_context,
                 url_prefix="/public-library",
+                finance_service=config.public_library_finance_service,
             )
         )
     return app
