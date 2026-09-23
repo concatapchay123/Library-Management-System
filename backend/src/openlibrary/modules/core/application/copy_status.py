@@ -6,7 +6,7 @@ from collections.abc import Callable
 from contextlib import AbstractContextManager
 from dataclasses import dataclass
 from datetime import datetime, timezone
-from typing import Protocol
+from typing import Any, Protocol
 from uuid import UUID, uuid4
 
 from openlibrary.modules.core.application.access_tokens import Principal
@@ -53,6 +53,10 @@ class CopyStatusStore(Protocol):
     def list_history_for_copy(
         self, organization_id: UUID, copy_id: UUID
     ) -> list[CopyStatusHistory]: ...
+
+    def get_copy_for_update_in_connection(
+        self, connection: Any, organization_id: UUID, copy_id: UUID
+    ) -> BookCopy: ...
 
 
 class CopyStatusService:

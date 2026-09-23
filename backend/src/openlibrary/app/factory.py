@@ -95,6 +95,7 @@ def create_app(config: AppConfig) -> Flask:
                 config.loan_service,
                 config.access_tokens,
                 config.tenant_request_context,
+                idempotency=config.idempotency_service,
             )
         )
     return app

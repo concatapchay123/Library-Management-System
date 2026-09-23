@@ -1259,6 +1259,9 @@
             "headers": {
               "X-Request-ID": {
                 "$ref": "#/components/headers/X-Request-ID"
+              },
+              "Idempotency-Replayed": {
+                "$ref": "#/components/headers/Idempotency-Replayed"
               }
             },
             "content": {
@@ -1284,7 +1287,19 @@
           "409": {
             "$ref": "#/components/responses/ProblemDetails"
           }
-        }
+        },
+        "parameters": [
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": false,
+            "description": "Unique key to ensure idempotent request execution and safe replay.",
+            "schema": {
+              "type": "string",
+              "maxLength": 128
+            }
+          }
+        ]
       }
     },
     "/loans/{loan_id}": {
@@ -1490,6 +1505,9 @@
             "headers": {
               "X-Request-ID": {
                 "$ref": "#/components/headers/X-Request-ID"
+              },
+              "Idempotency-Replayed": {
+                "$ref": "#/components/headers/Idempotency-Replayed"
               }
             },
             "content": {
@@ -1515,7 +1533,19 @@
           "409": {
             "$ref": "#/components/responses/ProblemDetails"
           }
-        }
+        },
+        "parameters": [
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": false,
+            "description": "Unique key to ensure idempotent request execution and safe replay.",
+            "schema": {
+              "type": "string",
+              "maxLength": 128
+            }
+          }
+        ]
       }
     },
     "/loans/{loan_id}/return": {
@@ -1544,6 +1574,9 @@
             "headers": {
               "X-Request-ID": {
                 "$ref": "#/components/headers/X-Request-ID"
+              },
+              "Idempotency-Replayed": {
+                "$ref": "#/components/headers/Idempotency-Replayed"
               }
             },
             "content": {
@@ -1569,7 +1602,19 @@
           "409": {
             "$ref": "#/components/responses/ProblemDetails"
           }
-        }
+        },
+        "parameters": [
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": false,
+            "description": "Unique key to ensure idempotent request execution and safe replay.",
+            "schema": {
+              "type": "string",
+              "maxLength": 128
+            }
+          }
+        ]
       }
     }
   },
@@ -1577,6 +1622,19 @@
     "headers": {
       "X-Request-ID": {
         "description": "Server-generated correlation identifier, or a syntactically valid client value.",
+        "schema": {
+          "type": "string"
+        }
+      },
+      "Idempotency-Key": {
+        "description": "Client-supplied idempotency key (up to 128 characters) for safe request replay.",
+        "schema": {
+          "type": "string",
+          "maxLength": 128
+        }
+      },
+      "Idempotency-Replayed": {
+        "description": "Header indicating whether the response was replayed from a previously cached idempotent execution.",
         "schema": {
           "type": "string"
         }

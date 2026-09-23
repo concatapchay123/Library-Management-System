@@ -512,6 +512,23 @@ class LoanService:
         )
 
         def _mutation(connection: object) -> Loan:
+            if (
+                hasattr(self._copy_store, "get_copy_for_update_in_connection")
+                and connection is not None
+            ):
+                locked_copy = getattr(
+                    self._copy_store, "get_copy_for_update_in_connection"
+                )(connection, actor.organization_id, current.copy_id)
+            else:
+                locked_copy = self._copy_store.get_copy(
+                    actor.organization_id, current.copy_id
+                )
+            if locked_copy.status != CopyStatus.AVAILABLE:
+                raise CopyNotAvailableForLoanError(
+                    locked_copy.copy_id, locked_copy.status
+                )
+            validate_transition(locked_copy.status, CopyStatus.BORROWED)
+
             if hasattr(self._copy_store, "record_transition_in_connection"):
                 getattr(self._copy_store, "record_transition_in_connection")(
                     connection,

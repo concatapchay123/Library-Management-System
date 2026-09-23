@@ -19,6 +19,7 @@ if TYPE_CHECKING:
         RefreshSessionService,
     )
     from openlibrary.modules.core.infrastructure.tenancy import TenantRequestContext
+    from openlibrary.modules.ops.application.idempotency import IdempotencyService
 
 ReadinessProbe = Callable[[], bool]
 
@@ -37,4 +38,5 @@ class AppConfig:
     inventory: "InventoryService | None" = None
     copy_status: "CopyStatusService | None" = None
     loan_service: "LoanService | None" = None
+    idempotency_service: "IdempotencyService | None" = None
     tenant_request_context: "TenantRequestContext | None" = None

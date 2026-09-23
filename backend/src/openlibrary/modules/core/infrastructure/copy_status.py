@@ -147,6 +147,30 @@ class SqlServerCopyStatusStore(CopyStatusStore):
         )
         return _copy_from_row(row)
 
+    def get_copy_for_update_in_connection(
+        self,
+        connection: Connection,
+        organization_id: UUID,
+        copy_id: UUID,
+    ) -> BookCopy:
+        """Lock the copy row within the transaction using UPDLOCK and ROWLOCK."""
+        row = (
+            connection.execute(
+                text(
+                    "SELECT copy_id, organization_id, book_id, barcode, "
+                    "location_id, status, condition_code, acquired_at, "
+                    "created_at, updated_at FROM core.book_copies WITH (UPDLOCK, ROWLOCK) "
+                    "WHERE copy_id = :copy_id"
+                ),
+                {"copy_id": str(copy_id)},
+            )
+            .mappings()
+            .one_or_none()
+        )
+        if row is None:
+            raise KeyError(copy_id)
+        return _copy_from_row(row)
+
     def _tenant_connection(
         self, organization_id: UUID
     ) -> AbstractContextManager[Connection]:

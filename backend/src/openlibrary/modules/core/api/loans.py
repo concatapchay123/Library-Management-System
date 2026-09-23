@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from typing import Any
 from uuid import UUID
 
@@ -22,15 +23,73 @@ from openlibrary.modules.core.domain.loans import (
     LoanNotFoundError,
 )
 from openlibrary.modules.core.infrastructure.tenancy import TenantRequestContext
+from openlibrary.modules.ops.application.idempotency import (
+    IdempotencyConflictError,
+    IdempotencyService,
+)
 
 
 def create_loans_blueprint(
     service: LoanService,
     access_tokens: AccessTokenService,
     tenant_request_context: TenantRequestContext | None = None,
+    idempotency: IdempotencyService | None = None,
 ) -> Blueprint:
     """Expose circulation loan endpoints without accepting client-selected tenants."""
     loans = Blueprint("loans", __name__, url_prefix="/api/v1/loans")
+
+    def _execute_idempotent(
+        payload: object,
+        execute_fn: Callable[[], tuple[int, Loan]],
+    ) -> Response:
+        idempotency_key = request.headers.get("Idempotency-Key")
+        actor = _principal_from_request()
+        corr_id = None
+        if request_id():
+            try:
+                corr_id = UUID(request_id())
+            except ValueError:
+                pass
+
+        if idempotency_key is not None:
+            clean_key = idempotency_key.strip()
+            if not clean_key or len(clean_key) > 128:
+                return _bad_request(
+                    "Idempotency-Key header must be between 1 and 128 characters."
+                )
+
+            if idempotency is not None:
+
+                def _do_execute() -> tuple[int, dict[str, Any], str | None]:
+                    status_code, loan = execute_fn()
+                    return status_code, _loan_response(loan), str(loan.loan_id)
+
+                try:
+                    res = idempotency.process_or_replay(
+                        organization_id=actor.organization_id,
+                        key=clean_key,
+                        method=request.method,
+                        endpoint=request.path,
+                        request_payload=payload,
+                        execute=_do_execute,
+                        correlation_id=corr_id,
+                        actor_user_id=actor.user_id,
+                    )
+                except IdempotencyConflictError as err:
+                    return _problem_response(
+                        err.status_code, err.title, str(err), type_uri=err.problem_type
+                    )
+
+                response = jsonify(res.body)
+                response.status_code = res.status_code
+                if res.replayed:
+                    response.headers["Idempotency-Replayed"] = "true"
+                return response
+
+        status_code, loan = execute_fn()
+        response = jsonify(_loan_response(loan))
+        response.status_code = status_code
+        return response
 
     @loans.post("")
     @_require_principal(access_tokens, tenant_request_context)
@@ -71,12 +130,18 @@ def create_loans_blueprint(
                 pass
 
         try:
-            loan = service.request_loan(
-                actor=_principal_from_request(),
-                copy_id=copy_uuid,
-                borrower_user_id=borrower_user_id,
-                duration_days=duration_days,
-                correlation_id=corr_id,
+            return _execute_idempotent(
+                payload,
+                lambda: (
+                    201,
+                    service.request_loan(
+                        actor=_principal_from_request(),
+                        copy_id=copy_uuid,
+                        borrower_user_id=borrower_user_id,
+                        duration_days=duration_days,
+                        correlation_id=corr_id,
+                    ),
+                ),
             )
         except InvalidLoanStatusTransitionError as err:
             return _problem_response(
@@ -94,10 +159,6 @@ def create_loans_blueprint(
             return _not_found("Copy or borrower not found.")
         except ValueError as err:
             return _bad_request(str(err))
-
-        response = jsonify(_loan_response(loan))
-        response.status_code = 201
-        return response
 
     @loans.post("/desk-checkout")
     @_require_principal(access_tokens, tenant_request_context)
@@ -133,12 +194,18 @@ def create_loans_blueprint(
                 pass
 
         try:
-            loan = service.desk_checkout(
-                actor=_principal_from_request(),
-                copy_id=copy_uuid,
-                borrower_user_id=borrower_uuid,
-                duration_days=duration_days,
-                correlation_id=corr_id,
+            return _execute_idempotent(
+                payload,
+                lambda: (
+                    201,
+                    service.desk_checkout(
+                        actor=_principal_from_request(),
+                        copy_id=copy_uuid,
+                        borrower_user_id=borrower_uuid,
+                        duration_days=duration_days,
+                        correlation_id=corr_id,
+                    ),
+                ),
             )
         except InvalidLoanStatusTransitionError as err:
             return _problem_response(
@@ -160,10 +227,6 @@ def create_loans_blueprint(
             return _not_found("Copy or borrower not found.")
         except ValueError as err:
             return _bad_request(str(err))
-
-        response = jsonify(_loan_response(loan))
-        response.status_code = 201
-        return response
 
     @loans.get("")
     @_require_principal(access_tokens, tenant_request_context)
@@ -304,11 +367,17 @@ def create_loans_blueprint(
                 pass
 
         try:
-            loan = service.checkout_loan(
-                actor=_principal_from_request(),
-                loan_id=loan_uuid,
-                duration_days=duration_days,
-                correlation_id=corr_id,
+            return _execute_idempotent(
+                payload,
+                lambda: (
+                    200,
+                    service.checkout_loan(
+                        actor=_principal_from_request(),
+                        loan_id=loan_uuid,
+                        duration_days=duration_days,
+                        correlation_id=corr_id,
+                    ),
+                ),
             )
         except InvalidLoanStatusTransitionError as err:
             return _problem_response(
@@ -327,8 +396,6 @@ def create_loans_blueprint(
         except ValueError as err:
             return _bad_request(str(err))
 
-        return jsonify(_loan_response(loan))
-
     @loans.post("/<loan_id>/return")
     @_require_principal(access_tokens, tenant_request_context)
     def return_loan(loan_id: str) -> Response:
@@ -345,10 +412,16 @@ def create_loans_blueprint(
                 pass
 
         try:
-            loan = service.return_loan(
-                actor=_principal_from_request(),
-                loan_id=loan_uuid,
-                correlation_id=corr_id,
+            return _execute_idempotent(
+                {},
+                lambda: (
+                    200,
+                    service.return_loan(
+                        actor=_principal_from_request(),
+                        loan_id=loan_uuid,
+                        correlation_id=corr_id,
+                    ),
+                ),
             )
         except InvalidLoanStatusTransitionError as err:
             return _problem_response(
@@ -362,8 +435,6 @@ def create_loans_blueprint(
             return _not_found("Loan or copy not found.")
         except ValueError as err:
             return _bad_request(str(err))
-
-        return jsonify(_loan_response(loan))
 
     return loans
 

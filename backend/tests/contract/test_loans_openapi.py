@@ -75,3 +75,20 @@ def test_loans_contract_exposes_full_lifecycle_endpoints() -> None:
     assert schemas["LoanPage"]["required"] == ["items"]
     assert schemas["LoanRequestWrite"]["required"] == ["copy_id"]
     assert schemas["DeskCheckoutWrite"]["required"] == ["copy_id", "borrower_user_id"]
+
+    # 5. Idempotency contract validation
+    headers = contract["components"]["headers"]
+    assert "Idempotency-Key" in headers
+    assert "Idempotency-Replayed" in headers
+
+    for endpoint in [
+        "/loans/desk-checkout",
+        "/loans/{loan_id}/checkout",
+        "/loans/{loan_id}/return",
+    ]:
+        op_params = paths[endpoint]["post"].get("parameters", [])
+        assert any(p.get("name") == "Idempotency-Key" for p in op_params)
+        responses = paths[endpoint]["post"]["responses"]
+        for code in ["200", "201"]:
+            if code in responses:
+                assert "Idempotency-Replayed" in responses[code]["headers"]

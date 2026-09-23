@@ -37,3 +37,6 @@ infra/volumes/
 # Knowledge graph cache
 graphify-out/
 
+# Skill observer logs
+skill-observations/
+
