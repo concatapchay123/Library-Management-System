@@ -12,6 +12,7 @@ if TYPE_CHECKING:
     from openlibrary.modules.core.application.inventory import InventoryService
     from openlibrary.modules.core.application.loans import LoanService
     from openlibrary.modules.core.application.login import LoginService
+    from openlibrary.modules.core.application.notifications import NotificationService
     from openlibrary.modules.core.application.organization_settings import (
         OrganizationSettingsService,
     )
@@ -45,6 +46,7 @@ class AppConfig:
     copy_status: "CopyStatusService | None" = None
     loan_service: "LoanService | None" = None
     reservation_service: "ReservationService | None" = None
+    notification_service: "NotificationService | None" = None
     idempotency_service: "IdempotencyService | None" = None
     education_service: "EducationService | None" = None
     public_library_service: "PublicLibraryService | None" = None

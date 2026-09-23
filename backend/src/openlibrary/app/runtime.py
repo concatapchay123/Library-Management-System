@@ -41,6 +41,10 @@ from openlibrary.modules.core.application.reservations import ReservationService
 from openlibrary.modules.core.infrastructure.reservations import (
     SqlServerReservationStore,
 )
+from openlibrary.modules.core.application.notifications import NotificationService
+from openlibrary.modules.core.infrastructure.notifications import (
+    SqlServerNotificationStore,
+)
 from openlibrary.modules.ops.infrastructure.sqlserver import SqlServerAuditedTransaction
 from openlibrary.modules.core.infrastructure.rbac import SqlServerRbacStore
 from openlibrary.modules.core.infrastructure.tenancy import (
@@ -186,6 +190,10 @@ def create_app_from_environ(
         transaction=audited_tx,
         connection_provider=tenant_context.connection,
     )
+    notification_service = NotificationService(
+        store=SqlServerNotificationStore(settings.database_runtime_url),
+        authorizer=authorization,
+    )
     app = create_app(
         AppConfig(
             readiness_probe=readiness_probe or _dependencies_are_unverified,
@@ -207,6 +215,7 @@ def create_app_from_environ(
             copy_status=copy_status_service,
             loan_service=loan_service,
             reservation_service=reservation_service,
+            notification_service=notification_service,
             education_service=education_service,
             public_library_service=public_library_service,
             public_library_finance_service=public_library_finance_service,

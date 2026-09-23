@@ -14,6 +14,7 @@ from openlibrary.modules.core.api.inventory import (
     create_locations_blueprint,
 )
 from openlibrary.modules.core.api.loans import create_loans_blueprint
+from openlibrary.modules.core.api.notifications import create_notifications_blueprint
 from openlibrary.modules.core.api.organizations import create_organizations_blueprint
 from openlibrary.modules.core.api.reservations import create_reservations_blueprint
 from openlibrary.modules.education.api import create_education_blueprint
@@ -109,6 +110,27 @@ def create_app(config: AppConfig) -> Flask:
                 config.reservation_service,
                 config.access_tokens,
                 config.tenant_request_context,
+            )
+        )
+    if config.notification_service is not None:
+        if config.access_tokens is None:
+            raise ValueError("Notification routes require access token verification")
+        app.register_blueprint(
+            create_notifications_blueprint(
+                config.notification_service,
+                config.access_tokens,
+                config.tenant_request_context,
+                url_prefix="/api/v1/notifications",
+                name="notifications_v1",
+            )
+        )
+        app.register_blueprint(
+            create_notifications_blueprint(
+                config.notification_service,
+                config.access_tokens,
+                config.tenant_request_context,
+                url_prefix="/notifications",
+                name="notifications",
             )
         )
     if config.education_service is not None:
