@@ -87,14 +87,13 @@ class SqlServerLoanStore(LoanStore):
     ) -> int:
         query = (
             "SELECT COUNT(*) AS active_count FROM core.loans "
-            "WHERE borrower_user_id = :borrower_user_id AND status = :status"
+            "WHERE borrower_user_id = :borrower_user_id AND status IN ('checked_out', 'overdue')"
         )
         with self._tenant_connection(organization_id) as connection:
             val = connection.execute(
                 text(query),
                 {
                     "borrower_user_id": str(borrower_user_id),
-                    "status": LoanStatus.CHECKED_OUT,
                 },
             ).scalar_one()
             return int(val)
@@ -107,18 +106,41 @@ class SqlServerLoanStore(LoanStore):
             "status, loan_status, request_status, requested_at, approved_at, "
             "checked_out_at, due_at, returned_at, policy_snapshot_json, "
             "created_at, updated_at FROM core.loans "
-            "WHERE copy_id = :copy_id AND status = :status"
+            "WHERE copy_id = :copy_id AND status IN ('checked_out', 'overdue')"
         )
         with self._tenant_connection(organization_id) as connection:
             row = (
                 connection.execute(
                     text(query),
-                    {"copy_id": str(copy_id), "status": LoanStatus.CHECKED_OUT},
+                    {"copy_id": str(copy_id)},
                 )
                 .mappings()
                 .one_or_none()
             )
             return _loan_from_row(row) if row is not None else None
+
+    def find_overdue_loans(self, organization_id: UUID, as_of: datetime) -> list[Loan]:
+        with self._tenant_connection(organization_id) as connection:
+            return self.find_overdue_loans_in_connection(
+                connection, organization_id, as_of
+            )
+
+    def find_overdue_loans_in_connection(
+        self, connection: Connection, organization_id: UUID, as_of: datetime
+    ) -> list[Loan]:
+        query = (
+            "SELECT loan_id, organization_id, copy_id, borrower_user_id, "
+            "status, loan_status, request_status, requested_at, approved_at, "
+            "checked_out_at, due_at, returned_at, policy_snapshot_json, "
+            "created_at, updated_at FROM core.loans "
+            "WHERE status = :status AND due_at IS NOT NULL AND due_at < :as_of "
+            "ORDER BY due_at ASC, loan_id ASC"
+        )
+        rows = connection.execute(
+            text(query),
+            {"status": LoanStatus.CHECKED_OUT, "as_of": as_of},
+        ).mappings()
+        return [_loan_from_row(row) for row in rows]
 
     def record_create_loan_in_connection(
         self, connection: Connection, loan: Loan

@@ -79,6 +79,10 @@ class LoanStore(Protocol):
         self, organization_id: UUID, copy_id: UUID
     ) -> Loan | None: ...
 
+    def find_overdue_loans(
+        self, organization_id: UUID, as_of: datetime
+    ) -> list[Loan]: ...
+
 
 class LoanService:
     """Unified application service for self-service and librarian-desk circulation flows."""

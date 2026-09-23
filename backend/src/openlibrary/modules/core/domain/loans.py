@@ -15,9 +15,10 @@ class LoanStatus:
     CHECKED_OUT: Final[str] = "checked_out"
     RETURNED: Final[str] = "returned"
     CANCELLED: Final[str] = "cancelled"
+    OVERDUE: Final[str] = "overdue"
 
     ALL: Final[frozenset[str]] = frozenset(
-        {REQUESTED, APPROVED, REJECTED, CHECKED_OUT, RETURNED, CANCELLED}
+        {REQUESTED, APPROVED, REJECTED, CHECKED_OUT, RETURNED, CANCELLED, OVERDUE}
     )
 
 
@@ -29,6 +30,8 @@ ALLOWED_LOAN_TRANSITIONS: Final[frozenset[tuple[str, str]]] = frozenset(
         (LoanStatus.APPROVED, LoanStatus.CHECKED_OUT),
         (LoanStatus.APPROVED, LoanStatus.CANCELLED),
         (LoanStatus.CHECKED_OUT, LoanStatus.RETURNED),
+        (LoanStatus.CHECKED_OUT, LoanStatus.OVERDUE),
+        (LoanStatus.OVERDUE, LoanStatus.RETURNED),
     }
 )
 

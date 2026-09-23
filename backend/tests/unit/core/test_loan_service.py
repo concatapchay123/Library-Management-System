@@ -225,6 +225,8 @@ def test_domain_allowed_transitions() -> None:
         (LoanStatus.APPROVED, LoanStatus.CHECKED_OUT),
         (LoanStatus.APPROVED, LoanStatus.CANCELLED),
         (LoanStatus.CHECKED_OUT, LoanStatus.RETURNED),
+        (LoanStatus.CHECKED_OUT, LoanStatus.OVERDUE),
+        (LoanStatus.OVERDUE, LoanStatus.RETURNED),
     }
     assert ALLOWED_LOAN_TRANSITIONS == expected
     for from_s, to_s in expected:
