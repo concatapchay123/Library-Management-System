@@ -2807,6 +2807,687 @@
           }
         }
       }
+    },
+    "/public-library/members": {
+      "get": {
+        "operationId": "listPublicLibraryMembers",
+        "summary": "List public library members.",
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "List of members.",
+            "headers": {
+              "X-Request-ID": {
+                "$ref": "#/components/headers/X-Request-ID"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicLibraryMemberList"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/AuthenticationFailed"
+          },
+          "403": {
+            "$ref": "#/components/responses/ProblemDetails"
+          }
+        }
+      },
+      "post": {
+        "operationId": "createPublicLibraryMember",
+        "summary": "Create public library member profile.",
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PublicLibraryMemberCreate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Member created.",
+            "headers": {
+              "X-Request-ID": {
+                "$ref": "#/components/headers/X-Request-ID"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicLibraryMember"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/ProblemDetails"
+          },
+          "401": {
+            "$ref": "#/components/responses/AuthenticationFailed"
+          },
+          "403": {
+            "$ref": "#/components/responses/ProblemDetails"
+          },
+          "409": {
+            "$ref": "#/components/responses/ProblemDetails"
+          }
+        }
+      }
+    },
+    "/public-library/members/{member_id}": {
+      "get": {
+        "operationId": "getPublicLibraryMember",
+        "summary": "Get public library member by ID.",
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "member_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Member details.",
+            "headers": {
+              "X-Request-ID": {
+                "$ref": "#/components/headers/X-Request-ID"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicLibraryMember"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/AuthenticationFailed"
+          },
+          "403": {
+            "$ref": "#/components/responses/ProblemDetails"
+          },
+          "404": {
+            "$ref": "#/components/responses/ProblemDetails"
+          }
+        }
+      }
+    },
+    "/public-library/members/{member_id}/status": {
+      "patch": {
+        "operationId": "updatePublicLibraryMemberStatus",
+        "summary": "Update member status.",
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "member_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PublicLibraryMemberStatusUpdate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Member status updated.",
+            "headers": {
+              "X-Request-ID": {
+                "$ref": "#/components/headers/X-Request-ID"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicLibraryMember"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/ProblemDetails"
+          },
+          "401": {
+            "$ref": "#/components/responses/AuthenticationFailed"
+          },
+          "403": {
+            "$ref": "#/components/responses/ProblemDetails"
+          },
+          "404": {
+            "$ref": "#/components/responses/ProblemDetails"
+          }
+        }
+      }
+    },
+    "/public-library/members/by-user/{user_id}": {
+      "get": {
+        "operationId": "getPublicLibraryMemberByUser",
+        "summary": "Get public library member by user ID.",
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "user_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Member details.",
+            "headers": {
+              "X-Request-ID": {
+                "$ref": "#/components/headers/X-Request-ID"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicLibraryMember"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/AuthenticationFailed"
+          },
+          "403": {
+            "$ref": "#/components/responses/ProblemDetails"
+          },
+          "404": {
+            "$ref": "#/components/responses/ProblemDetails"
+          }
+        }
+      }
+    },
+    "/public-library/membership-plans": {
+      "get": {
+        "operationId": "listPublicLibraryMembershipPlans",
+        "summary": "List membership plans.",
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "status",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "List of plans.",
+            "headers": {
+              "X-Request-ID": {
+                "$ref": "#/components/headers/X-Request-ID"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicLibraryMembershipPlanList"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/AuthenticationFailed"
+          },
+          "403": {
+            "$ref": "#/components/responses/ProblemDetails"
+          }
+        }
+      },
+      "post": {
+        "operationId": "createPublicLibraryMembershipPlan",
+        "summary": "Create a membership plan.",
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PublicLibraryMembershipPlanCreate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Plan created.",
+            "headers": {
+              "X-Request-ID": {
+                "$ref": "#/components/headers/X-Request-ID"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicLibraryMembershipPlan"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/ProblemDetails"
+          },
+          "401": {
+            "$ref": "#/components/responses/AuthenticationFailed"
+          },
+          "403": {
+            "$ref": "#/components/responses/ProblemDetails"
+          },
+          "409": {
+            "$ref": "#/components/responses/ProblemDetails"
+          },
+          "422": {
+            "$ref": "#/components/responses/ProblemDetails"
+          }
+        }
+      }
+    },
+    "/public-library/membership-plans/{plan_id}": {
+      "get": {
+        "operationId": "getPublicLibraryMembershipPlan",
+        "summary": "Get membership plan by ID.",
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "plan_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Plan details.",
+            "headers": {
+              "X-Request-ID": {
+                "$ref": "#/components/headers/X-Request-ID"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicLibraryMembershipPlan"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/AuthenticationFailed"
+          },
+          "403": {
+            "$ref": "#/components/responses/ProblemDetails"
+          },
+          "404": {
+            "$ref": "#/components/responses/ProblemDetails"
+          }
+        }
+      },
+      "put": {
+        "operationId": "updatePublicLibraryMembershipPlan",
+        "summary": "Update membership plan.",
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "plan_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PublicLibraryMembershipPlanUpdate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Plan updated.",
+            "headers": {
+              "X-Request-ID": {
+                "$ref": "#/components/headers/X-Request-ID"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicLibraryMembershipPlan"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/ProblemDetails"
+          },
+          "401": {
+            "$ref": "#/components/responses/AuthenticationFailed"
+          },
+          "403": {
+            "$ref": "#/components/responses/ProblemDetails"
+          },
+          "404": {
+            "$ref": "#/components/responses/ProblemDetails"
+          },
+          "422": {
+            "$ref": "#/components/responses/ProblemDetails"
+          }
+        }
+      }
+    },
+    "/public-library/membership-plans/seed": {
+      "post": {
+        "operationId": "seedPublicLibraryMembershipPlans",
+        "summary": "Seed default basic and premium membership plans.",
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Seeded plans.",
+            "headers": {
+              "X-Request-ID": {
+                "$ref": "#/components/headers/X-Request-ID"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicLibraryMembershipPlanList"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/AuthenticationFailed"
+          },
+          "403": {
+            "$ref": "#/components/responses/ProblemDetails"
+          }
+        }
+      }
+    },
+    "/public-library/subscriptions": {
+      "get": {
+        "operationId": "listPublicLibrarySubscriptions",
+        "summary": "List member subscriptions.",
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "member_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "status",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "List of subscriptions.",
+            "headers": {
+              "X-Request-ID": {
+                "$ref": "#/components/headers/X-Request-ID"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicLibrarySubscriptionList"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/AuthenticationFailed"
+          },
+          "403": {
+            "$ref": "#/components/responses/ProblemDetails"
+          }
+        }
+      },
+      "post": {
+        "operationId": "createPublicLibrarySubscription",
+        "summary": "Create a member subscription.",
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PublicLibrarySubscriptionCreate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Subscription created.",
+            "headers": {
+              "X-Request-ID": {
+                "$ref": "#/components/headers/X-Request-ID"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicLibrarySubscription"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/ProblemDetails"
+          },
+          "401": {
+            "$ref": "#/components/responses/AuthenticationFailed"
+          },
+          "403": {
+            "$ref": "#/components/responses/ProblemDetails"
+          },
+          "404": {
+            "$ref": "#/components/responses/ProblemDetails"
+          },
+          "409": {
+            "$ref": "#/components/responses/ProblemDetails"
+          },
+          "422": {
+            "$ref": "#/components/responses/ProblemDetails"
+          }
+        }
+      }
+    },
+    "/public-library/subscriptions/{subscription_id}": {
+      "get": {
+        "operationId": "getPublicLibrarySubscription",
+        "summary": "Get subscription by ID.",
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "subscription_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Subscription details.",
+            "headers": {
+              "X-Request-ID": {
+                "$ref": "#/components/headers/X-Request-ID"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicLibrarySubscription"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/AuthenticationFailed"
+          },
+          "403": {
+            "$ref": "#/components/responses/ProblemDetails"
+          },
+          "404": {
+            "$ref": "#/components/responses/ProblemDetails"
+          }
+        }
+      }
+    },
+    "/public-library/subscriptions/{subscription_id}/cancel": {
+      "post": {
+        "operationId": "cancelPublicLibrarySubscription",
+        "summary": "Cancel an active subscription.",
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "subscription_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Subscription cancelled.",
+            "headers": {
+              "X-Request-ID": {
+                "$ref": "#/components/headers/X-Request-ID"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicLibrarySubscription"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/AuthenticationFailed"
+          },
+          "403": {
+            "$ref": "#/components/responses/ProblemDetails"
+          },
+          "404": {
+            "$ref": "#/components/responses/ProblemDetails"
+          }
+        }
+      }
     }
   },
   "components": {
@@ -4260,6 +4941,332 @@
             "type": "array",
             "items": {
               "$ref": "#/components/schemas/EducationTeacher"
+            }
+          }
+        },
+        "additionalProperties": false
+      },
+      "PublicLibraryMember": {
+        "type": "object",
+        "required": [
+          "member_id",
+          "organization_id",
+          "user_id",
+          "member_number",
+          "status",
+          "created_at",
+          "updated_at"
+        ],
+        "properties": {
+          "member_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "organization_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "user_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "member_number": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "additionalProperties": false
+      },
+      "PublicLibraryMemberCreate": {
+        "type": "object",
+        "required": [
+          "user_id",
+          "member_number"
+        ],
+        "properties": {
+          "user_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "member_number": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string"
+          }
+        },
+        "additionalProperties": false
+      },
+      "PublicLibraryMemberList": {
+        "type": "object",
+        "required": [
+          "items"
+        ],
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PublicLibraryMember"
+            }
+          }
+        },
+        "additionalProperties": false
+      },
+      "PublicLibraryMemberStatusUpdate": {
+        "type": "object",
+        "required": [
+          "status"
+        ],
+        "properties": {
+          "status": {
+            "type": "string"
+          }
+        },
+        "additionalProperties": false
+      },
+      "PublicLibraryMembershipPlan": {
+        "type": "object",
+        "required": [
+          "plan_id",
+          "organization_id",
+          "code",
+          "name",
+          "max_active_loans",
+          "duration_days",
+          "price",
+          "currency",
+          "status",
+          "created_at",
+          "updated_at"
+        ],
+        "properties": {
+          "plan_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "organization_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "code": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string",
+            "nullable": true
+          },
+          "max_active_loans": {
+            "type": "integer"
+          },
+          "duration_days": {
+            "type": "integer"
+          },
+          "price": {
+            "type": "string"
+          },
+          "currency": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "additionalProperties": false
+      },
+      "PublicLibraryMembershipPlanCreate": {
+        "type": "object",
+        "required": [
+          "code",
+          "name",
+          "max_active_loans",
+          "duration_days"
+        ],
+        "properties": {
+          "code": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string",
+            "nullable": true
+          },
+          "max_active_loans": {
+            "type": "integer"
+          },
+          "duration_days": {
+            "type": "integer"
+          },
+          "price": {
+            "type": "string"
+          },
+          "currency": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string"
+          }
+        },
+        "additionalProperties": false
+      },
+      "PublicLibraryMembershipPlanUpdate": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string",
+            "nullable": true
+          },
+          "max_active_loans": {
+            "type": "integer"
+          },
+          "duration_days": {
+            "type": "integer"
+          },
+          "price": {
+            "type": "string"
+          },
+          "currency": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string"
+          }
+        },
+        "additionalProperties": false
+      },
+      "PublicLibraryMembershipPlanList": {
+        "type": "object",
+        "required": [
+          "items"
+        ],
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PublicLibraryMembershipPlan"
+            }
+          }
+        },
+        "additionalProperties": false
+      },
+      "PublicLibrarySubscription": {
+        "type": "object",
+        "required": [
+          "subscription_id",
+          "organization_id",
+          "member_id",
+          "plan_id",
+          "starts_at",
+          "ends_at",
+          "status",
+          "created_at",
+          "updated_at"
+        ],
+        "properties": {
+          "subscription_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "organization_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "member_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "plan_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "starts_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "ends_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "status": {
+            "type": "string"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "additionalProperties": false
+      },
+      "PublicLibrarySubscriptionCreate": {
+        "type": "object",
+        "required": [
+          "member_id",
+          "plan_id",
+          "starts_at",
+          "ends_at"
+        ],
+        "properties": {
+          "member_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "plan_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "starts_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "ends_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "status": {
+            "type": "string"
+          }
+        },
+        "additionalProperties": false
+      },
+      "PublicLibrarySubscriptionList": {
+        "type": "object",
+        "required": [
+          "items"
+        ],
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PublicLibrarySubscription"
             }
           }
         },

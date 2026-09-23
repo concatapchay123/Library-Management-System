@@ -17,6 +17,7 @@ from openlibrary.modules.core.api.loans import create_loans_blueprint
 from openlibrary.modules.core.api.organizations import create_organizations_blueprint
 from openlibrary.modules.core.api.reservations import create_reservations_blueprint
 from openlibrary.modules.education.api import create_education_blueprint
+from openlibrary.modules.public_library.api import create_public_library_blueprint
 
 
 def create_app(config: AppConfig) -> Flask:
@@ -127,6 +128,25 @@ def create_app(config: AppConfig) -> Flask:
                 config.access_tokens,
                 config.tenant_request_context,
                 url_prefix="/education",
+            )
+        )
+    if config.public_library_service is not None:
+        if config.access_tokens is None:
+            raise ValueError("Public library routes require access token verification")
+        app.register_blueprint(
+            create_public_library_blueprint(
+                config.public_library_service,
+                config.access_tokens,
+                config.tenant_request_context,
+                url_prefix="/api/v1/public-library",
+            )
+        )
+        app.register_blueprint(
+            create_public_library_blueprint(
+                config.public_library_service,
+                config.access_tokens,
+                config.tenant_request_context,
+                url_prefix="/public-library",
             )
         )
     return app

@@ -50,6 +50,13 @@ from openlibrary.modules.core.infrastructure.tenancy import (
 from openlibrary.modules.education.application import EducationService
 from openlibrary.modules.education.infrastructure import SqlServerEducationStore
 from openlibrary.modules.education.policy import EducationBorrowerPolicyAdapter
+from openlibrary.modules.public_library.application import PublicLibraryService
+from openlibrary.modules.public_library.infrastructure import (
+    SqlServerPublicLibraryStore,
+)
+from openlibrary.modules.public_library.policy import (
+    PublicLibraryBorrowingPolicyAdapter,
+)
 
 
 class ConfigurationError(ValueError):
@@ -142,9 +149,18 @@ def create_app_from_environ(
         store=education_store,
         authorizer=authorization,
     )
-    policy_adapter = EducationBorrowerPolicyAdapter(
+    public_library_store = SqlServerPublicLibraryStore(settings.database_runtime_url)
+    public_library_service = PublicLibraryService(
+        store=public_library_store,
+        authorizer=authorization,
+    )
+    education_policy = EducationBorrowerPolicyAdapter(
         store=education_store,
         fallback_resolver=DefaultBorrowingPolicyResolver(),
+    )
+    policy_adapter = PublicLibraryBorrowingPolicyAdapter(
+        store=public_library_store,
+        fallback_resolver=education_policy,
     )
     loan_service = LoanService(
         loan_store=loan_store,
@@ -183,6 +199,7 @@ def create_app_from_environ(
             loan_service=loan_service,
             reservation_service=reservation_service,
             education_service=education_service,
+            public_library_service=public_library_service,
             tenant_request_context=TenantRequestContext(tenant_context),
         )
     )
