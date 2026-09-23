@@ -26,7 +26,9 @@ def create_app(config: AppConfig) -> Flask:
     app = Flask(__name__)
     install_request_correlation(app)
     install_problem_details_handlers(app)
-    app.register_blueprint(create_health_blueprint(config.readiness_probe))
+    app.register_blueprint(
+        create_health_blueprint(config.readiness_probe, config.worker_health_service)
+    )
     if config.login_service is not None:
         if config.access_tokens is None or config.refresh_sessions is None:
             raise ValueError(

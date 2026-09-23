@@ -45,6 +45,8 @@ from openlibrary.modules.core.application.notifications import NotificationServi
 from openlibrary.modules.core.infrastructure.notifications import (
     SqlServerNotificationStore,
 )
+from openlibrary.modules.ops.application.worker_lifecycle import WorkerHealthService
+from openlibrary.modules.ops.infrastructure.metrics import SqlServerQueueMetricsStore
 from openlibrary.modules.ops.infrastructure.sqlserver import SqlServerAuditedTransaction
 from openlibrary.modules.core.infrastructure.rbac import SqlServerRbacStore
 from openlibrary.modules.core.infrastructure.tenancy import (
@@ -194,6 +196,12 @@ def create_app_from_environ(
         store=SqlServerNotificationStore(settings.database_runtime_url),
         authorizer=authorization,
     )
+    metrics_store = SqlServerQueueMetricsStore(settings.database_runtime_url)
+    worker_health_service = WorkerHealthService(
+        database_url=settings.database_runtime_url,
+        redis_url=settings.redis_url,
+        metrics_store=metrics_store,
+    )
     app = create_app(
         AppConfig(
             readiness_probe=readiness_probe or _dependencies_are_unverified,
@@ -220,6 +228,7 @@ def create_app_from_environ(
             public_library_service=public_library_service,
             public_library_finance_service=public_library_finance_service,
             tenant_request_context=TenantRequestContext(tenant_context),
+            worker_health_service=worker_health_service,
         )
     )
     app.config.update(

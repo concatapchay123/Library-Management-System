@@ -23,6 +23,7 @@ if TYPE_CHECKING:
     from openlibrary.modules.core.infrastructure.tenancy import TenantRequestContext
     from openlibrary.modules.education.application import EducationService
     from openlibrary.modules.ops.application.idempotency import IdempotencyService
+    from openlibrary.modules.ops.application.worker_lifecycle import WorkerHealthService
     from openlibrary.modules.public_library.application import (
         PublicLibraryFinanceService,
         PublicLibraryService,
@@ -52,3 +53,4 @@ class AppConfig:
     public_library_service: "PublicLibraryService | None" = None
     public_library_finance_service: "PublicLibraryFinanceService | None" = None
     tenant_request_context: "TenantRequestContext | None" = None
+    worker_health_service: "WorkerHealthService | None" = None

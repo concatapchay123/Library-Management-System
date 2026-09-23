@@ -138,7 +138,7 @@ class OutboxDispatcherService:
         self._max_retries = max_retries
         self._base_backoff_seconds = base_backoff_seconds
         self._max_backoff_seconds = max_backoff_seconds
-        self._handlers: dict[str, tuple[ConsumerHandler, int]] = {}
+        self._handlers: dict[str, list[tuple[ConsumerHandler, int]]] = {}
 
     def register_handler(
         self,
@@ -148,7 +148,7 @@ class OutboxDispatcherService:
         max_payload_version: int = 1,
     ) -> None:
         """Register a consumer callback for a specific outbox event type."""
-        self._handlers[event_type] = (handler, max_payload_version)
+        self._handlers.setdefault(event_type, []).append((handler, max_payload_version))
 
     def dispatch_one(self) -> bool:
         """Claim and dispatch at most one event. Returns True if an event was claimed."""
@@ -160,8 +160,8 @@ class OutboxDispatcherService:
         if event is None:
             return False
 
-        handler_info = self._handlers.get(event.event_type)
-        if handler_info is None:
+        handlers = self._handlers.get(event.event_type)
+        if not handlers:
             error_msg = f"No handler registered for event type: {event.event_type}"
             self._handle_failure(
                 event=event,
@@ -171,23 +171,24 @@ class OutboxDispatcherService:
             )
             return True
 
-        handler, max_payload_version = handler_info
-        if event.payload_version > max_payload_version:
-            error_msg = (
-                f"Unsupported payload version {event.payload_version} "
-                f"(max supported: {max_payload_version}) for event {event.event_type}"
-            )
-            self._handle_failure(
-                event=event,
-                lease_token=lease_token,
-                error=ValueError(error_msg),
-                is_permanent=True,
-            )
-            return True
+        for handler, max_payload_version in handlers:
+            if event.payload_version > max_payload_version:
+                error_msg = (
+                    f"Unsupported payload version {event.payload_version} "
+                    f"(max supported: {max_payload_version}) for event {event.event_type}"
+                )
+                self._handle_failure(
+                    event=event,
+                    lease_token=lease_token,
+                    error=ValueError(error_msg),
+                    is_permanent=True,
+                )
+                return True
 
         try:
             with self._tenant_context.connection(event.organization_id) as connection:
-                handler(connection, event)
+                for handler, _ in handlers:
+                    handler(connection, event)
                 connection.commit()
 
             self._claim_store.mark_delivered(

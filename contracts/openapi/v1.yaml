@@ -72,6 +72,44 @@
         }
       }
     },
+    "/health/worker": {
+      "get": {
+        "operationId": "getWorkerHealth",
+        "summary": "Report worker health, queue depths, and dead-letter visibility.",
+        "responses": {
+          "200": {
+            "description": "Worker operational health status.",
+            "headers": {
+              "X-Request-ID": {
+                "$ref": "#/components/headers/X-Request-ID"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WorkerHealthStatus"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Worker dependencies are unavailable.",
+            "headers": {
+              "X-Request-ID": {
+                "$ref": "#/components/headers/X-Request-ID"
+              }
+            },
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/auth/login": {
       "post": {
         "operationId": "login",
@@ -7219,6 +7257,69 @@
             }
           },
           "total": {
+            "type": "integer"
+          }
+        },
+        "additionalProperties": false
+      },
+      "QueueMetrics": {
+        "type": "object",
+        "required": [
+          "pending_count",
+          "in_flight_count",
+          "dead_letter_count",
+          "delivered_count",
+          "failed_jobs_count"
+        ],
+        "properties": {
+          "pending_count": {
+            "type": "integer"
+          },
+          "in_flight_count": {
+            "type": "integer"
+          },
+          "dead_letter_count": {
+            "type": "integer"
+          },
+          "delivered_count": {
+            "type": "integer"
+          },
+          "failed_jobs_count": {
+            "type": "integer"
+          }
+        },
+        "additionalProperties": false
+      },
+      "WorkerHealthStatus": {
+        "type": "object",
+        "required": [
+          "status",
+          "database_connected",
+          "broker_connected",
+          "queue_metrics"
+        ],
+        "properties": {
+          "status": {
+            "type": "string",
+            "enum": [
+              "ok",
+              "degraded",
+              "unavailable"
+            ]
+          },
+          "database_connected": {
+            "type": "boolean"
+          },
+          "broker_connected": {
+            "type": "boolean"
+          },
+          "queue_metrics": {
+            "$ref": "#/components/schemas/QueueMetrics"
+          },
+          "uptime_seconds": {
+            "type": "number"
+          },
+          "active_workers": {
             "type": "integer"
           }
         },

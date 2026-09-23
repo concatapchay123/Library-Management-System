@@ -24,6 +24,7 @@ def test_v1_contract_defines_health_problem_details_and_request_correlation() ->
     paths = contract["paths"]
     assert "/health/live" in paths
     assert "/health/ready" in paths
+    assert "/health/worker" in paths
     assert "/auth/login" in paths
     assert paths["/auth/login"]["post"]["responses"]["200"] == {
         "$ref": "#/components/responses/AccessToken"
@@ -49,6 +50,8 @@ def test_v1_contract_defines_health_problem_details_and_request_correlation() ->
         },
         "additionalProperties": False,
     }
+    assert "WorkerHealthStatus" in schemas
+    assert "QueueMetrics" in schemas
     problem_details = schemas["ProblemDetails"]
     assert problem_details["type"] == "object"
     assert set(problem_details["required"]) >= {
