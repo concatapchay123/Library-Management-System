@@ -80,6 +80,45 @@ export interface OrganizationSettings {
 }
 
 /**
+ * Bibliographic Book schema from OpenAPI #/components/schemas/Book
+ */
+export interface Book {
+  book_id: string;
+  title: string;
+  isbn: string | null;
+  authors: string[];
+  published_year: number | null;
+}
+
+/**
+ * Cursor-paginated Book page schema from OpenAPI #/components/schemas/BookPage
+ */
+export interface BookPage {
+  items: Book[];
+  next_cursor: string | null;
+}
+
+/**
+ * Book creation / update schema from OpenAPI #/components/schemas/BookWrite
+ */
+export interface BookWrite {
+  title: string;
+  isbn?: string | null;
+  authors: string[];
+  published_year?: number | null;
+}
+
+/**
+ * Supported query parameters for GET /books endpoint
+ */
+export interface CatalogSearchParams {
+  limit?: number;
+  cursor?: string | null;
+  title?: string;
+  isbn?: string;
+}
+
+/**
  * Supported HTTP methods for typed client calls.
  */
 export type HttpMethod = 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE' | 'HEAD' | 'OPTIONS';

@@ -1,8 +1,9 @@
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { TokenProvider, useTokens } from '../shared/tokens';
 import { AppShell } from './shell/AppShell';
 import { Button, Input, StatusMessage, Dialog } from '../shared/components';
 import { SessionProvider, ProtectedRoute, LoginForm } from '../features/auth';
+import { CatalogSearch } from '../features/catalog';
 
 export interface AppProps {
   initialAuthenticated?: boolean;
@@ -11,7 +12,13 @@ export interface AppProps {
 
 function OperateModeDesk() {
   const tokens = useTokens();
-  const [activeTab, setActiveTab] = useState('circulation');
+  const [activeTab, setActiveTab] = useState(() => {
+    if (typeof window !== 'undefined' && window.location.hash) {
+      const hash = window.location.hash.replace(/^#\/?/, '');
+      if (hash === 'catalog') return 'catalog';
+    }
+    return 'circulation';
+  });
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [barcode, setBarcode] = useState('');
   const [borrowerId, setBorrowerId] = useState('');
@@ -19,15 +26,37 @@ function OperateModeDesk() {
 
   const dialogTriggerRef = useRef<HTMLButtonElement>(null);
 
+  useEffect(() => {
+    function handleHashChange() {
+      if (typeof window !== 'undefined' && window.location.hash) {
+        const hash = window.location.hash.replace(/^#\/?/, '');
+        if (hash === 'catalog' || hash === 'circulation') {
+          setActiveTab(hash);
+        }
+      }
+    }
+    window.addEventListener('hashchange', handleHashChange);
+    return () => window.removeEventListener('hashchange', handleHashChange);
+  }, []);
+
+  const isCatalog = activeTab === 'catalog';
+
   return (
     <AppShell
-      pageTitle="OpenLibraryOS — Operate Mode"
-      pageSubtitle="Low-Cognitive-Overhead Library Operations"
+      pageTitle={isCatalog ? 'Bibliographic Catalog' : 'OpenLibraryOS — Operate Mode'}
+      pageSubtitle={
+        isCatalog
+          ? 'Search works, authors, and bibliographic records across the organization'
+          : 'Low-Cognitive-Overhead Library Operations'
+      }
       activeNavigationId={activeTab}
       onNavigate={(id) => setActiveTab(id)}
       operatorDeskName="Librarian Desk"
     >
-      <div
+      {isCatalog ? (
+        <CatalogSearch />
+      ) : (
+        <div
         style={{
           display: 'flex',
           flexDirection: 'column',
@@ -201,6 +230,7 @@ function OperateModeDesk() {
           </div>
         </Dialog>
       </div>
+      )}
     </AppShell>
   );
 }

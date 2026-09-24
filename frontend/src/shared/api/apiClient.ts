@@ -7,6 +7,9 @@ import {
   AccessTokenResponse,
   AccessPrincipal,
   OrganizationSettings,
+  Book,
+  BookPage,
+  CatalogSearchParams,
 } from './types';
 import {
   generateRequestId,
@@ -164,6 +167,29 @@ export function createApiClient(config: ApiClientConfig = {}) {
       get<OrganizationSettings>('/organizations/settings', { ...options, token }),
   };
 
+  const books = {
+    list: (params?: CatalogSearchParams, options?: RequestOptions) => {
+      const query = new URLSearchParams();
+      if (params?.limit !== undefined && params.limit !== null) {
+        query.set('limit', String(params.limit));
+      }
+      if (params?.cursor) {
+        query.set('cursor', params.cursor);
+      }
+      if (params?.title) {
+        query.set('title', params.title);
+      }
+      if (params?.isbn) {
+        query.set('isbn', params.isbn);
+      }
+      const queryString = query.toString();
+      const endpoint = queryString ? `/books?${queryString}` : '/books';
+      return get<BookPage>(endpoint, options);
+    },
+    getById: (bookId: string, options?: RequestOptions) =>
+      get<Book>(`/books/${encodeURIComponent(bookId)}`, options),
+  };
+
   return {
     request,
     get,
@@ -173,6 +199,7 @@ export function createApiClient(config: ApiClientConfig = {}) {
     health,
     auth,
     organizations,
+    books,
   };
 }
 
