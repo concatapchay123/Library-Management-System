@@ -6,3 +6,4 @@ export * from './ProblemDetailsRenderer';
 export * from './LoadingSkeleton';
 export * from './EmptyState';
 export * from './RequestStateView';
+export * from './Select';

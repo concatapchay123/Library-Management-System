@@ -10,6 +10,15 @@ import {
   Book,
   BookPage,
   CatalogSearchParams,
+  Location,
+  LocationPage,
+  LocationWrite,
+  BookCopy,
+  BookCopyPage,
+  BookCopyWrite,
+  BookCopyUpdate,
+  CopyStatusTransition,
+  CopyStatusHistoryPage,
 } from './types';
 import {
   generateRequestId,
@@ -137,6 +146,14 @@ export function createApiClient(config: ApiClientConfig = {}) {
     });
   }
 
+  function patch<T>(path: string, body?: unknown, options?: RequestOptions): Promise<T> {
+    return request<T>(path, {
+      ...options,
+      method: 'PATCH',
+      body: body !== undefined ? (typeof body === 'string' ? body : JSON.stringify(body)) : undefined,
+    });
+  }
+
   function del<T>(path: string, options?: RequestOptions): Promise<T> {
     return request<T>(path, { ...options, method: 'DELETE' });
   }
@@ -190,16 +207,45 @@ export function createApiClient(config: ApiClientConfig = {}) {
       get<Book>(`/books/${encodeURIComponent(bookId)}`, options),
   };
 
+  const locations = {
+    list: (options?: RequestOptions) =>
+      get<LocationPage>('/locations', options),
+    getById: (locationId: string, options?: RequestOptions) =>
+      get<Location>(`/locations/${encodeURIComponent(locationId)}`, options),
+    create: (data: LocationWrite, options?: RequestOptions) =>
+      post<Location>('/locations', data, options),
+    update: (locationId: string, data: LocationWrite, options?: RequestOptions) =>
+      patch<Location>(`/locations/${encodeURIComponent(locationId)}`, data, options),
+  };
+
+  const copies = {
+    listForBook: (bookId: string, options?: RequestOptions) =>
+      get<BookCopyPage>(`/books/${encodeURIComponent(bookId)}/copies`, options),
+    getById: (copyId: string, options?: RequestOptions) =>
+      get<BookCopy>(`/copies/${encodeURIComponent(copyId)}`, options),
+    createForBook: (bookId: string, data: BookCopyWrite, options?: RequestOptions) =>
+      post<BookCopy>(`/books/${encodeURIComponent(bookId)}/copies`, data, options),
+    update: (copyId: string, data: BookCopyUpdate, options?: RequestOptions) =>
+      patch<BookCopy>(`/copies/${encodeURIComponent(copyId)}`, data, options),
+    transitionStatus: (copyId: string, transition: CopyStatusTransition, options?: RequestOptions) =>
+      post<BookCopy>(`/copies/${encodeURIComponent(copyId)}/status`, transition, options),
+    getHistory: (copyId: string, options?: RequestOptions) =>
+      get<CopyStatusHistoryPage>(`/copies/${encodeURIComponent(copyId)}/history`, options),
+  };
+
   return {
     request,
     get,
     post,
     put,
+    patch,
     delete: del,
     health,
     auth,
     organizations,
     books,
+    locations,
+    copies,
   };
 }
 

@@ -143,3 +143,119 @@ export interface ApiClientConfig {
   getAccessToken?: () => string | null | undefined;
   getCsrfToken?: () => string | null | undefined;
 }
+
+/**
+ * Physical or logical shelving location from OpenAPI #/components/schemas/Location
+ */
+export interface Location {
+  location_id: string;
+  name: string;
+  code: string;
+  parent_location_id: string | null;
+  status: string;
+}
+
+/**
+ * Location write payload from OpenAPI #/components/schemas/LocationWrite
+ */
+export interface LocationWrite {
+  name: string;
+  code: string;
+  parent_location_id?: string | null;
+  status?: string;
+}
+
+/**
+ * Location list response from OpenAPI #/components/schemas/LocationPage
+ */
+export interface LocationPage {
+  items: Location[];
+}
+
+/**
+ * Valid physical copy statuses matching backend domain rules.
+ */
+export type CopyStatus =
+  | 'available'
+  | 'borrowed'
+  | 'reserved'
+  | 'lost'
+  | 'damaged'
+  | 'maintenance';
+
+/**
+ * Explicit permitted copy status transitions matching backend domain policy (BE-014).
+ */
+export const ALLOWED_STATUS_TRANSITIONS: Record<string, readonly CopyStatus[]> = {
+  available: ['borrowed', 'reserved', 'maintenance', 'damaged', 'lost'],
+  reserved: ['available', 'borrowed', 'maintenance', 'damaged', 'lost'],
+  borrowed: ['available', 'maintenance', 'damaged', 'lost'],
+  maintenance: ['available', 'damaged', 'lost'],
+  damaged: ['available', 'maintenance', 'lost'],
+  lost: ['available', 'maintenance', 'damaged'],
+};
+
+/**
+ * Physical copy schema from OpenAPI #/components/schemas/BookCopy
+ */
+export interface BookCopy {
+  copy_id: string;
+  book_id: string;
+  barcode: string;
+  location_id: string;
+  status: string;
+  condition_code: string;
+  acquired_at?: string;
+}
+
+/**
+ * Physical copy list response from OpenAPI #/components/schemas/BookCopyPage
+ */
+export interface BookCopyPage {
+  items: BookCopy[];
+}
+
+/**
+ * Copy registration schema from OpenAPI #/components/schemas/BookCopyWrite
+ */
+export interface BookCopyWrite {
+  barcode: string;
+  location_id: string;
+  condition_code?: string;
+}
+
+/**
+ * Copy update schema from OpenAPI #/components/schemas/BookCopyUpdate
+ */
+export interface BookCopyUpdate {
+  location_id?: string | null;
+  condition_code?: string | null;
+}
+
+/**
+ * Copy status transition payload from OpenAPI #/components/schemas/CopyStatusTransition
+ */
+export interface CopyStatusTransition {
+  to_status: CopyStatus;
+  reason: string;
+}
+
+/**
+ * Append-only status transition record from OpenAPI #/components/schemas/CopyStatusHistoryRecord
+ */
+export interface CopyStatusHistoryRecord {
+  history_id: string;
+  copy_id: string;
+  from_status: string;
+  to_status: string;
+  reason: string;
+  actor_id: string;
+  created_at: string;
+}
+
+/**
+ * Status history page from OpenAPI #/components/schemas/CopyStatusHistoryPage
+ */
+export interface CopyStatusHistoryPage {
+  items: CopyStatusHistoryRecord[];
+}

@@ -4,6 +4,7 @@ import { AppShell } from './shell/AppShell';
 import { Button, Input, StatusMessage, Dialog } from '../shared/components';
 import { SessionProvider, ProtectedRoute, LoginForm } from '../features/auth';
 import { CatalogSearch } from '../features/catalog';
+import { InventoryWorkspace } from '../features/inventory';
 
 export interface AppProps {
   initialAuthenticated?: boolean;
@@ -15,7 +16,7 @@ function OperateModeDesk() {
   const [activeTab, setActiveTab] = useState(() => {
     if (typeof window !== 'undefined' && window.location.hash) {
       const hash = window.location.hash.replace(/^#\/?/, '');
-      if (hash === 'catalog') return 'catalog';
+      if (hash === 'catalog' || hash === 'inventory') return hash;
     }
     return 'circulation';
   });
@@ -30,7 +31,7 @@ function OperateModeDesk() {
     function handleHashChange() {
       if (typeof window !== 'undefined' && window.location.hash) {
         const hash = window.location.hash.replace(/^#\/?/, '');
-        if (hash === 'catalog' || hash === 'circulation') {
+        if (hash === 'catalog' || hash === 'circulation' || hash === 'inventory') {
           setActiveTab(hash);
         }
       }
@@ -40,21 +41,31 @@ function OperateModeDesk() {
   }, []);
 
   const isCatalog = activeTab === 'catalog';
+  const isInventory = activeTab === 'inventory';
+
+  let pageTitle = 'OpenLibraryOS — Operate Mode';
+  let pageSubtitle = 'Low-Cognitive-Overhead Library Operations';
+
+  if (isCatalog) {
+    pageTitle = 'Bibliographic Catalog';
+    pageSubtitle = 'Search works, authors, and bibliographic records across the organization';
+  } else if (isInventory) {
+    pageTitle = 'Inventory & Copy Management';
+    pageSubtitle = 'Register copies, assign physical shelf locations, and record server-validated status changes';
+  }
 
   return (
     <AppShell
-      pageTitle={isCatalog ? 'Bibliographic Catalog' : 'OpenLibraryOS — Operate Mode'}
-      pageSubtitle={
-        isCatalog
-          ? 'Search works, authors, and bibliographic records across the organization'
-          : 'Low-Cognitive-Overhead Library Operations'
-      }
+      pageTitle={pageTitle}
+      pageSubtitle={pageSubtitle}
       activeNavigationId={activeTab}
       onNavigate={(id) => setActiveTab(id)}
       operatorDeskName="Librarian Desk"
     >
       {isCatalog ? (
         <CatalogSearch />
+      ) : isInventory ? (
+        <InventoryWorkspace />
       ) : (
         <div
         style={{
