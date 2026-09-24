@@ -1,4 +1,5 @@
 import { AccessTokenResponse, LoginCredentials } from './types';
+import { apiClient } from '../../shared/api';
 
 /**
  * Uniform safe authentication error message.
@@ -24,83 +25,42 @@ export function getCsrfTokenFromCookie(): string | null {
 }
 
 /**
- * Authenticate in the named organization via the API contract.
+ * Authenticate in the named organization via the typed API client.
+ * Uses centralized apiClient.auth.login rather than assembling endpoint strings.
  */
 export async function login(credentials: LoginCredentials): Promise<AccessTokenResponse> {
-  let response: Response;
   try {
-    response = await fetch('/api/v1/auth/login', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      credentials: 'same-origin',
-      body: JSON.stringify({
-        organization_slug: credentials.organization_slug,
-        email: credentials.email,
-        password: credentials.password,
-      }),
+    const data = await apiClient.auth.login({
+      organization_slug: credentials.organization_slug,
+      email: credentials.email,
+      password: credentials.password,
     });
+    return data;
   } catch {
     throw new Error(AUTH_SAFE_ERROR_MESSAGE);
   }
-
-  if (!response.ok) {
-    throw new Error(AUTH_SAFE_ERROR_MESSAGE);
-  }
-
-  const data = (await response.json()) as AccessTokenResponse;
-  return data;
 }
 
 /**
  * Rotate refresh session and issue a new access token using HttpOnly cookie.
+ * Uses centralized apiClient.auth.refreshAccessToken rather than assembling endpoint strings.
  */
 export async function refreshToken(): Promise<AccessTokenResponse> {
-  const csrfToken = getCsrfTokenFromCookie();
-  const headers: Record<string, string> = {};
-  if (csrfToken) {
-    headers['X-CSRF-Token'] = csrfToken;
-  }
-
-  let response: Response;
   try {
-    response = await fetch('/api/v1/auth/refresh', {
-      method: 'POST',
-      headers,
-      credentials: 'same-origin',
-    });
+    const data = await apiClient.auth.refreshAccessToken();
+    return data;
   } catch {
     throw new Error(AUTH_SAFE_ERROR_MESSAGE);
   }
-
-  if (!response.ok) {
-    throw new Error(AUTH_SAFE_ERROR_MESSAGE);
-  }
-
-  const data = (await response.json()) as AccessTokenResponse;
-  return data;
 }
 
 /**
  * Revoke the current refresh session chain.
+ * Uses centralized apiClient.auth.logout rather than assembling endpoint strings.
  */
 export async function logout(accessToken?: string | null): Promise<void> {
-  const csrfToken = getCsrfTokenFromCookie();
-  const headers: Record<string, string> = {};
-  if (accessToken) {
-    headers['Authorization'] = `Bearer ${accessToken}`;
-  }
-  if (csrfToken) {
-    headers['X-CSRF-Token'] = csrfToken;
-  }
-
   try {
-    await fetch('/api/v1/auth/logout', {
-      method: 'POST',
-      headers,
-      credentials: 'same-origin',
-    });
+    await apiClient.auth.logout(accessToken);
   } catch {
     // Revocation is best effort on client teardown
   }
