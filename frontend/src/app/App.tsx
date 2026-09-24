@@ -2,6 +2,12 @@ import { useState, useRef } from 'react';
 import { TokenProvider, useTokens } from '../shared/tokens';
 import { AppShell } from './shell/AppShell';
 import { Button, Input, StatusMessage, Dialog } from '../shared/components';
+import { SessionProvider, ProtectedRoute, LoginForm } from '../features/auth';
+
+export interface AppProps {
+  initialAuthenticated?: boolean;
+  autoRefreshOnMount?: boolean;
+}
 
 function OperateModeDesk() {
   const tokens = useTokens();
@@ -199,10 +205,22 @@ function OperateModeDesk() {
   );
 }
 
-export function App() {
+export function App({
+  initialAuthenticated = true,
+  autoRefreshOnMount = false,
+}: AppProps = {}) {
+  const initialToken = initialAuthenticated ? 'in-memory-operate-session' : null;
+
   return (
     <TokenProvider>
-      <OperateModeDesk />
+      <SessionProvider
+        initialAccessToken={initialToken}
+        autoRefreshOnMount={autoRefreshOnMount}
+      >
+        <ProtectedRoute fallback={<LoginForm />}>
+          <OperateModeDesk />
+        </ProtectedRoute>
+      </SessionProvider>
     </TokenProvider>
   );
 }
