@@ -26,6 +26,13 @@ import {
   LoanRejectWrite,
   LoanCheckoutWrite,
   LoanSearchParams,
+  Reservation,
+  ReservationPage,
+  ReservationCreateWrite,
+  ReservationSearchParams,
+  Notification,
+  NotificationListResponse,
+  NotificationSearchParams,
 } from './types';
 import {
   generateRequestId,
@@ -272,6 +279,49 @@ export function createApiClient(config: ApiClientConfig = {}) {
       post<Loan>(`/loans/${encodeURIComponent(loanId)}/return`, undefined, options),
   };
 
+  const reservations = {
+    list: (params?: ReservationSearchParams, options?: RequestOptions) => {
+      const query = new URLSearchParams();
+      if (params?.book_id) {
+        query.set('book_id', params.book_id);
+      }
+      if (params?.requester_user_id) {
+        query.set('requester_user_id', params.requester_user_id);
+      }
+      if (params?.status) {
+        query.set('status', params.status);
+      }
+      const queryString = query.toString();
+      const endpoint = queryString ? `/reservations?${queryString}` : '/reservations';
+      return get<ReservationPage>(endpoint, options);
+    },
+    getById: (reservationId: string, options?: RequestOptions) =>
+      get<Reservation>(`/reservations/${encodeURIComponent(reservationId)}`, options),
+    create: (data: ReservationCreateWrite, options?: RequestOptions) =>
+      post<Reservation>('/reservations', data, options),
+    cancel: (reservationId: string, options?: RequestOptions) =>
+      post<Reservation>(`/reservations/${encodeURIComponent(reservationId)}/cancel`, undefined, options),
+    claim: (reservationId: string, options?: RequestOptions) =>
+      post<Reservation>(`/reservations/${encodeURIComponent(reservationId)}/claim`, undefined, options),
+  };
+
+  const notifications = {
+    list: (params?: NotificationSearchParams, options?: RequestOptions) => {
+      const query = new URLSearchParams();
+      if (params?.status) {
+        query.set('status', params.status);
+      }
+      if (params?.limit !== undefined && params.limit !== null) {
+        query.set('limit', String(params.limit));
+      }
+      const queryString = query.toString();
+      const endpoint = queryString ? `/notifications?${queryString}` : '/notifications';
+      return get<NotificationListResponse>(endpoint, options);
+    },
+    markRead: (notificationId: string, options?: RequestOptions) =>
+      post<Notification>(`/notifications/${encodeURIComponent(notificationId)}/read`, undefined, options),
+  };
+
   return {
     request,
     get,
@@ -286,6 +336,8 @@ export function createApiClient(config: ApiClientConfig = {}) {
     locations,
     copies,
     loans,
+    reservations,
+    notifications,
   };
 }
 

@@ -500,4 +500,71 @@ describe('FE-004 — Typed API Client, Problem Details and Common Request States
       expect(screen.getByText('Active Circulation Table')).toBeInTheDocument();
     });
   });
+
+  describe('Reservation and Notification Typed Endpoints (FE-008)', () => {
+    it('calls reservations endpoints with correct path and parameters', async () => {
+      vi.mocked(globalThis.fetch).mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        headers: new Headers({ 'Content-Type': 'application/json' }),
+        json: async () => ({ items: [], total: 0 }),
+      } as Response);
+
+      const client = createApiClient({ baseUrl: '/api/v1' });
+      await client.reservations.list({ status: 'pending', requester_user_id: 'u111' });
+
+      expect(globalThis.fetch).toHaveBeenCalledWith(
+        '/api/v1/reservations?requester_user_id=u111&status=pending',
+        expect.objectContaining({ method: 'GET' }),
+      );
+    });
+
+    it('calls cancel reservation endpoint with POST method', async () => {
+      vi.mocked(globalThis.fetch).mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        headers: new Headers({ 'Content-Type': 'application/json' }),
+        json: async () => ({ reservation_id: 'r111', status: 'cancelled' }),
+      } as Response);
+
+      const client = createApiClient({ baseUrl: '/api/v1' });
+      await client.reservations.cancel('r111');
+
+      expect(globalThis.fetch).toHaveBeenCalledWith(
+        '/api/v1/reservations/r111/cancel',
+        expect.objectContaining({ method: 'POST' }),
+      );
+    });
+
+    it('calls notifications list and markRead endpoints', async () => {
+      vi.mocked(globalThis.fetch)
+        .mockResolvedValueOnce({
+          ok: true,
+          status: 200,
+          headers: new Headers({ 'Content-Type': 'application/json' }),
+          json: async () => ({ items: [], total: 0 }),
+        } as Response)
+        .mockResolvedValueOnce({
+          ok: true,
+          status: 200,
+          headers: new Headers({ 'Content-Type': 'application/json' }),
+          json: async () => ({ notification_id: 'n111', status: 'read' }),
+        } as Response);
+
+      const client = createApiClient({ baseUrl: '/api/v1' });
+      await client.notifications.list({ status: 'unread', limit: 20 });
+      expect(globalThis.fetch).toHaveBeenNthCalledWith(
+        1,
+        '/api/v1/notifications?status=unread&limit=20',
+        expect.objectContaining({ method: 'GET' }),
+      );
+
+      await client.notifications.markRead('n111');
+      expect(globalThis.fetch).toHaveBeenNthCalledWith(
+        2,
+        '/api/v1/notifications/n111/read',
+        expect.objectContaining({ method: 'POST' }),
+      );
+    });
+  });
 });

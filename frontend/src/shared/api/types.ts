@@ -341,3 +341,98 @@ export interface LoanSearchParams {
   copy_id?: string;
   status?: string;
 }
+
+/**
+ * Valid reservation statuses matching backend domain rules (BE-018).
+ */
+export type ReservationStatus =
+  | 'pending'
+  | 'held'
+  | 'fulfilled'
+  | 'cancelled'
+  | 'expired';
+
+/**
+ * Reservation schema from OpenAPI #/components/schemas/Reservation
+ */
+export interface Reservation {
+  reservation_id: string;
+  organization_id: string;
+  book_id: string;
+  requester_user_id: string;
+  queue_position: number;
+  status: ReservationStatus;
+  copy_id?: string | null;
+  hold_expires_at?: string | null;
+  fulfilled_at?: string | null;
+  cancelled_at?: string | null;
+  created_at: string;
+  updated_at?: string;
+}
+
+/**
+ * Paginated reservations response from OpenAPI #/components/schemas/ReservationPage
+ */
+export interface ReservationPage {
+  items: Reservation[];
+  total?: number;
+}
+
+/**
+ * Reservation creation schema from OpenAPI #/components/schemas/ReservationCreateWrite
+ */
+export interface ReservationCreateWrite {
+  book_id: string;
+  copy_id?: string;
+  requester_user_id?: string;
+}
+
+/**
+ * Query parameters for GET /reservations endpoint
+ */
+export interface ReservationSearchParams {
+  book_id?: string;
+  requester_user_id?: string;
+  status?: string;
+}
+
+/**
+ * Valid notification statuses matching backend domain rules (BE-025).
+ */
+export type NotificationStatus = 'unread' | 'read';
+
+/**
+ * Valid notification delivery channels.
+ */
+export type NotificationChannel = 'in_app' | 'email';
+
+/**
+ * In-app Notification schema from OpenAPI #/components/schemas/Notification
+ */
+export interface Notification {
+  notification_id: string;
+  organization_id: string;
+  user_id: string;
+  channel: NotificationChannel | string;
+  type: string;
+  payload: Record<string, unknown>;
+  status: NotificationStatus;
+  read_at?: string | null;
+  created_at: string;
+}
+
+/**
+ * Paginated or listed in-app notifications response from OpenAPI #/components/schemas/NotificationListResponse
+ */
+export interface NotificationListResponse {
+  items: Notification[];
+  total: number;
+}
+
+/**
+ * Query parameters for GET /notifications endpoint
+ */
+export interface NotificationSearchParams {
+  status?: NotificationStatus;
+  limit?: number;
+}
