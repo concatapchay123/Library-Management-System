@@ -825,10 +825,39 @@ def create_public_library_blueprint(
     @_require_principal(access_tokens, tenant_request_context)
     def update_invoice(invoice_id: UUID) -> Response:
         try:
+            body = request.get_json(silent=True) or {}
+            raw_lines = body.get("lines", [])
+            new_lines: list[InvoiceLine] = []
+            actor = _principal_from_request()
+            for idx, raw_line in enumerate(raw_lines, start=1):
+                desc = raw_line.get("description", "")
+                qty = int(raw_line.get("quantity", 1))
+                unit_price = _parse_decimal(
+                    raw_line.get("unit_price", 0), f"Line {idx} unit_price"
+                )
+                amount = _parse_decimal(
+                    raw_line.get("amount", unit_price * qty), f"Line {idx} amount"
+                )
+                raw_fine_id = raw_line.get("fine_id")
+                fine_id = UUID(str(raw_fine_id)) if raw_fine_id else None
+                new_lines.append(
+                    InvoiceLine(
+                        invoice_line_id=uuid4(),
+                        organization_id=actor.organization_id,
+                        invoice_id=invoice_id,
+                        line_number=idx,
+                        description=str(desc),
+                        quantity=qty,
+                        unit_price=unit_price,
+                        amount=amount,
+                        created_at=datetime.now(),
+                        fine_id=fine_id,
+                    )
+                )
             fin_service.modify_invoice_lines(
-                actor=_principal_from_request(),
+                actor=actor,
                 invoice_id=invoice_id,
-                new_lines=[],
+                new_lines=new_lines,
             )
             return jsonify({"status": "ok"})
         except Exception as err:

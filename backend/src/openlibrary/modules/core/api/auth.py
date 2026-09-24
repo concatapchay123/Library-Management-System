@@ -10,7 +10,10 @@ from typing import ParamSpec
 from flask import Blueprint, Response, g, jsonify, request
 
 from openlibrary.app.correlation import request_id
-from openlibrary.app.errors import authentication_failure_response
+from openlibrary.app.errors import (
+    authentication_failure_response,
+    validation_failure_response,
+)
 from openlibrary.modules.core.application.access_tokens import (
     AccessTokenService,
     Principal,
@@ -97,6 +100,36 @@ def create_auth_blueprint(
                 else [],
             }
         )
+
+    @auth.post("/password/change")
+    @_require_principal(access_tokens, tenant_request_context)
+    def change_password() -> Response:
+        try:
+            _csrf_token_from_request()
+        except CsrfValidationError:
+            return _csrf_failure_response()
+
+        payload = request.get_json(silent=True)
+        body = payload if isinstance(payload, dict) else {}
+        current_password = _string_value(body, "current_password")
+        new_password = _string_value(body, "new_password")
+
+        if not current_password or not new_password:
+            return validation_failure_response(
+                "current_password and new_password are required."
+            )
+
+        try:
+            login_service.change_password(
+                actor=_principal_from_request(),
+                current_password=current_password,
+                new_password=new_password,
+                correlation_id=request_id(),
+            )
+        except ValueError as err:
+            return validation_failure_response(str(err))
+
+        return Response(status=204)
 
     return auth
 

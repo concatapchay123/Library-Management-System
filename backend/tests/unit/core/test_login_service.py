@@ -62,7 +62,9 @@ class RecordingAuditTransaction:
         audit_event: AuditEvent,
         outbox_events: object,
     ) -> None:
-        del connection, mutation, outbox_events
+        del outbox_events
+        if callable(mutation):
+            mutation(connection)
         self.events.append(audit_event)
 
 
@@ -195,3 +197,154 @@ def test_tenant_context_is_cleared_when_context_setup_fails() -> None:
         )
 
     assert cleared == [connection]
+
+
+def test_change_password_success() -> None:
+    """Verifies that changing password validates current password, hashes new password, and audits."""
+    from openlibrary.modules.core.application.access_tokens import Principal
+    from openlibrary.modules.core.application.login import UserCredentials
+
+    connection = RecordingConnection()
+    audit_transaction = RecordingAuditTransaction()
+    user_id = uuid4()
+    org_id = uuid4()
+    current_hash = "argon2id$current_hash"
+
+    class MockUserRepo:
+        def __init__(self) -> None:
+            self.updated_hash: str | None = None
+
+        def find_by_email(self, *_, **__):
+            return None
+
+        def find_by_id(self, connection, *, organization_id, user_id):
+            return UserCredentials(
+                user_id=user_id, password_hash=current_hash, status="active"
+            )
+
+        def update_password(
+            self, connection, *, organization_id, user_id, password_hash
+        ):
+            self.updated_hash = password_hash
+
+        def update_last_login(self, *_, **__):
+            pass
+
+    class MockPasswords:
+        def verify(self, password: str, encoded_hash: str) -> bool:
+            return password == "OldPassword123!" and encoded_hash == current_hash
+
+        def hash(self, password: str) -> str:
+            return f"argon2id$hashed_{password}"
+
+    repo = MockUserRepo()
+    passwords = MockPasswords()
+
+    @contextmanager
+    def connection_factory() -> Iterator[Connection]:
+        yield connection
+
+    service = LoginService(
+        connection_factory=connection_factory,
+        tenant_resolver=lambda _, __: None,
+        set_tenant_context=lambda _, __: None,
+        clear_tenant_context=lambda _: None,
+        user_credentials=repo,
+        password_service=passwords,
+        dummy_password_hash="dummy-argon2id-hash",
+        audited_transaction=audit_transaction,
+        prelogin_security_audit=RecordingPreloginAudit(),
+    )
+
+    actor = Principal(user_id=user_id, organization_id=org_id, session_id=uuid4())
+    service.change_password(
+        actor=actor,
+        current_password="OldPassword123!",
+        new_password="NewSecurePassword123!",
+        correlation_id="req-123",
+    )
+
+    assert repo.updated_hash == "argon2id$hashed_NewSecurePassword123!"
+    assert len(audit_transaction.events) == 1
+    event = audit_transaction.events[0]
+    assert event.action == "authentication.password_changed"
+    assert event.entity_id == user_id
+    assert event.payload == {"result": "succeeded"}
+
+
+def test_change_password_rejects_invalid_inputs() -> None:
+    """Rejects short new passwords, wrong current password, or identical passwords."""
+    from openlibrary.modules.core.application.access_tokens import Principal
+    from openlibrary.modules.core.application.login import UserCredentials
+
+    connection = RecordingConnection()
+    audit_transaction = RecordingAuditTransaction()
+    user_id = uuid4()
+    org_id = uuid4()
+
+    class MockUserRepo:
+        def find_by_email(self, *_, **__):
+            return None
+
+        def find_by_id(self, connection, *, organization_id, user_id):
+            return UserCredentials(
+                user_id=user_id, password_hash="hash", status="active"
+            )
+
+        def update_password(self, *_, **__):
+            pass
+
+        def update_last_login(self, *_, **__):
+            pass
+
+    class MockPasswords:
+        def verify(self, password: str, encoded_hash: str) -> bool:
+            return password == "CorrectOldPassword!"
+
+        def hash(self, password: str) -> str:
+            return f"hash_{password}"
+
+    @contextmanager
+    def connection_factory() -> Iterator[Connection]:
+        yield connection
+
+    service = LoginService(
+        connection_factory=connection_factory,
+        tenant_resolver=lambda _, __: None,
+        set_tenant_context=lambda _, __: None,
+        clear_tenant_context=lambda _: None,
+        user_credentials=MockUserRepo(),
+        password_service=MockPasswords(),
+        dummy_password_hash="dummy-argon2id-hash",
+        audited_transaction=audit_transaction,
+        prelogin_security_audit=RecordingPreloginAudit(),
+    )
+
+    actor = Principal(user_id=user_id, organization_id=org_id, session_id=uuid4())
+
+    # Short password
+    with pytest.raises(ValueError, match="at least 12 characters"):
+        service.change_password(
+            actor=actor,
+            current_password="CorrectOldPassword!",
+            new_password="short",
+            correlation_id="req-1",
+        )
+
+    # Identical password
+    with pytest.raises(ValueError, match="different from current_password"):
+        service.change_password(
+            actor=actor,
+            current_password="CorrectOldPassword!",
+            new_password="CorrectOldPassword!",
+            correlation_id="req-2",
+        )
+
+    # Wrong current password
+    with pytest.raises(ValueError, match="Current password is incorrect"):
+        service.change_password(
+            actor=actor,
+            current_password="WrongOldPassword!",
+            new_password="NewValidPassword123!",
+            correlation_id="req-3",
+        )

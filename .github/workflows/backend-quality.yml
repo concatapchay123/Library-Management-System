@@ -60,13 +60,13 @@ jobs:
           done
           docker logs openlibrary-sqlserver
           exit 1
-      - name: Run migration integration tests
+      - name: Run SQL Server integration tests
         shell: bash
         run: |
           export DATABASE_BOOTSTRAP_URL="mssql+pyodbc://sa:${MSSQL_SA_PASSWORD}@localhost:1433/master?driver=ODBC+Driver+18+for+SQL+Server&TrustServerCertificate=yes"
           export DATABASE_MIGRATION_URL="mssql+pyodbc://migrator:${MSSQL_SA_PASSWORD}@localhost:1433/master?driver=ODBC+Driver+18+for+SQL+Server&TrustServerCertificate=yes"
           export DATABASE_RUNTIME_URL="mssql+pyodbc://runtime:${MSSQL_SA_PASSWORD}@localhost:1433/master?driver=ODBC+Driver+18+for+SQL+Server&TrustServerCertificate=yes"
-          python -m pytest backend/tests/integration/migrations/test_database_roles.py backend/tests/integration/ops/test_audit_outbox.py backend/tests/integration/auth/test_login_persistence.py -q
+          python -m pytest backend/tests/integration/ -q
 
   openapi:
     name: OpenAPI validation and compatibility

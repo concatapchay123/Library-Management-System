@@ -213,7 +213,7 @@ def _build_test_app(
             service=service,
             access_tokens=access_tokens,  # type: ignore[arg-type]
             tenant_request_context=None,
-            url_prefix="/education",
+            url_prefix="/api/v1/education",
         )
     )
 
@@ -226,7 +226,7 @@ def test_education_endpoints_require_authentication() -> None:
     app, _, _ = _build_test_app(store, {"education.read", "education.manage"})
     client = app.test_client()
 
-    response = client.get("/education/departments")
+    response = client.get("/api/v1/education/departments")
     assert response.status_code == 401
     assert response.headers["Content-Type"] == "application/problem+json"
 
@@ -237,7 +237,7 @@ def test_education_endpoints_return_unavailable_when_edition_disabled() -> None:
     client = app.test_client()
 
     response = client.get(
-        "/education/departments",
+        "/api/v1/education/departments",
         headers={"Authorization": f"Bearer {token}"},
     )
     assert response.status_code == 403
@@ -255,7 +255,7 @@ def test_department_crud_flow() -> None:
 
     # Create department
     response = client.post(
-        "/education/departments",
+        "/api/v1/education/departments",
         headers={"Authorization": f"Bearer {token}"},
         json={"code": "CS", "name": "Computer Science"},
     )
@@ -267,7 +267,7 @@ def test_department_crud_flow() -> None:
 
     # List departments
     list_resp = client.get(
-        "/education/departments",
+        "/api/v1/education/departments",
         headers={"Authorization": f"Bearer {token}"},
     )
     assert list_resp.status_code == 200
@@ -277,7 +277,7 @@ def test_department_crud_flow() -> None:
 
     # Get department
     get_resp = client.get(
-        f"/education/departments/{dept_id}",
+        f"/api/v1/education/departments/{dept_id}",
         headers={"Authorization": f"Bearer {token}"},
     )
     assert get_resp.status_code == 200
@@ -290,7 +290,7 @@ def test_semester_date_validation_via_api() -> None:
     client = app.test_client()
 
     response = client.post(
-        "/education/semesters",
+        "/api/v1/education/semesters",
         headers={"Authorization": f"Bearer {token}"},
         json={
             "name": "Fall 2026",
@@ -314,7 +314,7 @@ def test_borrower_policy_api_workflow() -> None:
 
     # 1. Put student policy
     put_resp = client.put(
-        "/education/borrower-policies/student",
+        "/api/v1/education/borrower-policies/student",
         headers={"Authorization": f"Bearer {token}"},
         json={
             "max_active_loans": 7,
@@ -329,7 +329,7 @@ def test_borrower_policy_api_workflow() -> None:
 
     # 2. Get student policy
     get_resp = client.get(
-        "/education/borrower-policies/student",
+        "/api/v1/education/borrower-policies/student",
         headers={"Authorization": f"Bearer {token}"},
     )
     assert get_resp.status_code == 200
@@ -337,7 +337,7 @@ def test_borrower_policy_api_workflow() -> None:
 
     # 3. List policies
     list_resp = client.get(
-        "/education/borrower-policies",
+        "/api/v1/education/borrower-policies",
         headers={"Authorization": f"Bearer {token}"},
     )
     assert list_resp.status_code == 200

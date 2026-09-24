@@ -241,14 +241,6 @@ def test_list_notifications_success_and_filters(notif_env: dict[str, Any]) -> No
     assert unread_data["total"] == 1
     assert unread_data["items"][0]["notification_id"] == str(notif_1.notification_id)
 
-    # 3. Test un-prefixed alias route /notifications
-    resp_alias = client.get(
-        "/notifications",
-        headers={"Authorization": "Bearer patron-a-token"},
-    )
-    assert resp_alias.status_code == 200
-    assert resp_alias.get_json()["total"] == 2
-
 
 def test_mark_notification_read_workflow(notif_env: dict[str, Any]) -> None:
     client: Client = notif_env["client"]
@@ -284,14 +276,7 @@ def test_mark_notification_read_workflow(notif_env: dict[str, Any]) -> None:
     assert data_repeat["status"] == "read"
     assert data_repeat["read_at"] == data["read_at"]
 
-    # 3. Test un-prefixed alias
-    resp_alias = client.post(
-        f"/notifications/{notif.notification_id}/read",
-        headers={"Authorization": "Bearer patron-a-token"},
-    )
-    assert resp_alias.status_code == 200
-
-    # 4. Unknown notification -> 404
+    # 3. Unknown notification -> 404
     resp_unknown = client.post(
         f"/api/v1/notifications/{uuid4()}/read",
         headers={"Authorization": "Bearer patron-a-token"},

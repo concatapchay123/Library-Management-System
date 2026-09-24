@@ -49,6 +49,22 @@ class StubLoginService:
         self.calls.append(LoginCall(organization_slug, email, password, correlation_id))
         return self.results.get((organization_slug, email, password))
 
+    def change_password(
+        self,
+        *,
+        actor: object,
+        current_password: str,
+        new_password: str,
+        correlation_id: str,
+    ) -> None:
+        del actor, correlation_id
+        if current_password == "wrong-password":
+            raise ValueError("Current password is incorrect")
+        if len(new_password) < 12:
+            raise ValueError("new_password must be at least 12 characters")
+        if new_password == current_password:
+            raise ValueError("new_password must be different from current_password")
+
 
 @dataclass(slots=True)
 class StubRefreshSessions:
@@ -237,3 +253,91 @@ def test_duplicate_email_authenticates_against_the_organization_slug(
     assert (
         len({result.organization_id for result in login_service.results.values()}) == 2
     )
+
+
+def test_change_password_requires_authenticated_principal(
+    client: FlaskClient,
+) -> None:
+    """Unauthenticated calls to /password/change must return 401."""
+    response = client.post(
+        "/api/v1/auth/password/change",
+        json={
+            "current_password": "OldPassword123!",
+            "new_password": "NewSecurePassword123!",
+        },
+    )
+    assert response.status_code == 401
+
+
+def test_change_password_requires_csrf_double_submit(
+    client: FlaskClient, access_tokens: AccessTokenService
+) -> None:
+    """Calling /password/change without matching CSRF header and cookie returns 403."""
+    token = access_tokens.issue(LoginResult(user_id=uuid4(), organization_id=uuid4()))
+    response = client.post(
+        "/api/v1/auth/password/change",
+        headers={"Authorization": f"Bearer {token}"},
+        json={
+            "current_password": "OldPassword123!",
+            "new_password": "NewSecurePassword123!",
+        },
+    )
+    assert response.status_code == 403
+    assert response.mimetype == "application/problem+json"
+
+
+def test_change_password_success(
+    client: FlaskClient, access_tokens: AccessTokenService
+) -> None:
+    """Valid bearer token, matching CSRF header/cookie, and valid payload returns 204."""
+    token = access_tokens.issue(LoginResult(user_id=uuid4(), organization_id=uuid4()))
+    client.set_cookie("csrf_token", "csrf-token-123", path="/api/v1/auth")
+    response = client.post(
+        "/api/v1/auth/password/change",
+        headers={
+            "Authorization": f"Bearer {token}",
+            "X-CSRF-Token": "csrf-token-123",
+        },
+        json={
+            "current_password": "OldPassword123!",
+            "new_password": "NewSecurePassword123!",
+        },
+    )
+    assert response.status_code == 204
+
+
+def test_change_password_validation_error(
+    client: FlaskClient, access_tokens: AccessTokenService
+) -> None:
+    """Invalid passwords (short, wrong, or missing) return 400 ProblemDetails."""
+    token = access_tokens.issue(LoginResult(user_id=uuid4(), organization_id=uuid4()))
+    client.set_cookie("csrf_token", "csrf-token-123", path="/api/v1/auth")
+
+    # Short password
+    response = client.post(
+        "/api/v1/auth/password/change",
+        headers={
+            "Authorization": f"Bearer {token}",
+            "X-CSRF-Token": "csrf-token-123",
+        },
+        json={"current_password": "OldPassword123!", "new_password": "short"},
+    )
+    assert response.status_code == 400
+    assert response.mimetype == "application/problem+json"
+    assert "at least 12 characters" in response.get_json()["detail"]
+
+    # Wrong current password
+    response = client.post(
+        "/api/v1/auth/password/change",
+        headers={
+            "Authorization": f"Bearer {token}",
+            "X-CSRF-Token": "csrf-token-123",
+        },
+        json={
+            "current_password": "wrong-password",
+            "new_password": "NewSecurePassword123!",
+        },
+    )
+    assert response.status_code == 400
+    assert response.mimetype == "application/problem+json"
+    assert "Current password is incorrect" in response.get_json()["detail"]

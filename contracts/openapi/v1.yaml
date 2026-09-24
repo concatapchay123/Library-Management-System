@@ -2846,6 +2846,132 @@
         }
       }
     },
+    "/education/borrower-policies": {
+      "get": {
+        "operationId": "listEducationBorrowerPolicies",
+        "summary": "List education borrower policies.",
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "List of education borrower policies.",
+            "headers": {
+              "X-Request-ID": {
+                "$ref": "#/components/headers/X-Request-ID"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EducationBorrowerPolicyList"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/AuthenticationFailed"
+          },
+          "403": {
+            "$ref": "#/components/responses/ProblemDetails"
+          }
+        }
+      }
+    },
+    "/education/borrower-policies/{borrower_type}": {
+      "parameters": [
+        {
+          "name": "borrower_type",
+          "in": "path",
+          "required": true,
+          "schema": {
+            "type": "string"
+          }
+        }
+      ],
+      "get": {
+        "operationId": "getEducationBorrowerPolicy",
+        "summary": "Get education borrower policy by borrower type.",
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Education borrower policy details.",
+            "headers": {
+              "X-Request-ID": {
+                "$ref": "#/components/headers/X-Request-ID"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EducationBorrowerPolicy"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/AuthenticationFailed"
+          },
+          "403": {
+            "$ref": "#/components/responses/ProblemDetails"
+          },
+          "404": {
+            "$ref": "#/components/responses/ProblemDetails"
+          }
+        }
+      },
+      "put": {
+        "operationId": "setEducationBorrowerPolicy",
+        "summary": "Set education borrower policy for borrower type.",
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SetBorrowerPolicyRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Updated borrower policy.",
+            "headers": {
+              "X-Request-ID": {
+                "$ref": "#/components/headers/X-Request-ID"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EducationBorrowerPolicy"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/ProblemDetails"
+          },
+          "401": {
+            "$ref": "#/components/responses/AuthenticationFailed"
+          },
+          "403": {
+            "$ref": "#/components/responses/ProblemDetails"
+          }
+        }
+      }
+    },
     "/public-library/members": {
       "get": {
         "operationId": "listPublicLibraryMembers",
@@ -6213,6 +6339,87 @@
             "type": "array",
             "items": {
               "$ref": "#/components/schemas/EducationTeacher"
+            }
+          }
+        },
+        "additionalProperties": false
+      },
+      "SetBorrowerPolicyRequest": {
+        "type": "object",
+        "required": [
+          "max_active_loans",
+          "duration_days"
+        ],
+        "properties": {
+          "max_active_loans": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "duration_days": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "status": {
+            "type": "string",
+            "default": "active"
+          }
+        },
+        "additionalProperties": false
+      },
+      "EducationBorrowerPolicy": {
+        "type": "object",
+        "required": [
+          "policy_id",
+          "organization_id",
+          "borrower_type",
+          "max_active_loans",
+          "duration_days",
+          "status",
+          "created_at",
+          "updated_at"
+        ],
+        "properties": {
+          "policy_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "organization_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "borrower_type": {
+            "type": "string"
+          },
+          "max_active_loans": {
+            "type": "integer"
+          },
+          "duration_days": {
+            "type": "integer"
+          },
+          "status": {
+            "type": "string"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "additionalProperties": false
+      },
+      "EducationBorrowerPolicyList": {
+        "type": "object",
+        "required": [
+          "items"
+        ],
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/EducationBorrowerPolicy"
             }
           }
         },

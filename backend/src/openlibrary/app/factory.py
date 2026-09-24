@@ -122,17 +122,6 @@ def create_app(config: AppConfig) -> Flask:
                 config.notification_service,
                 config.access_tokens,
                 config.tenant_request_context,
-                url_prefix="/api/v1/notifications",
-                name="notifications_v1",
-            )
-        )
-        app.register_blueprint(
-            create_notifications_blueprint(
-                config.notification_service,
-                config.access_tokens,
-                config.tenant_request_context,
-                url_prefix="/notifications",
-                name="notifications",
             )
         )
     if config.education_service is not None:
@@ -143,15 +132,6 @@ def create_app(config: AppConfig) -> Flask:
                 config.education_service,
                 config.access_tokens,
                 config.tenant_request_context,
-                url_prefix="/api/v1/education",
-            )
-        )
-        app.register_blueprint(
-            create_education_blueprint(
-                config.education_service,
-                config.access_tokens,
-                config.tenant_request_context,
-                url_prefix="/education",
             )
         )
     if config.public_library_service is not None:
@@ -162,16 +142,6 @@ def create_app(config: AppConfig) -> Flask:
                 config.public_library_service,
                 config.access_tokens,
                 config.tenant_request_context,
-                url_prefix="/api/v1/public-library",
-                finance_service=config.public_library_finance_service,
-            )
-        )
-        app.register_blueprint(
-            create_public_library_blueprint(
-                config.public_library_service,
-                config.access_tokens,
-                config.tenant_request_context,
-                url_prefix="/public-library",
                 finance_service=config.public_library_finance_service,
             )
         )

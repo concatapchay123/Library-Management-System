@@ -5,8 +5,11 @@ from __future__ import annotations
 from collections.abc import Callable
 from contextlib import AbstractContextManager
 from dataclasses import dataclass
-from typing import Protocol
+from typing import TYPE_CHECKING, Protocol
 from uuid import NAMESPACE_URL, UUID, uuid5
+
+if TYPE_CHECKING:
+    from openlibrary.modules.core.application.access_tokens import Principal
 
 from sqlalchemy.engine import Connection
 
@@ -42,6 +45,21 @@ class UserCredentialsRepository(Protocol):
         self, connection: Connection, *, organization_id: UUID, email: str
     ) -> UserCredentials | None:
         """Find one tenant-local credential record."""
+
+    def find_by_id(
+        self, connection: Connection, *, organization_id: UUID, user_id: UUID
+    ) -> UserCredentials | None:
+        """Find one tenant-local credential record by user ID."""
+
+    def update_password(
+        self,
+        connection: Connection,
+        *,
+        organization_id: UUID,
+        user_id: UUID,
+        password_hash: str,
+    ) -> None:
+        """Update password hash for a user within tenant context."""
 
     def update_last_login(self, connection: Connection, *, user_id: UUID) -> None:
         """Record a successful login without writing credential data."""
@@ -145,6 +163,89 @@ class LoginService:
                 self._record_success(connection, user.user_id, audit_correlation_id)
                 return LoginResult(
                     user_id=user.user_id, organization_id=tenant.organization_id
+                )
+            finally:
+                try:
+                    self._clear_tenant_context(connection)
+                    connection.commit()
+                except BaseException:
+                    connection.invalidate()
+                    raise
+
+    def change_password(
+        self,
+        *,
+        actor: Principal,
+        current_password: str,
+        new_password: str,
+        correlation_id: str,
+    ) -> None:
+        """Change authenticated user password within their tenant context."""
+        if len(new_password) < 12:
+            raise ValueError("new_password must be at least 12 characters")
+        if new_password == current_password:
+            raise ValueError("new_password must be different from current_password")
+
+        audit_correlation_id = uuid5(
+            NAMESPACE_URL, f"openlibraryos:password_change:{correlation_id}"
+        )
+        with self._connection_factory() as connection:
+            try:
+                self._set_tenant_context(connection, actor.organization_id)
+                connection.commit()
+
+                user = self._user_credentials.find_by_id(
+                    connection,
+                    organization_id=actor.organization_id,
+                    user_id=actor.user_id,
+                )
+                verified = (
+                    user is not None
+                    and user.status == "active"
+                    and self._password_service.verify(
+                        current_password, user.password_hash
+                    )
+                )
+                if not verified:
+                    if user is None or user.status != "active":
+                        self._password_service.verify(
+                            current_password, self._dummy_password_hash
+                        )
+                    self._audited_transaction.run(
+                        connection,
+                        lambda _: None,
+                        AuditEvent(
+                            action="authentication.password_change_failed",
+                            entity_type="user",
+                            entity_id=actor.user_id,
+                            actor_user_id=actor.user_id,
+                            actor_type="user",
+                            payload={"result": "failed"},
+                            correlation_id=audit_correlation_id,
+                        ),
+                        (),
+                    )
+                    raise ValueError("Current password is incorrect")
+
+                new_hash = self._password_service.hash(new_password)
+                self._audited_transaction.run(
+                    connection,
+                    lambda active_connection: self._user_credentials.update_password(
+                        active_connection,
+                        organization_id=actor.organization_id,
+                        user_id=actor.user_id,
+                        password_hash=new_hash,
+                    ),
+                    AuditEvent(
+                        action="authentication.password_changed",
+                        entity_type="user",
+                        entity_id=actor.user_id,
+                        actor_user_id=actor.user_id,
+                        actor_type="user",
+                        payload={"result": "succeeded"},
+                        correlation_id=audit_correlation_id,
+                    ),
+                    (),
                 )
             finally:
                 try:

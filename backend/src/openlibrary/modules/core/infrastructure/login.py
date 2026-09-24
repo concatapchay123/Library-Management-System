@@ -46,6 +46,51 @@ class SqlServerUserCredentialsRepository:
             status=str(row["status"]),
         )
 
+    def find_by_id(
+        self, connection: Connection, *, organization_id: UUID, user_id: UUID
+    ) -> UserCredentials | None:
+        """Return a user only within the resolved tenant and active RLS context."""
+        row = (
+            connection.execute(
+                text(
+                    "SELECT user_id, password_hash, status FROM core.users "
+                    "WHERE organization_id = :organization_id AND user_id = :user_id"
+                ),
+                {"organization_id": str(organization_id), "user_id": str(user_id)},
+            )
+            .mappings()
+            .one_or_none()
+        )
+        if row is None:
+            return None
+        return UserCredentials(
+            user_id=UUID(str(row["user_id"])),
+            password_hash=str(row["password_hash"]),
+            status=str(row["status"]),
+        )
+
+    def update_password(
+        self,
+        connection: Connection,
+        *,
+        organization_id: UUID,
+        user_id: UUID,
+        password_hash: str,
+    ) -> None:
+        """Update password hash for a user within tenant context."""
+        connection.execute(
+            text(
+                "UPDATE core.users SET password_hash = :password_hash, "
+                "updated_at = SYSUTCDATETIME() "
+                "WHERE organization_id = :organization_id AND user_id = :user_id"
+            ),
+            {
+                "organization_id": str(organization_id),
+                "user_id": str(user_id),
+                "password_hash": password_hash,
+            },
+        )
+
     def update_last_login(self, connection: Connection, *, user_id: UUID) -> None:
         """Update only the successful user's server timestamp inside the audit transaction."""
         connection.execute(

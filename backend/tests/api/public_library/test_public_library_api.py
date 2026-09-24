@@ -246,7 +246,7 @@ def _build_test_app(
             service=service,
             access_tokens=access_tokens,  # type: ignore[arg-type]
             tenant_request_context=None,
-            url_prefix="/public-library",
+            url_prefix="/api/v1/public-library",
         )
     )
 
@@ -259,7 +259,7 @@ def test_endpoints_require_authentication() -> None:
     app, _, _ = _build_test_app(store, {"public_library.read", "public_library.manage"})
     client = app.test_client()
 
-    resp = client.get("/public-library/members")
+    resp = client.get("/api/v1/public-library/members")
     assert resp.status_code == 401
 
 
@@ -272,7 +272,7 @@ def test_edition_unavailable_returns_403() -> None:
     client = app.test_client()
     headers = {"Authorization": f"Bearer {token}"}
 
-    resp = client.get("/public-library/members", headers=headers)
+    resp = client.get("/api/v1/public-library/members", headers=headers)
     assert resp.status_code == 403
     data = resp.get_json()
     assert data["type"] == "https://openlibraryos.example/problems/edition-unavailable"
@@ -290,7 +290,7 @@ def test_member_lifecycle_api() -> None:
     # 1. Create member
     user_id = str(uuid4())
     resp = client.post(
-        "/public-library/members",
+        "/api/v1/public-library/members",
         headers=headers,
         json={"user_id": user_id, "member_number": "MEM-101"},
     )
@@ -301,23 +301,25 @@ def test_member_lifecycle_api() -> None:
     member_id = created["member_id"]
 
     # 2. Get member by ID
-    resp = client.get(f"/public-library/members/{member_id}", headers=headers)
+    resp = client.get(f"/api/v1/public-library/members/{member_id}", headers=headers)
     assert resp.status_code == 200
     assert resp.get_json()["member_number"] == "MEM-101"
 
     # 3. Get member by user ID
-    resp = client.get(f"/public-library/members/by-user/{user_id}", headers=headers)
+    resp = client.get(
+        f"/api/v1/public-library/members/by-user/{user_id}", headers=headers
+    )
     assert resp.status_code == 200
     assert resp.get_json()["member_id"] == member_id
 
     # 4. List members
-    resp = client.get("/public-library/members", headers=headers)
+    resp = client.get("/api/v1/public-library/members", headers=headers)
     assert resp.status_code == 200
     assert len(resp.get_json()["items"]) == 1
 
     # 5. Update status
     resp = client.patch(
-        f"/public-library/members/{member_id}/status",
+        f"/api/v1/public-library/members/{member_id}/status",
         headers=headers,
         json={"status": "suspended"},
     )
@@ -334,7 +336,7 @@ def test_membership_plans_api() -> None:
     headers = {"Authorization": f"Bearer {token}"}
 
     # 1. Seed default plans
-    resp = client.post("/public-library/membership-plans/seed", headers=headers)
+    resp = client.post("/api/v1/public-library/membership-plans/seed", headers=headers)
     assert resp.status_code == 200
     items = resp.get_json()["items"]
     assert len(items) == 2
@@ -342,17 +344,17 @@ def test_membership_plans_api() -> None:
     assert codes == {"basic", "premium"}
 
     # 2. List plans via /membership-plans and alias /plans
-    resp = client.get("/public-library/membership-plans", headers=headers)
+    resp = client.get("/api/v1/public-library/membership-plans", headers=headers)
     assert resp.status_code == 200
     assert len(resp.get_json()["items"]) == 2
 
-    resp_alias = client.get("/public-library/plans", headers=headers)
+    resp_alias = client.get("/api/v1/public-library/plans", headers=headers)
     assert resp_alias.status_code == 200
     assert len(resp_alias.get_json()["items"]) == 2
 
     # 3. Create custom plan
     resp = client.post(
-        "/public-library/membership-plans",
+        "/api/v1/public-library/membership-plans",
         headers=headers,
         json={
             "code": "student",
@@ -368,13 +370,15 @@ def test_membership_plans_api() -> None:
     plan_id = plan["plan_id"]
 
     # 4. Get plan
-    resp = client.get(f"/public-library/membership-plans/{plan_id}", headers=headers)
+    resp = client.get(
+        f"/api/v1/public-library/membership-plans/{plan_id}", headers=headers
+    )
     assert resp.status_code == 200
     assert resp.get_json()["name"] == "Student Plan"
 
     # 5. Update plan
     resp = client.put(
-        f"/public-library/membership-plans/{plan_id}",
+        f"/api/v1/public-library/membership-plans/{plan_id}",
         headers=headers,
         json={"name": "Discounted Student Plan", "max_active_loans": 10},
     )
@@ -392,11 +396,13 @@ def test_subscriptions_api() -> None:
     headers = {"Authorization": f"Bearer {token}"}
 
     # Setup member and plan
-    seed_resp = client.post("/public-library/membership-plans/seed", headers=headers)
+    seed_resp = client.post(
+        "/api/v1/public-library/membership-plans/seed", headers=headers
+    )
     basic_plan = next(p for p in seed_resp.get_json()["items"] if p["code"] == "basic")
 
     member_resp = client.post(
-        "/public-library/members",
+        "/api/v1/public-library/members",
         headers=headers,
         json={"user_id": str(uuid4()), "member_number": "MEM-SUB"},
     )
@@ -408,7 +414,7 @@ def test_subscriptions_api() -> None:
 
     # 1. Create subscription
     resp = client.post(
-        "/public-library/subscriptions",
+        "/api/v1/public-library/subscriptions",
         headers=headers,
         json={
             "member_id": member["member_id"],
@@ -423,13 +429,13 @@ def test_subscriptions_api() -> None:
     sub_id = sub["subscription_id"]
 
     # 2. Get subscription
-    resp = client.get(f"/public-library/subscriptions/{sub_id}", headers=headers)
+    resp = client.get(f"/api/v1/public-library/subscriptions/{sub_id}", headers=headers)
     assert resp.status_code == 200
     assert resp.get_json()["subscription_id"] == sub_id
 
     # 3. List subscriptions
     resp = client.get(
-        f"/public-library/subscriptions?member_id={member['member_id']}",
+        f"/api/v1/public-library/subscriptions?member_id={member['member_id']}",
         headers=headers,
     )
     assert resp.status_code == 200
@@ -437,7 +443,7 @@ def test_subscriptions_api() -> None:
 
     # 4. Cancel subscription
     resp = client.post(
-        f"/public-library/subscriptions/{sub_id}/cancel",
+        f"/api/v1/public-library/subscriptions/{sub_id}/cancel",
         headers=headers,
     )
     assert resp.status_code == 200

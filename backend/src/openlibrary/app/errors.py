@@ -76,6 +76,15 @@ def authorization_failure_response() -> Response:
     )
 
 
+def validation_failure_response(detail: str = "Invalid request payload.") -> Response:
+    """Return a standard RFC 7807 Bad Request response."""
+    return _problem_response(
+        status=HTTPStatus.BAD_REQUEST,
+        title="Bad Request",
+        detail=detail,
+    )
+
+
 def _problem_type(status: int | HTTPStatus) -> str:
     """Derive a stable URL-safe type suffix from an HTTP status."""
     return HTTPStatus(status).phrase.lower().replace(" ", "-")
