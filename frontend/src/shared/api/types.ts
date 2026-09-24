@@ -436,3 +436,201 @@ export interface NotificationSearchParams {
   status?: NotificationStatus;
   limit?: number;
 }
+
+/**
+ * Education Department schema from OpenAPI #/components/schemas/Department
+ */
+export interface Department {
+  department_id: string;
+  organization_id: string;
+  code: string;
+  name: string;
+  status: string;
+  created_at?: string | null;
+  updated_at?: string | null;
+}
+
+export interface DepartmentListResponse {
+  items: Department[];
+}
+
+export interface DepartmentWrite {
+  code: string;
+  name: string;
+  status?: string;
+}
+
+/**
+ * Education Semester schema from OpenAPI #/components/schemas/Semester
+ */
+export interface Semester {
+  semester_id: string;
+  organization_id: string;
+  name: string;
+  starts_on: string;
+  ends_on: string;
+  status: string;
+  created_at?: string | null;
+  updated_at?: string | null;
+}
+
+export interface SemesterListResponse {
+  items: Semester[];
+}
+
+export interface SemesterWrite {
+  name: string;
+  starts_on: string;
+  ends_on: string;
+  status?: string;
+}
+
+/**
+ * Education Course schema from OpenAPI #/components/schemas/Course
+ */
+export interface Course {
+  course_id: string;
+  organization_id: string;
+  code: string;
+  name: string;
+  department_id?: string | null;
+  status: string;
+  created_at?: string | null;
+  updated_at?: string | null;
+}
+
+export interface CourseListResponse {
+  items: Course[];
+}
+
+export interface CourseWrite {
+  code: string;
+  name: string;
+  department_id?: string | null;
+  status?: string;
+}
+
+/**
+ * Education Class schema from OpenAPI #/components/schemas/Class
+ */
+export interface Class {
+  class_id: string;
+  organization_id: string;
+  code: string;
+  name: string;
+  semester_id: string;
+  department_id?: string | null;
+  status: string;
+  created_at?: string | null;
+  updated_at?: string | null;
+}
+
+export interface ClassListResponse {
+  items: Class[];
+}
+
+export interface ClassWrite {
+  code: string;
+  name: string;
+  semester_id: string;
+  department_id?: string | null;
+  status?: string;
+}
+
+/**
+ * Education Class Membership schema from OpenAPI #/components/schemas/ClassMembership
+ */
+export interface ClassMembership {
+  membership_id: string;
+  organization_id: string;
+  class_id: string;
+  student_id: string;
+  joined_at?: string | null;
+  left_at?: string | null;
+  created_at?: string | null;
+  updated_at?: string | null;
+}
+
+export interface ClassMembershipListResponse {
+  items: ClassMembership[];
+}
+
+export interface ClassMembershipWrite {
+  student_id: string;
+  joined_at?: string | null;
+  left_at?: string | null;
+}
+
+/**
+ * Education Student schema from OpenAPI #/components/schemas/Student
+ */
+export interface Student {
+  student_id: string;
+  organization_id: string;
+  user_id: string;
+  student_number: string;
+  department_id?: string | null;
+  status: string;
+  created_at?: string | null;
+  updated_at?: string | null;
+}
+
+export interface StudentListResponse {
+  items: Student[];
+}
+
+export interface StudentWrite {
+  user_id: string;
+  student_number: string;
+  department_id?: string | null;
+  status?: string;
+}
+
+/**
+ * Education Teacher schema from OpenAPI #/components/schemas/Teacher
+ */
+export interface Teacher {
+  teacher_id: string;
+  organization_id: string;
+  user_id: string;
+  employee_number: string;
+  department_id?: string | null;
+  status: string;
+  created_at?: string | null;
+  updated_at?: string | null;
+}
+
+export interface TeacherListResponse {
+  items: Teacher[];
+}
+
+export interface TeacherWrite {
+  user_id: string;
+  employee_number: string;
+  department_id?: string | null;
+  status?: string;
+}
+
+/**
+ * Education Borrower Policy schema from OpenAPI #/components/schemas/BorrowerPolicy
+ */
+export interface BorrowerPolicy {
+  policy_id: string;
+  organization_id: string;
+  borrower_type: 'student' | 'teacher' | string;
+  max_active_loans: number;
+  duration_days: number;
+  status: string;
+  created_at?: string | null;
+  updated_at?: string | null;
+}
+
+export interface BorrowerPolicyListResponse {
+  items: BorrowerPolicy[];
+}
+
+export interface BorrowerPolicyWrite {
+  max_active_loans: number;
+  duration_days: number;
+  status?: string;
+}

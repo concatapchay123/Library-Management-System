@@ -6,19 +6,33 @@ import { CatalogSearch } from '../features/catalog';
 import { InventoryWorkspace } from '../features/inventory';
 import { CirculationDesk } from '../features/circulation';
 import { ReservationInbox } from '../features/inbox';
+import { EducationWorkspace } from '../features/education';
 
 export interface AppProps {
   initialAuthenticated?: boolean;
   autoRefreshOnMount?: boolean;
 }
 
+function resolveHashTab(hashStr: string): string {
+  const hash = hashStr.replace(/^#\/?/, '');
+  if (hash === 'inbox') return 'reservations';
+  if (hash === 'members') return 'education';
+  if (
+    hash === 'catalog' ||
+    hash === 'circulation' ||
+    hash === 'inventory' ||
+    hash === 'reservations' ||
+    hash === 'education'
+  ) {
+    return hash;
+  }
+  return 'circulation';
+}
+
 function OperateModeDesk() {
   const [activeTab, setActiveTab] = useState(() => {
     if (typeof window !== 'undefined' && window.location.hash) {
-      const hash = window.location.hash.replace(/^#\/?/, '');
-      if (hash === 'catalog' || hash === 'inventory' || hash === 'reservations' || hash === 'inbox') {
-        return hash === 'inbox' ? 'reservations' : hash;
-      }
+      return resolveHashTab(window.location.hash);
     }
     return 'circulation';
   });
@@ -26,16 +40,7 @@ function OperateModeDesk() {
   useEffect(() => {
     function handleHashChange() {
       if (typeof window !== 'undefined' && window.location.hash) {
-        const hash = window.location.hash.replace(/^#\/?/, '');
-        if (
-          hash === 'catalog' ||
-          hash === 'circulation' ||
-          hash === 'inventory' ||
-          hash === 'reservations' ||
-          hash === 'inbox'
-        ) {
-          setActiveTab(hash === 'inbox' ? 'reservations' : hash);
-        }
+        setActiveTab(resolveHashTab(window.location.hash));
       }
     }
     window.addEventListener('hashchange', handleHashChange);
@@ -45,6 +50,7 @@ function OperateModeDesk() {
   const isCatalog = activeTab === 'catalog';
   const isInventory = activeTab === 'inventory';
   const isReservations = activeTab === 'reservations';
+  const isEducation = activeTab === 'education' || activeTab === 'members';
 
   let pageTitle = 'OpenLibraryOS — Operate Mode';
   let pageSubtitle = 'Low-Cognitive-Overhead Library Operations';
@@ -58,6 +64,9 @@ function OperateModeDesk() {
   } else if (isReservations) {
     pageTitle = 'Reservation Queue & Notification Inbox';
     pageSubtitle = 'Track reservation progression, hold status, and time-sensitive alerts';
+  } else if (isEducation) {
+    pageTitle = 'Education & Member Management';
+    pageSubtitle = 'Manage student and faculty records, academic relationships, and borrower loan policies';
   }
 
   return (
@@ -74,6 +83,8 @@ function OperateModeDesk() {
         <InventoryWorkspace />
       ) : isReservations ? (
         <ReservationInbox />
+      ) : isEducation ? (
+        <EducationWorkspace />
       ) : (
         <CirculationDesk />
       )}

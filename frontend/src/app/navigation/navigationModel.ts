@@ -33,10 +33,10 @@ export const navigationItems: readonly NavigationItem[] = [
     description: 'Physical copies, shelf locations, and barcode status management.',
   },
   {
-    id: 'members',
-    label: 'Members',
-    href: '#/members',
-    description: 'Borrower records, student profiles, and library membership accounts.',
+    id: 'education',
+    label: 'Education & Members',
+    href: '#/education',
+    description: 'Borrower records, student & teacher profiles, academic relationships, and loan policies.',
   },
   {
     id: 'reservations',

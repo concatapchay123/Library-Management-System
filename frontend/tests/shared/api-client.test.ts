@@ -567,4 +567,177 @@ describe('FE-004 — Typed API Client, Problem Details and Common Request States
       );
     });
   });
+
+  describe('Education Management and Borrower Policy Typed Endpoints (FE-009)', () => {
+    it('calls education departments, semesters, courses and classes endpoints', async () => {
+      vi.mocked(globalThis.fetch)
+        .mockResolvedValueOnce({
+          ok: true,
+          status: 200,
+          headers: new Headers({ 'Content-Type': 'application/json' }),
+          json: async () => ({ items: [] }),
+        } as Response)
+        .mockResolvedValueOnce({
+          ok: true,
+          status: 201,
+          headers: new Headers({ 'Content-Type': 'application/json' }),
+          json: async () => ({ department_id: 'dept-1', code: 'CS', name: 'Computer Science' }),
+        } as Response)
+        .mockResolvedValueOnce({
+          ok: true,
+          status: 200,
+          headers: new Headers({ 'Content-Type': 'application/json' }),
+          json: async () => ({ items: [] }),
+        } as Response)
+        .mockResolvedValueOnce({
+          ok: true,
+          status: 201,
+          headers: new Headers({ 'Content-Type': 'application/json' }),
+          json: async () => ({ semester_id: 'sem-1', name: 'Fall 2026', starts_on: '2026-09-01', ends_on: '2026-12-20' }),
+        } as Response);
+
+      const client = createApiClient({ baseUrl: '/api/v1' });
+      await client.education.departments.list();
+      expect(globalThis.fetch).toHaveBeenNthCalledWith(
+        1,
+        '/api/v1/education/departments',
+        expect.objectContaining({ method: 'GET' }),
+      );
+
+      await client.education.departments.create({ code: 'CS', name: 'Computer Science' });
+      expect(globalThis.fetch).toHaveBeenNthCalledWith(
+        2,
+        '/api/v1/education/departments',
+        expect.objectContaining({
+          method: 'POST',
+          body: JSON.stringify({ code: 'CS', name: 'Computer Science' }),
+        }),
+      );
+
+      await client.education.semesters.list();
+      expect(globalThis.fetch).toHaveBeenNthCalledWith(
+        3,
+        '/api/v1/education/semesters',
+        expect.objectContaining({ method: 'GET' }),
+      );
+
+      await client.education.semesters.create({
+        name: 'Fall 2026',
+        starts_on: '2026-09-01',
+        ends_on: '2026-12-20',
+      });
+      expect(globalThis.fetch).toHaveBeenNthCalledWith(
+        4,
+        '/api/v1/education/semesters',
+        expect.objectContaining({
+          method: 'POST',
+          body: JSON.stringify({
+            name: 'Fall 2026',
+            starts_on: '2026-09-01',
+            ends_on: '2026-12-20',
+          }),
+        }),
+      );
+    });
+
+    it('calls education students, teachers, memberships and borrower policies endpoints', async () => {
+      vi.mocked(globalThis.fetch)
+        .mockResolvedValueOnce({
+          ok: true,
+          status: 200,
+          headers: new Headers({ 'Content-Type': 'application/json' }),
+          json: async () => ({ items: [] }),
+        } as Response)
+        .mockResolvedValueOnce({
+          ok: true,
+          status: 201,
+          headers: new Headers({ 'Content-Type': 'application/json' }),
+          json: async () => ({ student_id: 's-1', student_number: 'STU-1001' }),
+        } as Response)
+        .mockResolvedValueOnce({
+          ok: true,
+          status: 200,
+          headers: new Headers({ 'Content-Type': 'application/json' }),
+          json: async () => ({ items: [] }),
+        } as Response)
+        .mockResolvedValueOnce({
+          ok: true,
+          status: 201,
+          headers: new Headers({ 'Content-Type': 'application/json' }),
+          json: async () => ({ teacher_id: 't-1', employee_number: 'EMP-2001' }),
+        } as Response)
+        .mockResolvedValueOnce({
+          ok: true,
+          status: 200,
+          headers: new Headers({ 'Content-Type': 'application/json' }),
+          json: async () => ({ items: [] }),
+        } as Response)
+        .mockResolvedValueOnce({
+          ok: true,
+          status: 200,
+          headers: new Headers({ 'Content-Type': 'application/json' }),
+          json: async () => ({
+            policy_id: 'pol-1',
+            borrower_type: 'student',
+            max_active_loans: 5,
+            duration_days: 14,
+          }),
+        } as Response);
+
+      const client = createApiClient({ baseUrl: '/api/v1' });
+      await client.education.students.list();
+      expect(globalThis.fetch).toHaveBeenNthCalledWith(
+        1,
+        '/api/v1/education/students',
+        expect.objectContaining({ method: 'GET' }),
+      );
+
+      await client.education.students.create({
+        user_id: 'u-1',
+        student_number: 'STU-1001',
+      });
+      expect(globalThis.fetch).toHaveBeenNthCalledWith(
+        2,
+        '/api/v1/education/students',
+        expect.objectContaining({
+          method: 'POST',
+          body: JSON.stringify({ user_id: 'u-1', student_number: 'STU-1001' }),
+        }),
+      );
+
+      await client.education.teachers.list();
+      expect(globalThis.fetch).toHaveBeenNthCalledWith(
+        3,
+        '/api/v1/education/teachers',
+        expect.objectContaining({ method: 'GET' }),
+      );
+
+      await client.education.teachers.create({
+        user_id: 'u-2',
+        employee_number: 'EMP-2001',
+      });
+      expect(globalThis.fetch).toHaveBeenNthCalledWith(
+        4,
+        '/api/v1/education/teachers',
+        expect.objectContaining({
+          method: 'POST',
+          body: JSON.stringify({ user_id: 'u-2', employee_number: 'EMP-2001' }),
+        }),
+      );
+
+      await client.education.policies.list();
+      expect(globalThis.fetch).toHaveBeenNthCalledWith(
+        5,
+        '/api/v1/education/borrower-policies',
+        expect.objectContaining({ method: 'GET' }),
+      );
+
+      await client.education.policies.getByType('student');
+      expect(globalThis.fetch).toHaveBeenNthCalledWith(
+        6,
+        '/api/v1/education/borrower-policies/student',
+        expect.objectContaining({ method: 'GET' }),
+      );
+    });
+  });
 });

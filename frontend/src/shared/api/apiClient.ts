@@ -33,6 +33,30 @@ import {
   Notification,
   NotificationListResponse,
   NotificationSearchParams,
+  Department,
+  DepartmentListResponse,
+  DepartmentWrite,
+  Semester,
+  SemesterListResponse,
+  SemesterWrite,
+  Course,
+  CourseListResponse,
+  CourseWrite,
+  Class,
+  ClassListResponse,
+  ClassWrite,
+  ClassMembership,
+  ClassMembershipListResponse,
+  ClassMembershipWrite,
+  Student,
+  StudentListResponse,
+  StudentWrite,
+  Teacher,
+  TeacherListResponse,
+  TeacherWrite,
+  BorrowerPolicy,
+  BorrowerPolicyListResponse,
+  BorrowerPolicyWrite,
 } from './types';
 import {
   generateRequestId,
@@ -322,6 +346,69 @@ export function createApiClient(config: ApiClientConfig = {}) {
       post<Notification>(`/notifications/${encodeURIComponent(notificationId)}/read`, undefined, options),
   };
 
+  const education = {
+    departments: {
+      list: (options?: RequestOptions) =>
+        get<DepartmentListResponse>('/education/departments', options),
+      getById: (departmentId: string, options?: RequestOptions) =>
+        get<Department>(`/education/departments/${encodeURIComponent(departmentId)}`, options),
+      create: (data: DepartmentWrite, options?: RequestOptions) =>
+        post<Department>('/education/departments', data, options),
+    },
+    semesters: {
+      list: (options?: RequestOptions) =>
+        get<SemesterListResponse>('/education/semesters', options),
+      getById: (semesterId: string, options?: RequestOptions) =>
+        get<Semester>(`/education/semesters/${encodeURIComponent(semesterId)}`, options),
+      create: (data: SemesterWrite, options?: RequestOptions) =>
+        post<Semester>('/education/semesters', data, options),
+    },
+    courses: {
+      list: (options?: RequestOptions) =>
+        get<CourseListResponse>('/education/courses', options),
+      getById: (courseId: string, options?: RequestOptions) =>
+        get<Course>(`/education/courses/${encodeURIComponent(courseId)}`, options),
+      create: (data: CourseWrite, options?: RequestOptions) =>
+        post<Course>('/education/courses', data, options),
+    },
+    classes: {
+      list: (options?: RequestOptions) =>
+        get<ClassListResponse>('/education/classes', options),
+      getById: (classId: string, options?: RequestOptions) =>
+        get<Class>(`/education/classes/${encodeURIComponent(classId)}`, options),
+      create: (data: ClassWrite, options?: RequestOptions) =>
+        post<Class>('/education/classes', data, options),
+      listMemberships: (classId: string, options?: RequestOptions) =>
+        get<ClassMembershipListResponse>(`/education/classes/${encodeURIComponent(classId)}/memberships`, options),
+      createMembership: (classId: string, data: ClassMembershipWrite, options?: RequestOptions) =>
+        post<ClassMembership>(`/education/classes/${encodeURIComponent(classId)}/memberships`, data, options),
+    },
+    students: {
+      list: (options?: RequestOptions) =>
+        get<StudentListResponse>('/education/students', options),
+      getById: (studentId: string, options?: RequestOptions) =>
+        get<Student>(`/education/students/${encodeURIComponent(studentId)}`, options),
+      create: (data: StudentWrite, options?: RequestOptions) =>
+        post<Student>('/education/students', data, options),
+    },
+    teachers: {
+      list: (options?: RequestOptions) =>
+        get<TeacherListResponse>('/education/teachers', options),
+      getById: (teacherId: string, options?: RequestOptions) =>
+        get<Teacher>(`/education/teachers/${encodeURIComponent(teacherId)}`, options),
+      create: (data: TeacherWrite, options?: RequestOptions) =>
+        post<Teacher>('/education/teachers', data, options),
+    },
+    policies: {
+      list: (options?: RequestOptions) =>
+        get<BorrowerPolicyListResponse>('/education/borrower-policies', options),
+      getByType: (borrowerType: string, options?: RequestOptions) =>
+        get<BorrowerPolicy>(`/education/borrower-policies/${encodeURIComponent(borrowerType)}`, options),
+      set: (borrowerType: string, data: BorrowerPolicyWrite, options?: RequestOptions) =>
+        put<BorrowerPolicy>(`/education/borrower-policies/${encodeURIComponent(borrowerType)}`, data, options),
+    },
+  };
+
   return {
     request,
     get,
@@ -338,6 +425,7 @@ export function createApiClient(config: ApiClientConfig = {}) {
     loans,
     reservations,
     notifications,
+    education,
   };
 }
 
