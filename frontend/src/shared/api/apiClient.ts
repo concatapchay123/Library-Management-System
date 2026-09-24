@@ -19,6 +19,13 @@ import {
   BookCopyUpdate,
   CopyStatusTransition,
   CopyStatusHistoryPage,
+  Loan,
+  LoanPage,
+  LoanRequestWrite,
+  DeskCheckoutWrite,
+  LoanRejectWrite,
+  LoanCheckoutWrite,
+  LoanSearchParams,
 } from './types';
 import {
   generateRequestId,
@@ -233,6 +240,38 @@ export function createApiClient(config: ApiClientConfig = {}) {
       get<CopyStatusHistoryPage>(`/copies/${encodeURIComponent(copyId)}/history`, options),
   };
 
+  const loans = {
+    list: (params?: LoanSearchParams, options?: RequestOptions) => {
+      const query = new URLSearchParams();
+      if (params?.borrower_user_id) {
+        query.set('borrower_user_id', params.borrower_user_id);
+      }
+      if (params?.copy_id) {
+        query.set('copy_id', params.copy_id);
+      }
+      if (params?.status) {
+        query.set('status', params.status);
+      }
+      const queryString = query.toString();
+      const endpoint = queryString ? `/loans?${queryString}` : '/loans';
+      return get<LoanPage>(endpoint, options);
+    },
+    getById: (loanId: string, options?: RequestOptions) =>
+      get<Loan>(`/loans/${encodeURIComponent(loanId)}`, options),
+    request: (data: LoanRequestWrite, options?: RequestOptions) =>
+      post<Loan>('/loans', data, options),
+    deskCheckout: (data: DeskCheckoutWrite, options?: RequestOptions) =>
+      post<Loan>('/loans/desk-checkout', data, options),
+    approve: (loanId: string, options?: RequestOptions) =>
+      post<Loan>(`/loans/${encodeURIComponent(loanId)}/approve`, undefined, options),
+    reject: (loanId: string, data?: LoanRejectWrite, options?: RequestOptions) =>
+      post<Loan>(`/loans/${encodeURIComponent(loanId)}/reject`, data, options),
+    checkout: (loanId: string, data?: LoanCheckoutWrite, options?: RequestOptions) =>
+      post<Loan>(`/loans/${encodeURIComponent(loanId)}/checkout`, data, options),
+    return: (loanId: string, options?: RequestOptions) =>
+      post<Loan>(`/loans/${encodeURIComponent(loanId)}/return`, undefined, options),
+  };
+
   return {
     request,
     get,
@@ -246,6 +285,7 @@ export function createApiClient(config: ApiClientConfig = {}) {
     books,
     locations,
     copies,
+    loans,
   };
 }
 

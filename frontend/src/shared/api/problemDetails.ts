@@ -11,6 +11,15 @@ export function generateRequestId(): string {
 }
 
 /**
+ * Generates an idempotency key conforming to BE-017 / OpenAPI contract (1 to 128 characters).
+ */
+export function generateIdempotencyKey(): string {
+  const timestamp = Date.now().toString(36);
+  const randomPart = Math.random().toString(36).substring(2, 12);
+  return `idem-${timestamp}-${randomPart}`;
+}
+
+/**
  * Sanitizes raw error text to prevent leaking sensitive information:
  * - SQL queries and database error messages
  * - Python / Node stack traces and file paths

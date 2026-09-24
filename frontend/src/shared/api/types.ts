@@ -259,3 +259,85 @@ export interface CopyStatusHistoryRecord {
 export interface CopyStatusHistoryPage {
   items: CopyStatusHistoryRecord[];
 }
+
+/**
+ * Valid circulation loan statuses matching backend domain rules (BE-016).
+ */
+export type LoanStatus =
+  | 'requested'
+  | 'approved'
+  | 'rejected'
+  | 'checked_out'
+  | 'returned'
+  | 'cancelled'
+  | 'overdue';
+
+/**
+ * Circulation Loan schema from OpenAPI #/components/schemas/Loan
+ */
+export interface Loan {
+  loan_id: string;
+  organization_id: string;
+  copy_id: string;
+  borrower_user_id: string;
+  status: LoanStatus;
+  loan_status?: string;
+  request_status?: string;
+  requested_at: string;
+  approved_at?: string | null;
+  checked_out_at?: string | null;
+  due_at?: string | null;
+  returned_at?: string | null;
+  policy_snapshot?: Record<string, unknown>;
+  created_at: string;
+  updated_at: string;
+}
+
+/**
+ * Paginated loans response from OpenAPI #/components/schemas/LoanPage
+ */
+export interface LoanPage {
+  items: Loan[];
+  next_cursor?: string | null;
+}
+
+/**
+ * Self-service or staff loan request schema from OpenAPI #/components/schemas/LoanRequestWrite
+ */
+export interface LoanRequestWrite {
+  copy_id: string;
+  borrower_user_id?: string;
+  duration_days?: number;
+}
+
+/**
+ * Direct desk checkout schema from OpenAPI #/components/schemas/DeskCheckoutWrite
+ */
+export interface DeskCheckoutWrite {
+  copy_id: string;
+  borrower_user_id: string;
+  duration_days?: number;
+}
+
+/**
+ * Loan rejection schema from OpenAPI #/components/schemas/LoanRejectWrite
+ */
+export interface LoanRejectWrite {
+  reason?: string;
+}
+
+/**
+ * Loan checkout schema from OpenAPI #/components/schemas/LoanCheckoutWrite
+ */
+export interface LoanCheckoutWrite {
+  duration_days?: number;
+}
+
+/**
+ * Query parameters for GET /loans endpoint
+ */
+export interface LoanSearchParams {
+  borrower_user_id?: string;
+  copy_id?: string;
+  status?: string;
+}
