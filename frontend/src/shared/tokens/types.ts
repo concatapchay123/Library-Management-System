@@ -47,6 +47,8 @@ export interface StatusTokens {
   info: StatusCue;
 }
 
+export type StatusVariant = keyof StatusTokens;
+
 export interface ColorTokens {
   surface: string;
   surfaceAlt: string;
