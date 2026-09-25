@@ -7,6 +7,7 @@ import { InventoryWorkspace } from '../features/inventory';
 import { CirculationDesk } from '../features/circulation';
 import { ReservationInbox } from '../features/inbox';
 import { EducationWorkspace } from '../features/education';
+import { PublicLibraryWorkspace } from '../features/public-library';
 
 export interface AppProps {
   initialAuthenticated?: boolean;
@@ -17,6 +18,15 @@ function resolveHashTab(hashStr: string): string {
   const hash = hashStr.replace(/^#\/?/, '');
   if (hash === 'inbox') return 'reservations';
   if (hash === 'members') return 'education';
+  if (
+    hash === 'public-library' ||
+    hash === 'fines' ||
+    hash === 'invoices' ||
+    hash === 'payments' ||
+    hash === 'subscriptions'
+  ) {
+    return 'public-library';
+  }
   if (
     hash === 'catalog' ||
     hash === 'circulation' ||
@@ -51,6 +61,7 @@ function OperateModeDesk() {
   const isInventory = activeTab === 'inventory';
   const isReservations = activeTab === 'reservations';
   const isEducation = activeTab === 'education' || activeTab === 'members';
+  const isPublicLibrary = activeTab === 'public-library';
 
   let pageTitle = 'OpenLibraryOS — Operate Mode';
   let pageSubtitle = 'Low-Cognitive-Overhead Library Operations';
@@ -67,6 +78,9 @@ function OperateModeDesk() {
   } else if (isEducation) {
     pageTitle = 'Education & Member Management';
     pageSubtitle = 'Manage student and faculty records, academic relationships, and borrower loan policies';
+  } else if (isPublicLibrary) {
+    pageTitle = 'Public Library & Finance';
+    pageSubtitle = 'Manage member subscriptions, borrowing policies, fines, invoices, and payments';
   }
 
   return (
@@ -85,6 +99,8 @@ function OperateModeDesk() {
         <ReservationInbox />
       ) : isEducation ? (
         <EducationWorkspace />
+      ) : isPublicLibrary ? (
+        <PublicLibraryWorkspace />
       ) : (
         <CirculationDesk />
       )}

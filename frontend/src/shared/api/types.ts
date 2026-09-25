@@ -634,3 +634,277 @@ export interface BorrowerPolicyWrite {
   duration_days: number;
   status?: string;
 }
+
+/**
+ * Public Library Member schema from OpenAPI #/components/schemas/PublicLibraryMember
+ */
+export interface PublicLibraryMember {
+  member_id: string;
+  organization_id: string;
+  user_id: string;
+  member_number: string;
+  status: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface PublicLibraryMemberCreate {
+  user_id: string;
+  member_number: string;
+  status?: string;
+}
+
+export interface PublicLibraryMemberList {
+  items: PublicLibraryMember[];
+}
+
+export interface PublicLibraryMemberStatusUpdate {
+  status: string;
+}
+
+/**
+ * Public Library Membership Plan schema from OpenAPI #/components/schemas/PublicLibraryMembershipPlan
+ */
+export interface PublicLibraryMembershipPlan {
+  plan_id: string;
+  organization_id: string;
+  code: string;
+  name: string;
+  description?: string | null;
+  max_active_loans: number;
+  duration_days: number;
+  price: string;
+  currency: string;
+  status: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface PublicLibraryMembershipPlanCreate {
+  code: string;
+  name: string;
+  description?: string | null;
+  max_active_loans: number;
+  duration_days: number;
+  price?: string;
+  currency?: string;
+  status?: string;
+}
+
+export interface PublicLibraryMembershipPlanUpdate {
+  name?: string;
+  description?: string | null;
+  max_active_loans?: number;
+  duration_days?: number;
+  price?: string;
+  currency?: string;
+  status?: string;
+}
+
+export interface PublicLibraryMembershipPlanList {
+  items: PublicLibraryMembershipPlan[];
+}
+
+/**
+ * Public Library Subscription schema from OpenAPI #/components/schemas/PublicLibrarySubscription
+ */
+export interface PublicLibrarySubscription {
+  subscription_id: string;
+  organization_id: string;
+  member_id: string;
+  plan_id: string;
+  starts_at: string;
+  ends_at: string;
+  status: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface PublicLibrarySubscriptionCreate {
+  member_id: string;
+  plan_id: string;
+  starts_at: string;
+  ends_at: string;
+  status?: string;
+}
+
+export interface PublicLibrarySubscriptionList {
+  items: PublicLibrarySubscription[];
+}
+
+/**
+ * Public Library Fine schema from OpenAPI #/components/schemas/PublicLibraryFine
+ */
+export interface PublicLibraryFine {
+  fine_id: string;
+  organization_id: string;
+  member_id: string;
+  loan_id?: string | null;
+  amount: string;
+  currency: string;
+  status: 'assessed' | 'invoiced' | 'partially_paid' | 'paid' | 'waived' | 'cancelled' | string;
+  reason: string;
+  assessed_at: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface PublicLibraryFineCreate {
+  member_id: string;
+  loan_id?: string;
+  amount: string;
+  currency: string;
+  reason: string;
+}
+
+export interface PublicLibraryFineList {
+  items: PublicLibraryFine[];
+}
+
+export interface PublicLibraryFineCalculate {
+  due_at: string;
+  effective_return_at: string;
+  daily_rate: string;
+  currency: string;
+  max_fine?: string;
+}
+
+export interface PublicLibraryFineCalculateResult {
+  amount: string;
+  currency: string;
+}
+
+export interface PublicLibraryFineWaive {
+  reason: string;
+}
+
+/**
+ * Public Library Invoice Line schema from OpenAPI #/components/schemas/PublicLibraryInvoiceLine
+ */
+export interface PublicLibraryInvoiceLine {
+  invoice_line_id: string;
+  organization_id: string;
+  invoice_id: string;
+  line_number: number;
+  description: string;
+  quantity: number;
+  unit_price: string;
+  amount: string;
+  fine_id?: string | null;
+  created_at: string;
+}
+
+export interface PublicLibraryInvoiceLineCreate {
+  description: string;
+  quantity: number;
+  unit_price: string;
+  amount: string;
+  fine_id?: string;
+}
+
+/**
+ * Public Library Invoice schema from OpenAPI #/components/schemas/PublicLibraryInvoice
+ */
+export interface PublicLibraryInvoice {
+  invoice_id: string;
+  organization_id: string;
+  member_id: string;
+  invoice_number: string;
+  subtotal: string;
+  tax: string;
+  total: string;
+  currency: string;
+  status: 'issued' | 'partially_paid' | 'paid' | 'void' | 'cancelled' | string;
+  issued_at: string;
+  due_at?: string | null;
+  created_at: string;
+  updated_at: string;
+  lines: PublicLibraryInvoiceLine[];
+}
+
+export interface PublicLibraryInvoiceCreate {
+  member_id: string;
+  currency: string;
+  tax?: string;
+  due_at?: string;
+  lines: PublicLibraryInvoiceLineCreate[];
+}
+
+export interface PublicLibraryInvoiceList {
+  items: PublicLibraryInvoice[];
+}
+
+export interface PublicLibraryInvoiceVoid {
+  reason: string;
+}
+
+/**
+ * Public Library Payment schema from OpenAPI #/components/schemas/PublicLibraryPayment
+ */
+export interface PublicLibraryPayment {
+  payment_id: string;
+  organization_id: string;
+  member_id: string;
+  amount: string;
+  currency: string;
+  provider: string;
+  status:
+    | 'pending'
+    | 'authorized'
+    | 'succeeded'
+    | 'failed'
+    | 'refunded'
+    | 'partially_refunded'
+    | 'disputed'
+    | string;
+  provider_reference?: string | null;
+  provider_event_id?: string | null;
+  paid_at?: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface PublicLibraryPaymentCreate {
+  member_id: string;
+  amount: string;
+  currency: string;
+  provider?: string;
+  provider_reference?: string;
+  provider_event_id?: string;
+}
+
+export interface PublicLibraryPaymentList {
+  items: PublicLibraryPayment[];
+}
+
+export interface PublicLibraryRefundRequest {
+  amount: string;
+  fine_id?: string | null;
+  reason: string;
+}
+
+/**
+ * Public Library Payment Allocation schema from OpenAPI #/components/schemas/PublicLibraryPaymentAllocation
+ */
+export interface PublicLibraryPaymentAllocation {
+  allocation_id: string;
+  organization_id: string;
+  payment_id: string;
+  fine_id: string;
+  amount: string;
+  allocation_type: string;
+  invoice_id?: string | null;
+  created_at: string;
+}
+
+export interface PublicLibraryPaymentAllocationCreate {
+  payment_id: string;
+  fine_id: string;
+  amount: string;
+  invoice_id?: string;
+  allocation_type?: string;
+}
+
+export interface PublicLibraryPaymentAllocationList {
+  items: PublicLibraryPaymentAllocation[];
+}

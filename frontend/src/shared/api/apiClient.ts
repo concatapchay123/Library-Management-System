@@ -57,6 +57,34 @@ import {
   BorrowerPolicy,
   BorrowerPolicyListResponse,
   BorrowerPolicyWrite,
+  PublicLibraryMember,
+  PublicLibraryMemberCreate,
+  PublicLibraryMemberList,
+  PublicLibraryMemberStatusUpdate,
+  PublicLibraryMembershipPlan,
+  PublicLibraryMembershipPlanCreate,
+  PublicLibraryMembershipPlanUpdate,
+  PublicLibraryMembershipPlanList,
+  PublicLibrarySubscription,
+  PublicLibrarySubscriptionCreate,
+  PublicLibrarySubscriptionList,
+  PublicLibraryFine,
+  PublicLibraryFineCreate,
+  PublicLibraryFineList,
+  PublicLibraryFineCalculate,
+  PublicLibraryFineCalculateResult,
+  PublicLibraryFineWaive,
+  PublicLibraryInvoice,
+  PublicLibraryInvoiceCreate,
+  PublicLibraryInvoiceList,
+  PublicLibraryInvoiceVoid,
+  PublicLibraryPayment,
+  PublicLibraryPaymentCreate,
+  PublicLibraryPaymentList,
+  PublicLibraryRefundRequest,
+  PublicLibraryPaymentAllocation,
+  PublicLibraryPaymentAllocationCreate,
+  PublicLibraryPaymentAllocationList,
 } from './types';
 import {
   generateRequestId,
@@ -409,6 +437,230 @@ export function createApiClient(config: ApiClientConfig = {}) {
     },
   };
 
+  const publicLibrary = {
+    members: {
+      list: (
+        params?: { member_number?: string; user_id?: string; status?: string },
+        options?: RequestOptions,
+      ) => {
+        const query = new URLSearchParams();
+        if (params?.member_number) query.set('member_number', params.member_number);
+        if (params?.user_id) query.set('user_id', params.user_id);
+        if (params?.status) query.set('status', params.status);
+        const qStr = query.toString();
+        return get<PublicLibraryMemberList>(
+          qStr ? `/public-library/members?${qStr}` : '/public-library/members',
+          options,
+        );
+      },
+      getById: (memberId: string, options?: RequestOptions) =>
+        get<PublicLibraryMember>(
+          `/public-library/members/${encodeURIComponent(memberId)}`,
+          options,
+        ),
+      getByUserId: (userId: string, options?: RequestOptions) =>
+        get<PublicLibraryMember>(
+          `/public-library/members/by-user/${encodeURIComponent(userId)}`,
+          options,
+        ),
+      create: (data: PublicLibraryMemberCreate, options?: RequestOptions) =>
+        post<PublicLibraryMember>('/public-library/members', data, options),
+      updateStatus: (
+        memberId: string,
+        data: PublicLibraryMemberStatusUpdate,
+        options?: RequestOptions,
+      ) =>
+        patch<PublicLibraryMember>(
+          `/public-library/members/${encodeURIComponent(memberId)}/status`,
+          data,
+          options,
+        ),
+    },
+    plans: {
+      list: (options?: RequestOptions) =>
+        get<PublicLibraryMembershipPlanList>('/public-library/membership-plans', options),
+      getById: (planId: string, options?: RequestOptions) =>
+        get<PublicLibraryMembershipPlan>(
+          `/public-library/membership-plans/${encodeURIComponent(planId)}`,
+          options,
+        ),
+      create: (data: PublicLibraryMembershipPlanCreate, options?: RequestOptions) =>
+        post<PublicLibraryMembershipPlan>('/public-library/membership-plans', data, options),
+      update: (
+        planId: string,
+        data: PublicLibraryMembershipPlanUpdate,
+        options?: RequestOptions,
+      ) =>
+        patch<PublicLibraryMembershipPlan>(
+          `/public-library/membership-plans/${encodeURIComponent(planId)}`,
+          data,
+          options,
+        ),
+      seed: (options?: RequestOptions) =>
+        post<PublicLibraryMembershipPlanList>(
+          '/public-library/membership-plans/seed',
+          {},
+          options,
+        ),
+    },
+    subscriptions: {
+      list: (
+        params?: { member_id?: string; status?: string },
+        options?: RequestOptions,
+      ) => {
+        const query = new URLSearchParams();
+        if (params?.member_id) query.set('member_id', params.member_id);
+        if (params?.status) query.set('status', params.status);
+        const qStr = query.toString();
+        return get<PublicLibrarySubscriptionList>(
+          qStr ? `/public-library/subscriptions?${qStr}` : '/public-library/subscriptions',
+          options,
+        );
+      },
+      getById: (subscriptionId: string, options?: RequestOptions) =>
+        get<PublicLibrarySubscription>(
+          `/public-library/subscriptions/${encodeURIComponent(subscriptionId)}`,
+          options,
+        ),
+      create: (data: PublicLibrarySubscriptionCreate, options?: RequestOptions) =>
+        post<PublicLibrarySubscription>('/public-library/subscriptions', data, options),
+      cancel: (subscriptionId: string, options?: RequestOptions) =>
+        post<PublicLibrarySubscription>(
+          `/public-library/subscriptions/${encodeURIComponent(subscriptionId)}/cancel`,
+          {},
+          options,
+        ),
+    },
+    fines: {
+      list: (
+        params?: { member_id?: string; status?: string },
+        options?: RequestOptions,
+      ) => {
+        const query = new URLSearchParams();
+        if (params?.member_id) query.set('member_id', params.member_id);
+        if (params?.status) query.set('status', params.status);
+        const qStr = query.toString();
+        return get<PublicLibraryFineList>(
+          qStr ? `/public-library/fines?${qStr}` : '/public-library/fines',
+          options,
+        );
+      },
+      getById: (fineId: string, options?: RequestOptions) =>
+        get<PublicLibraryFine>(
+          `/public-library/fines/${encodeURIComponent(fineId)}`,
+          options,
+        ),
+      create: (data: PublicLibraryFineCreate, options?: RequestOptions) =>
+        post<PublicLibraryFine>('/public-library/fines', data, options),
+      calculate: (data: PublicLibraryFineCalculate, options?: RequestOptions) =>
+        post<PublicLibraryFineCalculateResult>(
+          '/public-library/fines/calculate',
+          data,
+          options,
+        ),
+      waive: (fineId: string, data: PublicLibraryFineWaive, options?: RequestOptions) =>
+        post<PublicLibraryFine>(
+          `/public-library/fines/${encodeURIComponent(fineId)}/waive`,
+          data,
+          options,
+        ),
+      listAllocations: (fineId: string, options?: RequestOptions) =>
+        get<PublicLibraryPaymentAllocationList>(
+          `/public-library/fines/${encodeURIComponent(fineId)}/allocations`,
+          options,
+        ),
+    },
+    invoices: {
+      list: (
+        params?: { member_id?: string; status?: string },
+        options?: RequestOptions,
+      ) => {
+        const query = new URLSearchParams();
+        if (params?.member_id) query.set('member_id', params.member_id);
+        if (params?.status) query.set('status', params.status);
+        const qStr = query.toString();
+        return get<PublicLibraryInvoiceList>(
+          qStr ? `/public-library/invoices?${qStr}` : '/public-library/invoices',
+          options,
+        );
+      },
+      getById: (invoiceId: string, options?: RequestOptions) =>
+        get<PublicLibraryInvoice>(
+          `/public-library/invoices/${encodeURIComponent(invoiceId)}`,
+          options,
+        ),
+      create: (data: PublicLibraryInvoiceCreate, options?: RequestOptions) =>
+        post<PublicLibraryInvoice>('/public-library/invoices', data, options),
+      void: (
+        invoiceId: string,
+        data: PublicLibraryInvoiceVoid,
+        options?: RequestOptions,
+      ) =>
+        post<PublicLibraryInvoice>(
+          `/public-library/invoices/${encodeURIComponent(invoiceId)}/void`,
+          data,
+          options,
+        ),
+    },
+    payments: {
+      list: (
+        params?: { member_id?: string; status?: string },
+        options?: RequestOptions,
+      ) => {
+        const query = new URLSearchParams();
+        if (params?.member_id) query.set('member_id', params.member_id);
+        if (params?.status) query.set('status', params.status);
+        const qStr = query.toString();
+        return get<PublicLibraryPaymentList>(
+          qStr ? `/public-library/payments?${qStr}` : '/public-library/payments',
+          options,
+        );
+      },
+      getById: (paymentId: string, options?: RequestOptions) =>
+        get<PublicLibraryPayment>(
+          `/public-library/payments/${encodeURIComponent(paymentId)}`,
+          options,
+        ),
+      create: (data: PublicLibraryPaymentCreate, options?: RequestOptions) =>
+        post<PublicLibraryPayment>('/public-library/payments', data, options),
+      listAllocations: (paymentId: string, options?: RequestOptions) =>
+        get<PublicLibraryPaymentAllocationList>(
+          `/public-library/payments/${encodeURIComponent(paymentId)}/allocations`,
+          options,
+        ),
+      refund: (
+        paymentId: string,
+        data: PublicLibraryRefundRequest,
+        options?: RequestOptions,
+      ) =>
+        post<PublicLibraryPayment>(
+          `/public-library/payments/${encodeURIComponent(paymentId)}/refund`,
+          data,
+          options,
+        ),
+      reconcile: (paymentId: string, options?: RequestOptions) =>
+        post<PublicLibraryPayment>(
+          `/public-library/payments/${encodeURIComponent(paymentId)}/reconcile`,
+          {},
+          options,
+        ),
+    },
+    allocations: {
+      list: (options?: RequestOptions) =>
+        get<PublicLibraryPaymentAllocationList>('/public-library/allocations', options),
+      getById: (allocationId: string, options?: RequestOptions) =>
+        get<PublicLibraryPaymentAllocation>(
+          `/public-library/allocations/${encodeURIComponent(allocationId)}`,
+          options,
+        ),
+      create: (
+        data: PublicLibraryPaymentAllocationCreate,
+        options?: RequestOptions,
+      ) =>
+        post<PublicLibraryPaymentAllocation>('/public-library/allocations', data, options),
+    },
+  };
+
   return {
     request,
     get,
@@ -426,6 +678,7 @@ export function createApiClient(config: ApiClientConfig = {}) {
     reservations,
     notifications,
     education,
+    publicLibrary,
   };
 }
 

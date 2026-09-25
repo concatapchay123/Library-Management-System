@@ -44,4 +44,10 @@ export const navigationItems: readonly NavigationItem[] = [
     href: '#/reservations',
     description: 'Hold queue priorities, reservation allocations, and pickup notifications.',
   },
+  {
+    id: 'public-library',
+    label: 'Public Library & Finance',
+    href: '#/public-library',
+    description: 'Public library memberships, subscription policies, fines, payments, and invoices.',
+  },
 ];
