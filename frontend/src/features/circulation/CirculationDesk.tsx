@@ -86,9 +86,15 @@ export function CirculationDesk({
       }}
     >
       {/* Header and Operational Status Cue */}
-      <StatusMessage status="success" title="Operational Status: Ready">
-        Offline foundation verified. Circulation subsystem initialized for rapid loan requests, approvals, desk checkouts, and returns.
-      </StatusMessage>
+      {!lookupError ? (
+        <StatusMessage status="info" title="Operational Status: Ready">
+          Circulation subsystem active for rapid loan requests, approvals, desk checkouts, and returns.
+        </StatusMessage>
+      ) : (
+        <StatusMessage status="warning" title="Operational Status: Attention Required">
+          A circulation lookup or operational request encountered an issue. Review the diagnostic details below.
+        </StatusMessage>
+      )}
 
       <div>
         <h2

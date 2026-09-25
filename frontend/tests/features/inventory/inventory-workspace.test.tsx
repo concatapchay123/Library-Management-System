@@ -757,6 +757,14 @@ describe('Inventory, Locations, Copies and Status-Management Workspace (FE-006)'
             json: async () => ({ items: mockLocations }),
           } as Response;
         }
+        if (url.includes('/books/')) {
+          return {
+            ok: true,
+            status: 200,
+            headers: new Headers({ 'content-type': 'application/json' }),
+            json: async () => mockBook,
+          } as Response;
+        }
         if (url.includes('/copies')) {
           return {
             ok: true,
@@ -775,7 +783,7 @@ describe('Inventory, Locations, Copies and Status-Management Workspace (FE-006)'
 
       render(
         <TokenProvider>
-          <App initialAuthenticated={true} />
+          <App initialAuthenticated={true} autoRefreshOnMount={false} />
         </TokenProvider>,
       );
 
@@ -794,8 +802,18 @@ describe('Inventory, Locations, Copies and Status-Management Workspace (FE-006)'
         ).toBeInTheDocument();
       });
 
-      // Copy registration panel is available in the workspace
-      expect(screen.getByLabelText(/copy barcode/i)).toBeInTheDocument();
+      // Initially renders empty state when no title is selected (M-03)
+      expect(screen.getByText(/no bibliographic title selected/i)).toBeInTheDocument();
+
+      // Enter book UUID to load title
+      const bookIdInput = screen.getByLabelText(/book identifier \(uuid\)/i);
+      fireEvent.change(bookIdInput, { target: { value: mockBook.book_id } });
+      fireEvent.click(screen.getByRole('button', { name: /load title/i }));
+
+      // Copy registration panel is available in the workspace after loading title
+      await waitFor(() => {
+        expect(screen.getByLabelText(/copy barcode/i)).toBeInTheDocument();
+      });
     });
   });
 });

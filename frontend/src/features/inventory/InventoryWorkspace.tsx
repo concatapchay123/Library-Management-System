@@ -1,4 +1,4 @@
-import { useState, useEffect, useContext, useCallback } from 'react';
+import { useState, useEffect, useContext, useCallback, FormEvent } from 'react';
 import { useTokens } from '../../shared/tokens';
 import {
   Book,
@@ -12,6 +12,8 @@ import {
 import { AuthContext } from '../auth/context';
 import {
   Button,
+  EmptyState,
+  Input,
   LoadingSkeleton,
   ProblemDetailsRenderer,
   StatusMessage,
@@ -26,17 +28,9 @@ import {
 } from './types';
 
 export interface InventoryWorkspaceProps {
-  initialBook?: Book;
+  initialBook?: Book | null;
   initialCopyId?: string;
 }
-
-const defaultBook: Book = {
-  book_id: 'b1111111-1111-4111-8111-111111111111',
-  title: 'Designing Data-Intensive Applications',
-  authors: ['Martin Kleppmann'],
-  isbn: '978-1449373320',
-  published_year: 2017,
-};
 
 /**
  * Inventory & Physical Copy Management Workspace (FE-006).
@@ -50,14 +44,17 @@ const defaultBook: Book = {
  * - Surfaces stable RFC Problem Details alongside affected controls.
  */
 export function InventoryWorkspace({
-  initialBook = defaultBook,
+  initialBook = null,
   initialCopyId,
 }: InventoryWorkspaceProps) {
   const tokens = useTokens();
   const authContext = useContext(AuthContext);
   const token = authContext?.accessToken;
 
-  const [book] = useState<Book>(initialBook);
+  const [book, setBook] = useState<Book | null>(initialBook);
+  const [lookupBookId, setLookupBookId] = useState('');
+  const [isLookingUpBook, setIsLookingUpBook] = useState(false);
+  const [bookLookupError, setBookLookupError] = useState<ProblemDetails | Error | null>(null);
   const [locations, setLocations] = useState<Location[]>([]);
   const [isLoadingLocations, setIsLoadingLocations] = useState(true);
   const [locationsError, setLocationsError] = useState<ProblemDetails | Error | null>(null);
@@ -85,9 +82,24 @@ export function InventoryWorkspace({
     }
   }, [token]);
 
+  const handleLookupBook = async (e: FormEvent) => {
+    e.preventDefault();
+    if (!lookupBookId.trim() || isLookingUpBook) return;
+    setIsLookingUpBook(true);
+    setBookLookupError(null);
+    try {
+      const loaded = await apiClient.books.getById(lookupBookId.trim(), { token });
+      setBook(loaded);
+    } catch (err) {
+      setBookLookupError(err as ProblemDetails | Error);
+    } finally {
+      setIsLookingUpBook(false);
+    }
+  };
+
   // Fetch copies for book
   const loadCopies = useCallback(async () => {
-    if (!book.book_id) return;
+    if (!book?.book_id) return;
     setIsLoadingCopies(true);
     setCopiesError(null);
     try {
@@ -104,7 +116,7 @@ export function InventoryWorkspace({
     } finally {
       setIsLoadingCopies(false);
     }
-  }, [book.book_id, token, initialCopyId]);
+  }, [book?.book_id, token, initialCopyId]);
 
   // Fetch history for selected copy
   const loadHistory = useCallback(async (copyId: string) => {
@@ -140,6 +152,7 @@ export function InventoryWorkspace({
 
   // Handler: register new copy
   const handleRegisterCopy = async (values: CopyRegistrationFormValues): Promise<BookCopy> => {
+    if (!book) throw new Error('No bibliographic book selected');
     const created = await apiClient.copies.createForBook(
       book.book_id,
       {
@@ -207,8 +220,66 @@ export function InventoryWorkspace({
         </span>
       </StatusMessage>
 
-      {/* Bibliographic Book Overview Card */}
-      <div
+      {!book ? (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: tokens.spacing.semantic.groupToGroup }}>
+          <EmptyState
+            title="No Bibliographic Title Selected"
+            description="Select a bibliographic title from catalog search or load a title by identifier to manage physical shelf copies."
+          />
+          <div
+            style={{
+              backgroundColor: tokens.colors.surfaceAlt,
+              borderRadius: tokens.radius.xl,
+              border: `1px solid ${tokens.colors.border}`,
+              padding: tokens.spacing.xl,
+              display: 'flex',
+              flexDirection: 'column',
+              gap: tokens.spacing.md,
+            }}
+          >
+            <h3
+              style={{
+                margin: 0,
+                fontFamily: tokens.typography.fontFamily,
+                fontSize: tokens.typography.fontSizes.lg,
+                fontWeight: tokens.typography.fontWeights.bold,
+                color: tokens.colors.textPrimary,
+              }}
+            >
+              Load Title by Identifier
+            </h3>
+            {bookLookupError && <ProblemDetailsRenderer error={bookLookupError} />}
+            <form
+              onSubmit={handleLookupBook}
+              style={{
+                display: 'flex',
+                flexDirection: 'column',
+                gap: tokens.spacing.semantic.groupToGroup,
+              }}
+            >
+              <Input
+                id="inventory-lookup-book-id"
+                label="Book Identifier (UUID)"
+                value={lookupBookId}
+                onChange={(e) => setLookupBookId(e.target.value)}
+                placeholder="e.g. b1111111-1111-4111-8111-111111111111"
+                description="Enter a book UUID to inspect bibliographic metadata and physical inventory items."
+                disabled={isLookingUpBook}
+              />
+              <Button
+                type="submit"
+                variant="primary"
+                disabled={isLookingUpBook || !lookupBookId.trim()}
+              >
+                {isLookingUpBook ? 'Loading Title...' : 'Load Title'}
+              </Button>
+            </form>
+          </div>
+        </div>
+      ) : (
+        <>
+          {/* Bibliographic Book Overview Card */}
+          <div
         style={{
           backgroundColor: tokens.colors.surfaceAlt,
           borderRadius: tokens.radius.xl,
@@ -295,7 +366,7 @@ export function InventoryWorkspace({
               color: tokens.colors.textPrimary,
             }}
           >
-            Tracked Physical Copies ({copies.length})
+            Tracked Physical Copies {copiesError ? '(Unavailable)' : `(${copies.length})`}
           </h3>
         </div>
 
@@ -405,6 +476,8 @@ export function InventoryWorkspace({
             error={historyError}
             onRetry={() => loadHistory(selectedCopy.copy_id)}
           />
+        </>
+      )}
         </>
       )}
     </div>

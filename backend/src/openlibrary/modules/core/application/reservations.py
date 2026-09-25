@@ -911,54 +911,76 @@ class ReservationService:
 
 
 def handle_loan_returned_allocation(
-    connection: Any,
-    event: ClaimedOutboxEvent,
-    *,
-    allocator: ReservationAllocator,
-    copy_store: CopyStatusStore,
+    *args: Any,
+    connection: Any = None,
+    event: ClaimedOutboxEvent | None = None,
+    allocator: ReservationAllocator | None = None,
+    reservation_allocator: ReservationAllocator | None = None,
+    copy_store: CopyStatusStore | None = None,
     deduplication_port: ConsumerDeduplicationPort | None = None,
-) -> None:
+) -> Reservation | None:
     """Dispatcher consumer handler for circulation.loan_returned outbox events."""
-    org_id = event.organization_id
+    resolved_conn = connection
+    resolved_event = event
+    for arg in args:
+        if isinstance(arg, ClaimedOutboxEvent):
+            resolved_event = arg
+        elif resolved_conn is None:
+            resolved_conn = arg
+
+    if resolved_event is None or resolved_conn is None:
+        return None
+
+    actual_allocator = allocator or reservation_allocator
+    if actual_allocator is None:
+        raise ValueError("allocator or reservation_allocator is required")
+
+    actual_copy_store = copy_store or getattr(actual_allocator, "_copy_store", None)
+    if actual_copy_store is None:
+        raise ValueError("copy_store is required")
+
+    org_id = resolved_event.organization_id
     payload: dict[str, Any] = {}
-    if hasattr(event, "payload_json") and getattr(event, "payload_json"):
+    if hasattr(resolved_event, "payload_json") and getattr(resolved_event, "payload_json"):
         try:
-            payload = json.loads(getattr(event, "payload_json"))
+            payload = json.loads(getattr(resolved_event, "payload_json"))
         except Exception:
             payload = {}
-    elif hasattr(event, "payload") and isinstance(getattr(event, "payload"), dict):
-        payload = getattr(event, "payload")
+    elif hasattr(resolved_event, "payload") and isinstance(getattr(resolved_event, "payload"), dict):
+        payload = getattr(resolved_event, "payload")
 
     raw_copy_id = payload.get("copy_id")
     if not raw_copy_id:
-        return
+        return None
 
     copy_id = UUID(str(raw_copy_id))
 
     # Consumer replay deduplication check
     if deduplication_port is not None:
         if deduplication_port.is_processed(
-            connection,
+            resolved_conn,
             organization_id=org_id,
-            outbox_event_id=event.event_id,
+            outbox_event_id=resolved_event.event_id,
             job_type="circulation.loan_returned.reservation_allocation",
         ):
-            return
+            return None
 
-    copy = copy_store.get_copy(org_id, copy_id)
-    allocator.allocate_copy_for_book_in_connection(
-        connection,
+    copy = actual_copy_store.get_copy(org_id, copy_id)
+    allocated = actual_allocator.allocate_copy_for_book_in_connection(
+        resolved_conn,
         organization_id=org_id,
         book_id=copy.book_id,
         copy_id=copy_id,
-        trigger_event_id=event.event_id,
+        trigger_event_id=resolved_event.event_id,
     )
 
     if deduplication_port is not None:
         deduplication_port.record_processed(
-            connection,
+            resolved_conn,
             organization_id=org_id,
-            outbox_event_id=event.event_id,
+            outbox_event_id=resolved_event.event_id,
             job_type="circulation.loan_returned.reservation_allocation",
-            payload_version=event.payload_version,
+            payload_version=resolved_event.payload_version,
         )
+
+    return allocated

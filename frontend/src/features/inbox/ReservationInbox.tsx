@@ -136,9 +136,11 @@ export function ReservationInbox({
       }}
     >
       {/* Header and Operational Status Cue */}
-      <StatusMessage status="info" title="Time-Sensitive Inbox">
-        Hold allocations, pickup windows, and circulation notices synchronized with authoritative backend state.
-      </StatusMessage>
+      {!loadError && (
+        <StatusMessage status="info" title="Time-Sensitive Inbox">
+          Hold allocations, pickup windows, and circulation notices synchronized with authoritative backend state.
+        </StatusMessage>
+      )}
 
       {/* Title & View Filters */}
       <div>
@@ -166,76 +168,78 @@ export function ReservationInbox({
       </div>
 
       {/* Filter Segmented Control */}
-      <div
-        role="tablist"
-        aria-label="Inbox view filters"
-        style={{
-          display: 'flex',
-          gap: tokens.spacing.xs,
-          backgroundColor: tokens.colors.surfaceAlt,
-          padding: '4px',
-          borderRadius: tokens.radius.md,
-          border: `1px solid ${tokens.colors.border}`,
-          width: 'fit-content',
-        }}
-      >
-        <button
-          role="tab"
-          aria-selected={activeFilter === 'all'}
-          onClick={() => setActiveFilter('all')}
+      {!loadError && (
+        <div
+          role="tablist"
+          aria-label="Inbox view filters"
           style={{
-            padding: `${tokens.spacing.xs} ${tokens.spacing.sm}`,
-            borderRadius: tokens.radius.sm,
-            border: 'none',
-            backgroundColor: activeFilter === 'all' ? tokens.colors.surface : 'transparent',
-            color: activeFilter === 'all' ? tokens.colors.textPrimary : tokens.colors.textSecondary,
-            fontWeight: activeFilter === 'all' ? tokens.typography.fontWeights.semibold : tokens.typography.fontWeights.normal,
-            fontSize: tokens.typography.fontSizes.sm,
-            cursor: 'pointer',
-            boxShadow: activeFilter === 'all' ? '0 1px 2px rgba(0, 0, 0, 0.05)' : 'none',
+            display: 'flex',
+            gap: tokens.spacing.xs,
+            backgroundColor: tokens.colors.surfaceAlt,
+            padding: '4px',
+            borderRadius: tokens.radius.md,
+            border: `1px solid ${tokens.colors.border}`,
+            width: 'fit-content',
           }}
         >
-          All Items ({reservations.length + notifications.length})
-        </button>
+          <button
+            role="tab"
+            aria-selected={activeFilter === 'all'}
+            onClick={() => setActiveFilter('all')}
+            style={{
+              padding: `${tokens.spacing.xs} ${tokens.spacing.sm}`,
+              borderRadius: tokens.radius.sm,
+              border: 'none',
+              backgroundColor: activeFilter === 'all' ? tokens.colors.surface : 'transparent',
+              color: activeFilter === 'all' ? tokens.colors.textPrimary : tokens.colors.textSecondary,
+              fontWeight: activeFilter === 'all' ? tokens.typography.fontWeights.semibold : tokens.typography.fontWeights.normal,
+              fontSize: tokens.typography.fontSizes.sm,
+              cursor: 'pointer',
+              boxShadow: activeFilter === 'all' ? '0 1px 2px rgba(0, 0, 0, 0.05)' : 'none',
+            }}
+          >
+            All Items ({reservations.length + notifications.length})
+          </button>
 
-        <button
-          role="tab"
-          aria-selected={activeFilter === 'notifications'}
-          onClick={() => setActiveFilter('notifications')}
-          style={{
-            padding: `${tokens.spacing.xs} ${tokens.spacing.sm}`,
-            borderRadius: tokens.radius.sm,
-            border: 'none',
-            backgroundColor: activeFilter === 'notifications' ? tokens.colors.surface : 'transparent',
-            color: activeFilter === 'notifications' ? tokens.colors.textPrimary : tokens.colors.textSecondary,
-            fontWeight: activeFilter === 'notifications' ? tokens.typography.fontWeights.semibold : tokens.typography.fontWeights.normal,
-            fontSize: tokens.typography.fontSizes.sm,
-            cursor: 'pointer',
-            boxShadow: activeFilter === 'notifications' ? '0 1px 2px rgba(0, 0, 0, 0.05)' : 'none',
-          }}
-        >
-          Notifications {unreadCount > 0 ? `(${unreadCount} unread)` : `(${notifications.length})`}
-        </button>
+          <button
+            role="tab"
+            aria-selected={activeFilter === 'notifications'}
+            onClick={() => setActiveFilter('notifications')}
+            style={{
+              padding: `${tokens.spacing.xs} ${tokens.spacing.sm}`,
+              borderRadius: tokens.radius.sm,
+              border: 'none',
+              backgroundColor: activeFilter === 'notifications' ? tokens.colors.surface : 'transparent',
+              color: activeFilter === 'notifications' ? tokens.colors.textPrimary : tokens.colors.textSecondary,
+              fontWeight: activeFilter === 'notifications' ? tokens.typography.fontWeights.semibold : tokens.typography.fontWeights.normal,
+              fontSize: tokens.typography.fontSizes.sm,
+              cursor: 'pointer',
+              boxShadow: activeFilter === 'notifications' ? '0 1px 2px rgba(0, 0, 0, 0.05)' : 'none',
+            }}
+          >
+            Notifications {unreadCount > 0 ? `(${unreadCount} unread)` : `(${notifications.length})`}
+          </button>
 
-        <button
-          role="tab"
-          aria-selected={activeFilter === 'reservations'}
-          onClick={() => setActiveFilter('reservations')}
-          style={{
-            padding: `${tokens.spacing.xs} ${tokens.spacing.sm}`,
-            borderRadius: tokens.radius.sm,
-            border: 'none',
-            backgroundColor: activeFilter === 'reservations' ? tokens.colors.surface : 'transparent',
-            color: activeFilter === 'reservations' ? tokens.colors.textPrimary : tokens.colors.textSecondary,
-            fontWeight: activeFilter === 'reservations' ? tokens.typography.fontWeights.semibold : tokens.typography.fontWeights.normal,
-            fontSize: tokens.typography.fontSizes.sm,
-            cursor: 'pointer',
-            boxShadow: activeFilter === 'reservations' ? '0 1px 2px rgba(0, 0, 0, 0.05)' : 'none',
-          }}
-        >
-          Reservations {activeReservationCount > 0 ? `(${activeReservationCount} active)` : `(${reservations.length})`}
-        </button>
-      </div>
+          <button
+            role="tab"
+            aria-selected={activeFilter === 'reservations'}
+            onClick={() => setActiveFilter('reservations')}
+            style={{
+              padding: `${tokens.spacing.xs} ${tokens.spacing.sm}`,
+              borderRadius: tokens.radius.sm,
+              border: 'none',
+              backgroundColor: activeFilter === 'reservations' ? tokens.colors.surface : 'transparent',
+              color: activeFilter === 'reservations' ? tokens.colors.textPrimary : tokens.colors.textSecondary,
+              fontWeight: activeFilter === 'reservations' ? tokens.typography.fontWeights.semibold : tokens.typography.fontWeights.normal,
+              fontSize: tokens.typography.fontSizes.sm,
+              cursor: 'pointer',
+              boxShadow: activeFilter === 'reservations' ? '0 1px 2px rgba(0, 0, 0, 0.05)' : 'none',
+            }}
+          >
+            Reservations {activeReservationCount > 0 ? `(${activeReservationCount} active)` : `(${reservations.length})`}
+          </button>
+        </div>
+      )}
 
       {/* Loading Shimmer State */}
       {isLoading && (

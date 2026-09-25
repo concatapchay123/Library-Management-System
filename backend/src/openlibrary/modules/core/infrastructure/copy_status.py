@@ -44,6 +44,29 @@ class SqlServerCopyStatusStore(CopyStatusStore):
             raise KeyError(copy_id)
         return _copy_from_row(row)
 
+    def get_available_copy_for_book(
+        self, organization_id: UUID, book_id: UUID
+    ) -> BookCopy | None:
+        """Find an available copy for a book title."""
+        with self._tenant_connection(organization_id) as connection:
+            row = (
+                connection.execute(
+                    text(
+                        "SELECT TOP 1 copy_id, organization_id, book_id, barcode, "
+                        "location_id, status, condition_code, acquired_at, "
+                        "created_at, updated_at FROM core.book_copies "
+                        "WHERE book_id = :book_id AND status = 'available' "
+                        "ORDER BY copy_id ASC"
+                    ),
+                    {"book_id": str(book_id)},
+                )
+                .mappings()
+                .one_or_none()
+            )
+        if row is None:
+            return None
+        return _copy_from_row(row)
+
     def update_copy_status(
         self,
         organization_id: UUID,

@@ -477,8 +477,8 @@ def create_public_library_blueprint(
         except Exception as err:
             return _handle_public_library_error(err)
 
-    # Register handlers for both /membership-plans and /plans
-    for route_base in ("/membership-plans", "/plans"):
+    # Register handlers for /membership-plans matching OpenAPI contract
+    for route_base in ("/membership-plans",):
         bp.add_url_rule(
             route_base,
             f"list_plans{route_base.replace('-', '_')}",

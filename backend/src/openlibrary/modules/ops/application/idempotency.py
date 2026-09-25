@@ -152,7 +152,12 @@ class IdempotencyService:
 
         if existing is not None:
             # Check 24-hour expiration
-            if now < existing.expires_at:
+            expires_at = (
+                existing.expires_at
+                if existing.expires_at.tzinfo is not None
+                else existing.expires_at.replace(tzinfo=timezone.utc)
+            )
+            if now < expires_at:
                 # Key is active: check payload hash equality
                 if existing.request_hash != request_hash:
                     # Explicit mismatch: write audit event and reject with 409

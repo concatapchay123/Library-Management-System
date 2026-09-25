@@ -437,7 +437,7 @@ describe('Login, Refresh Session & Protected-Route Behavior (FE-003)', () => {
         json: async () => mockLoginResponse,
       } as Response);
 
-      render(<App initialAuthenticated={false} />);
+      render(<App initialAuthenticated={false} autoRefreshOnMount={false} />);
 
       // Initially renders login view
       expect(screen.getByRole('heading', { level: 2, name: /sign in|log in/i })).toBeInTheDocument();

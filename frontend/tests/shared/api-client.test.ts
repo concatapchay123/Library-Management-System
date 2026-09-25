@@ -739,5 +739,28 @@ describe('FE-004 — Typed API Client, Problem Details and Common Request States
         expect.objectContaining({ method: 'GET' }),
       );
     });
+
+    it('uses HTTP PUT for publicLibrary.plans.update matching OpenAPI contract (M-01)', async () => {
+      const client = createApiClient();
+      vi.mocked(globalThis.fetch).mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        headers: new Headers({ 'Content-Type': 'application/json' }),
+        json: async () => ({ plan_id: 'plan-123', name: 'Updated Standard' }),
+      } as Response);
+
+      await client.publicLibrary.plans.update('plan-123', {
+        name: 'Updated Standard',
+        price: '15.00',
+      });
+
+      expect(globalThis.fetch).toHaveBeenCalledWith(
+        '/api/v1/public-library/membership-plans/plan-123',
+        expect.objectContaining({
+          method: 'PUT',
+          body: JSON.stringify({ name: 'Updated Standard', price: '15.00' }),
+        }),
+      );
+    });
   });
 });

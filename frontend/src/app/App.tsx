@@ -109,16 +109,17 @@ function OperateModeDesk() {
 }
 
 export function App({
-  initialAuthenticated = true,
-  autoRefreshOnMount = false,
+  initialAuthenticated = false,
+  autoRefreshOnMount,
 }: AppProps = {}) {
+  const shouldAutoRefresh = autoRefreshOnMount ?? !initialAuthenticated;
   const initialToken = initialAuthenticated ? 'in-memory-operate-session' : null;
 
   return (
     <TokenProvider>
       <SessionProvider
         initialAccessToken={initialToken}
-        autoRefreshOnMount={autoRefreshOnMount}
+        autoRefreshOnMount={shouldAutoRefresh}
       >
         <ProtectedRoute fallback={<LoginForm />}>
           <OperateModeDesk />

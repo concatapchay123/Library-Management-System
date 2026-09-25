@@ -1,8 +1,9 @@
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect, useContext } from 'react';
 import { useTokens, calcNestedRadius } from '../../shared/tokens';
 import { Button, Input, Dialog, LoadingSkeleton } from '../../shared/components';
 import { InvoicesViewProps } from './types';
 import { PublicLibraryInvoice, apiClient } from '../../shared/api';
+import { AuthContext } from '../auth/context';
 
 export function InvoicesView({
   invoices,
@@ -11,6 +12,9 @@ export function InvoicesView({
   onError,
 }: InvoicesViewProps) {
   const tokens = useTokens();
+  const authContext = useContext(AuthContext);
+  const token = authContext?.accessToken;
+
   const [searchQuery, setSearchQuery] = useState('');
   const [voidTargetInvoice, setVoidTargetInvoice] = useState<PublicLibraryInvoice | null>(null);
   const [voidReason, setVoidReason] = useState('');
@@ -38,9 +42,13 @@ export function InvoicesView({
 
     setIsSubmittingVoid(true);
     try {
-      const updated = await apiClient.publicLibrary.invoices.void(voidTargetInvoice.invoice_id, {
-        reason: voidReason.trim(),
-      });
+      const updated = await apiClient.publicLibrary.invoices.void(
+        voidTargetInvoice.invoice_id,
+        {
+          reason: voidReason.trim(),
+        },
+        { token },
+      );
       setLocalInvoices((prev) =>
         prev.map((inv) => (inv.invoice_id === updated.invoice_id ? updated : inv))
       );

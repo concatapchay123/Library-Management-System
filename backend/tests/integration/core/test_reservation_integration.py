@@ -58,7 +58,7 @@ def database_urls() -> SqlServerUrls:
     return SqlServerUrls({name: os.environ[name] for name in required_names})
 
 
-@pytest.fixture(scope="module")
+@pytest.fixture
 def seeded_database_urls(database_urls: SqlServerUrls) -> Iterator[SqlServerUrls]:
     """Create a disposable database, run migrations, and seed initial tenant entities."""
     database_name = f"openlibrary_be018_{uuid4().hex}"
@@ -108,11 +108,19 @@ def seeded_database_urls(database_urls: SqlServerUrls) -> Iterator[SqlServerUrls
         )
         connection.execute(
             "INSERT INTO core.users "
-            "(user_id, organization_id, email, full_name, user_type, status, password_hash) "
-            f"VALUES ('{user_1_id}', '{org_id}', 'user1@example.com', N'Patron One', 'member', 'active', 'hash'), "
-            f"('{user_2_id}', '{org_id}', 'user2@example.com', N'Patron Two', 'member', 'active', 'hash'), "
-            f"('{user_3_id}', '{org_id}', 'user3@example.com', N'Patron Three', 'member', 'active', 'hash'), "
-            f"('{librarian_id}', '{org_id}', 'librarian@example.com', N'Librarian Desk', 'staff', 'active', 'hash')"
+            "(user_id, organization_id, email, status, password_hash) "
+            f"VALUES ('{user_1_id}', '{org_id}', 'user1@example.com', 'active', 'hash'), "
+            f"('{user_2_id}', '{org_id}', 'user2@example.com', 'active', 'hash'), "
+            f"('{user_3_id}', '{org_id}', 'user3@example.com', 'active', 'hash'), "
+            f"('{librarian_id}', '{org_id}', 'librarian@example.com', 'active', 'hash')"
+        )
+        connection.execute(
+            "INSERT INTO core.user_profiles "
+            "(profile_id, organization_id, user_id, display_name) "
+            f"VALUES ('{uuid4()}', '{org_id}', '{user_1_id}', N'Patron One'), "
+            f"('{uuid4()}', '{org_id}', '{user_2_id}', N'Patron Two'), "
+            f"('{uuid4()}', '{org_id}', '{user_3_id}', N'Patron Three'), "
+            f"('{uuid4()}', '{org_id}', '{librarian_id}', N'Librarian Desk')"
         )
 
     urls["ORGANIZATION_ID"] = str(org_id)
@@ -146,12 +154,12 @@ def _seed_book_and_copies(
     copy_ids: list[UUID] = []
     with connect(database_url) as connection:
         connection.execute(
-            "INSERT INTO core.locations (location_id, organization_id, code, name, location_type, status) "
-            f"VALUES ('{loc_id}', '{org_id}', 'LOC-BE018-{uuid4().hex[:4]}', N'Main Shelf', 'shelf', 'active')"
+            "INSERT INTO core.locations (location_id, organization_id, code, name, status) "
+            f"VALUES ('{loc_id}', '{org_id}', 'LOC-BE018-{uuid4().hex[:4]}', N'Main Shelf', 'active')"
         )
         connection.execute(
-            "INSERT INTO core.books (book_id, organization_id, isbn, title, author, status) "
-            f"VALUES ('{book_id}', '{org_id}', '9780123456{uuid4().hex[:3]}', N'Distributed Algorithms', N'Nancy Lynch', 'active')"
+            "INSERT INTO core.books (book_id, organization_id, title, title_sort_key, isbn, authors_json, published_year) "
+            f"VALUES ('{book_id}', '{org_id}', N'Distributed Algorithms', N'distributed algorithms', '9780123456{uuid4().hex[:3]}', N'[\"Nancy Lynch\"]', 2020)"
         )
         for i in range(num_copies):
             copy_id = uuid4()
@@ -314,7 +322,8 @@ def test_expired_hold_advances_exactly_one_eligible_next_reservation(
         )
 
     # Run durable hold expiry sweep
-    expired_count = service.expire_holds(actor=Principal(uuid4(), org_id, uuid4()))
+    librarian_id = UUID(seeded_database_urls["LIBRARIAN_ID"])
+    expired_count = service.expire_holds(actor=Principal(librarian_id, org_id, uuid4()))
     assert expired_count == 1
 
     # Verify r1 is now expired
@@ -355,7 +364,7 @@ def test_consumer_replay_cannot_skip_or_allocate_queue_entry_twice(
     copy_id = copy_ids[0]
     with connect(seeded_database_urls["DATABASE_BOOTSTRAP_URL"]) as connection:
         connection.execute(
-            f"UPDATE core.book_copies SET status = 'available' WHERE copy_id = '{copy_id}'"
+            f"UPDATE core.book_copies SET status = 'checked_out' WHERE copy_id = '{copy_id}'"
         )
 
     db_url = seeded_database_urls["DATABASE_RUNTIME_URL"]
@@ -377,6 +386,12 @@ def test_consumer_replay_cannot_skip_or_allocate_queue_entry_twice(
     # Create 2 pending reservations
     r1 = service.create_reservation(actor=actor_1, book_id=book_id)
     r2 = service.create_reservation(actor=actor_2, book_id=book_id)
+
+    # Simulate loan return by transitioning copy back to available
+    with connect(seeded_database_urls["DATABASE_BOOTSTRAP_URL"]) as connection:
+        connection.execute(
+            f"UPDATE core.book_copies SET status = 'available' WHERE copy_id = '{copy_id}'"
+        )
 
     # Simulate an outbox event for loan return
     event_id = uuid4()

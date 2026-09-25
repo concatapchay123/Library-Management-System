@@ -4,6 +4,7 @@ import {
   HealthStatus,
   WorkerHealthStatus,
   LoginRequest,
+  PasswordChangeRequest,
   AccessTokenResponse,
   AccessPrincipal,
   OrganizationSettings,
@@ -243,6 +244,8 @@ export function createApiClient(config: ApiClientConfig = {}) {
       post<void>('/auth/logout', undefined, { ...options, token }),
     getCurrentPrincipal: (token?: string, options?: RequestOptions) =>
       get<AccessPrincipal>('/auth/me', { ...options, token }),
+    changePassword: (data: PasswordChangeRequest, options?: RequestOptions) =>
+      post<void>('/auth/password/change', data, options),
   };
 
   const organizations = {
@@ -491,7 +494,7 @@ export function createApiClient(config: ApiClientConfig = {}) {
         data: PublicLibraryMembershipPlanUpdate,
         options?: RequestOptions,
       ) =>
-        patch<PublicLibraryMembershipPlan>(
+        put<PublicLibraryMembershipPlan>(
           `/public-library/membership-plans/${encodeURIComponent(planId)}`,
           data,
           options,

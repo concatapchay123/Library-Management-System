@@ -65,3 +65,14 @@ export async function logout(accessToken?: string | null): Promise<void> {
     // Revocation is best effort on client teardown
   }
 }
+
+/**
+ * Change operator password.
+ */
+export async function changePassword(
+  credentials: { current_password: string; new_password: string },
+  accessToken?: string | null
+): Promise<void> {
+  await apiClient.auth.changePassword(credentials, { token: accessToken ?? undefined });
+}
+

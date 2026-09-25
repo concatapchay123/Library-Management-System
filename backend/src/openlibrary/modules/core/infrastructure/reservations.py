@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from contextlib import AbstractContextManager
-from datetime import datetime
+from datetime import datetime, timezone
 from uuid import UUID
 
 from sqlalchemy import text
@@ -282,13 +282,16 @@ def _reservation_from_row(row: RowMapping) -> Reservation:
 
 def _parse_dt(val: object) -> datetime:
     if isinstance(val, datetime):
+        if val.tzinfo is None:
+            return val.replace(tzinfo=timezone.utc)
         return val
-    return datetime.fromisoformat(str(val))
+    dt = datetime.fromisoformat(str(val))
+    if dt.tzinfo is None:
+        return dt.replace(tzinfo=timezone.utc)
+    return dt
 
 
 def _parse_opt_dt(val: object) -> datetime | None:
     if val is None:
         return None
-    if isinstance(val, datetime):
-        return val
-    return datetime.fromisoformat(str(val))
+    return _parse_dt(val)

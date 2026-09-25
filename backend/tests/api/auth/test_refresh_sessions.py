@@ -218,7 +218,7 @@ def test_refresh_rotation_is_single_use_and_replay_revokes_the_entire_chain(
     assert rotated.get_json()["token_type"] == "Bearer"
 
     client.set_cookie("refresh_token", original_refresh, path="/api/v1/auth")
-    client.set_cookie("csrf_token", original_csrf, path="/api/v1/auth")
+    client.set_cookie("csrf_token", original_csrf, path="/")
     replay = client.post(
         "/api/v1/auth/refresh", headers={"X-CSRF-Token": original_csrf}
     )
@@ -226,7 +226,7 @@ def test_refresh_rotation_is_single_use_and_replay_revokes_the_entire_chain(
     assert all(session.revoked_at is not None for session in store.sessions.values())
 
     client.set_cookie("refresh_token", replacement_refresh, path="/api/v1/auth")
-    client.set_cookie("csrf_token", replacement_csrf, path="/api/v1/auth")
+    client.set_cookie("csrf_token", replacement_csrf, path="/")
     revoked_replacement = client.post(
         "/api/v1/auth/refresh", headers={"X-CSRF-Token": replacement_csrf}
     )
@@ -263,7 +263,7 @@ def test_logout_revokes_the_active_chain_and_mutations_require_csrf(
     assert logout.status_code == 204
     assert all(session.revoked_at is not None for session in store.sessions.values())
     client.set_cookie("refresh_token", refresh, path="/api/v1/auth")
-    client.set_cookie("csrf_token", csrf, path="/api/v1/auth")
+    client.set_cookie("csrf_token", csrf, path="/")
     assert (
         client.post("/api/v1/auth/refresh", headers={"X-CSRF-Token": csrf}).status_code
         == 401
@@ -277,7 +277,7 @@ def test_csrf_header_without_the_matching_csrf_cookie_is_rejected(
 
     login = _login(client)
     csrf = _cookie_value(login, "csrf_token")
-    client.delete_cookie("csrf_token", path="/api/v1/auth")
+    client.delete_cookie("csrf_token", path="/")
 
     response = client.post("/api/v1/auth/refresh", headers={"X-CSRF-Token": csrf})
 

@@ -102,9 +102,15 @@ def seeded_database_urls(database_urls: SqlServerUrls) -> Iterator[SqlServerUrls
         )
         connection.execute(
             "INSERT INTO core.users "
-            "(user_id, organization_id, email, full_name, user_type, status, password_hash) "
-            f"VALUES ('{user_id}', '{org_id}', 'borrower@example.com', N'Borrower One', 'member', 'active', 'hash'), "
-            f"('{librarian_id}', '{org_id}', 'librarian@example.com', N'Librarian Desk', 'staff', 'active', 'hash')"
+            "(user_id, organization_id, email, status, password_hash) "
+            f"VALUES ('{user_id}', '{org_id}', 'borrower@example.com', 'active', 'hash'), "
+            f"('{librarian_id}', '{org_id}', 'librarian@example.com', 'active', 'hash')"
+        )
+        connection.execute(
+            "INSERT INTO core.user_profiles "
+            "(profile_id, organization_id, user_id, display_name) "
+            f"VALUES ('{uuid4()}', '{org_id}', '{user_id}', N'Borrower One'), "
+            f"('{uuid4()}', '{org_id}', '{librarian_id}', N'Librarian Desk')"
         )
 
     urls["ORGANIZATION_ID"] = str(org_id)
@@ -134,12 +140,12 @@ def _seed_book_and_copy(database_url: str, org_id: UUID) -> UUID:
     copy_id = uuid4()
     with connect(database_url) as connection:
         connection.execute(
-            "INSERT INTO core.locations (location_id, organization_id, code, name, location_type, status) "
-            f"VALUES ('{loc_id}', '{org_id}', 'LOC-BE017', N'Main Shelf', 'shelf', 'active')"
+            "INSERT INTO core.locations (location_id, organization_id, code, name, status) "
+            f"VALUES ('{loc_id}', '{org_id}', 'LOC-BE017', N'Main Shelf', 'active')"
         )
         connection.execute(
-            "INSERT INTO core.books (book_id, organization_id, isbn, title, author, status) "
-            f"VALUES ('{book_id}', '{org_id}', '9780123456789', N'Concurrent Systems', N'Leslie Lamport', 'active')"
+            "INSERT INTO core.books (book_id, organization_id, title, title_sort_key, isbn, authors_json, published_year) "
+            f"VALUES ('{book_id}', '{org_id}', N'Concurrent Systems', N'concurrent systems', '9780123456789', N'[\"Leslie Lamport\"]', 2020)"
         )
         connection.execute(
             "INSERT INTO core.book_copies "

@@ -1,0 +1,5 @@
+# OpenLibraryOS Root Docker Compose
+# Delegates directly to infra/docker-compose.yml for consistent configuration across development and production
+
+include:
+  - infra/docker-compose.yml

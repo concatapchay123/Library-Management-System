@@ -83,7 +83,7 @@ def create_auth_blueprint(
             return authentication_failure_response()
         response = Response(status=204)
         response.delete_cookie("refresh_token", path="/api/v1/auth", secure=True)
-        response.delete_cookie("csrf_token", path="/api/v1/auth", secure=True)
+        response.delete_cookie("csrf_token", path="/", secure=True)
         return response
 
     @auth.get("/me")
@@ -158,7 +158,7 @@ def _refresh_response(
         secure=True,
         httponly=False,
         samesite="Strict",
-        path="/api/v1/auth",
+        path="/",
     )
     return response
 

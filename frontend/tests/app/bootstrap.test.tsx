@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { render, screen } from '@testing-library/react';
+import { render, screen, waitFor } from '@testing-library/react';
 import { App } from '../../src/app/App';
 import {
   TokenProvider,
@@ -18,8 +18,8 @@ describe('Frontend Bootstrap & Token Layer (FE-001)', () => {
   });
 
   describe('Root Application Bootstrap', () => {
-    it('renders the root application cleanly without network requests', () => {
-      render(<App />);
+    it('renders the root application cleanly in operate mode without network requests when authenticated', () => {
+      render(<App initialAuthenticated={true} autoRefreshOnMount={false} />);
 
       // Acceptance criterion: The application can render without a network request
       expect(globalThis.fetch).not.toHaveBeenCalled();
@@ -35,8 +35,8 @@ describe('Frontend Bootstrap & Token Layer (FE-001)', () => {
       expect(mainLandmark).toBeInTheDocument();
     });
 
-    it('renders durable Operate-mode status and guidance indicators', () => {
-      render(<App />);
+    it('renders durable Operate-mode status and guidance indicators when authenticated', () => {
+      render(<App initialAuthenticated={true} autoRefreshOnMount={false} />);
 
       expect(
         screen.getByText(/Low-Cognitive-Overhead Library Operations/i),
@@ -44,6 +44,26 @@ describe('Frontend Bootstrap & Token Layer (FE-001)', () => {
       expect(
         screen.getByText(/Operational Status: Ready/i),
       ).toBeInTheDocument();
+    });
+
+    it('defaults to unauthenticated entrypoint and triggers auto-refresh on mount (H-01)', async () => {
+      vi.mocked(globalThis.fetch).mockResolvedValueOnce({
+        ok: false,
+        status: 401,
+        headers: new Headers({ 'Content-Type': 'application/problem+json' }),
+        json: async () => ({ status: 401 }),
+      } as Response);
+
+      render(<App />);
+      await waitFor(() => {
+        expect(globalThis.fetch).toHaveBeenCalledWith(
+          '/api/v1/auth/refresh',
+          expect.objectContaining({ method: 'POST', credentials: 'same-origin' }),
+        );
+      });
+      await waitFor(() => {
+        expect(screen.getByRole('heading', { level: 2, name: /sign in|log in/i })).toBeInTheDocument();
+      });
     });
   });
 

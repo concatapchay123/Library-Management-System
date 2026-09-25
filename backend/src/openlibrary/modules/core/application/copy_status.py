@@ -58,6 +58,10 @@ class CopyStatusStore(Protocol):
         self, connection: Any, organization_id: UUID, copy_id: UUID
     ) -> BookCopy: ...
 
+    def get_available_copy_for_book(
+        self, organization_id: UUID, book_id: UUID
+    ) -> BookCopy | None: ...
+
 
 class CopyStatusService:
     """Orchestrate copy status transitions, history retention, and audit recording."""

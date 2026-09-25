@@ -9,7 +9,8 @@ import os
 from uuid import UUID, uuid4
 
 import pytest
-from sqlalchemy.engine import make_url
+from sqlalchemy import text
+from sqlalchemy.engine import Connection, make_url
 
 from openlibrary.infrastructure.sqlserver.migrate import (
     bootstrap_database_identities,
@@ -172,6 +173,37 @@ def _create_claimed_event(
     )
 
 
+def _persist_outbox_event(connection: Connection, event: ClaimedOutboxEvent) -> None:
+    connection.execute(
+        text(
+            "INSERT INTO ops.outbox_events ("
+            "  event_id, organization_id, event_type, aggregate_type, aggregate_id, "
+            "  payload_version, payload_json, correlation_id, idempotency_key, "
+            "  created_at, lease_token, lease_expires_at, attempts"
+            ") VALUES ("
+            "  :event_id, :organization_id, :event_type, :aggregate_type, :aggregate_id, "
+            "  :payload_version, :payload_json, :correlation_id, :idempotency_key, "
+            "  :created_at, :lease_token, :lease_expires_at, :attempts"
+            ")"
+        ),
+        {
+            "event_id": str(event.event_id),
+            "organization_id": str(event.organization_id),
+            "event_type": event.event_type,
+            "aggregate_type": event.aggregate_type,
+            "aggregate_id": str(event.aggregate_id),
+            "payload_version": event.payload_version,
+            "payload_json": event.payload_json,
+            "correlation_id": str(event.correlation_id),
+            "idempotency_key": event.idempotency_key,
+            "created_at": event.created_at,
+            "lease_token": str(event.lease_token) if event.lease_token else None,
+            "lease_expires_at": event.lease_expires_at,
+            "attempts": event.attempts,
+        },
+    )
+
+
 def test_notification_classes_exist() -> None:
     assert Notification is not None
     assert NotificationStatus.UNREAD == "unread"
@@ -207,6 +239,7 @@ def test_domain_event_consumed_and_persisted(
     )
 
     with tenant_context.connection(org_id) as connection:
+        _persist_outbox_event(connection, event)
         consumer.handle_event(connection, event)
         connection.commit()
 
@@ -252,6 +285,7 @@ def test_event_replay_creates_no_duplicate_notification(
 
     # First delivery
     with tenant_context.connection(org_id) as connection:
+        _persist_outbox_event(connection, event)
         consumer.handle_event(connection, event)
         connection.commit()
 
@@ -295,6 +329,7 @@ def test_read_state_transition_is_explicit_and_idempotent(
         },
     )
     with tenant_context.connection(org_id) as connection:
+        _persist_outbox_event(connection, event)
         consumer.handle_event(connection, event)
         connection.commit()
 
@@ -345,6 +380,7 @@ def test_cross_tenant_notification_isolation(
         },
     )
     with tenant_context.connection(org_a_id) as connection:
+        _persist_outbox_event(connection, event)
         consumer.handle_event(connection, event)
         connection.commit()
 

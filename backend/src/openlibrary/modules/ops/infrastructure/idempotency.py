@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from contextlib import AbstractContextManager
-from datetime import datetime
+from datetime import datetime, timezone
 from uuid import UUID
 
 from sqlalchemy import text
@@ -144,5 +144,10 @@ def _record_from_row(row: RowMapping) -> IdempotencyRecord:
 
 def _parse_dt(val: object) -> datetime:
     if isinstance(val, datetime):
+        if val.tzinfo is None:
+            return val.replace(tzinfo=timezone.utc)
         return val
-    return datetime.fromisoformat(str(val))
+    dt = datetime.fromisoformat(str(val))
+    if dt.tzinfo is None:
+        return dt.replace(tzinfo=timezone.utc)
+    return dt

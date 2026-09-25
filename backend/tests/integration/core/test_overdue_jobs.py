@@ -63,7 +63,7 @@ def database_urls() -> SqlServerUrls:
     return SqlServerUrls({name: os.environ[name] for name in required_names})
 
 
-@pytest.fixture(scope="module")
+@pytest.fixture
 def clean_database_urls(database_urls: SqlServerUrls) -> Iterator[SqlServerUrls]:
     """Create a disposable database, run migrations, and tear down cleanly."""
     database_name = f"openlibrary_be019_{uuid4().hex}"
@@ -113,9 +113,15 @@ def clean_database_urls(database_urls: SqlServerUrls) -> Iterator[SqlServerUrls]
         )
         connection.execute(
             "INSERT INTO core.users "
-            "(user_id, organization_id, email, full_name, user_type, status, password_hash) "
-            f"VALUES ('{user_a}', '{org_a}', 'user_a@example.com', N'Patron Alpha', 'member', 'active', 'hash'), "
-            f"('{user_b}', '{org_b}', 'user_b@example.com', N'Patron Beta', 'member', 'active', 'hash')"
+            "(user_id, organization_id, email, status, password_hash) "
+            f"VALUES ('{user_a}', '{org_a}', 'user_a@example.com', 'active', 'hash'), "
+            f"('{user_b}', '{org_b}', 'user_b@example.com', 'active', 'hash')"
+        )
+        connection.execute(
+            "INSERT INTO core.user_profiles "
+            "(profile_id, organization_id, user_id, display_name) "
+            f"VALUES ('{uuid4()}', '{org_a}', '{user_a}', N'Patron Alpha'), "
+            f"('{uuid4()}', '{org_b}', '{user_b}', N'Patron Beta')"
         )
 
     urls["ORGANIZATION_A"] = str(org_a)
@@ -141,16 +147,16 @@ def _seed_book_and_copy(database_url: str, org_id: UUID) -> tuple[UUID, UUID]:
     copy_id = uuid4()
     with connect(database_url) as connection:
         connection.execute(
-            "INSERT INTO core.locations (location_id, organization_id, code, name, location_type, status) "
-            f"VALUES ('{loc_id}', '{org_id}', 'LOC-{uuid4().hex[:4]}', N'Main Shelf', 'shelf', 'active')"
+            "INSERT INTO core.locations (location_id, organization_id, code, name, status) "
+            f"VALUES ('{loc_id}', '{org_id}', 'LOC-{uuid4().hex[:4]}', N'Main Shelf', 'active')"
         )
         connection.execute(
-            "INSERT INTO core.books (book_id, organization_id, title, author, isbn, publisher, status) "
-            f"VALUES ('{book_id}', '{org_id}', N'Test Book', N'Author', '978-0000000000', N'Publisher', 'active')"
+            "INSERT INTO core.books (book_id, organization_id, title, title_sort_key, isbn, authors_json, published_year) "
+            f"VALUES ('{book_id}', '{org_id}', N'Test Book', N'test book', '978-0000000000', N'[\"Author\"]', 2020)"
         )
         connection.execute(
-            "INSERT INTO core.book_copies (copy_id, book_id, organization_id, location_id, barcode, copy_number, status) "
-            f"VALUES ('{copy_id}', '{book_id}', '{org_id}', '{loc_id}', 'BC-{uuid4().hex[:6]}', 1, 'borrowed')"
+            "INSERT INTO core.book_copies (copy_id, organization_id, book_id, barcode, location_id, status, condition_code, acquired_at) "
+            f"VALUES ('{copy_id}', '{org_id}', '{book_id}', 'BC-{uuid4().hex[:6]}', '{loc_id}', 'checked_out', 'good', SYSUTCDATETIME())"
         )
     return book_id, copy_id
 

@@ -162,7 +162,10 @@ services:
       start_period: 15s
 
   nginx:
-    image: ${NGINX_IMAGE:-nginx:1.27.4-alpine}
+    build:
+      context: ..
+      dockerfile: infra/Dockerfile.nginx
+    image: ${NGINX_IMAGE:-openlibrary/nginx:1.0.0}
     ports:
       - "${HTTP_PORT:-80}:80"
       - "${HTTPS_PORT:-443}:443"
@@ -175,7 +178,7 @@ services:
     networks:
       - edge
     healthcheck:
-      test: ["CMD-SHELL", "wget --no-verbose --spider http://localhost/api/v1/health/live || exit 1"]
+      test: ["CMD-SHELL", "wget --no-verbose --spider http://127.0.0.1/api/v1/health/live || exit 1"]
       interval: 10s
       timeout: 5s
       retries: 6

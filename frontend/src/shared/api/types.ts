@@ -49,6 +49,11 @@ export interface LoginRequest {
   password: string;
 }
 
+export interface PasswordChangeRequest {
+  current_password: string;
+  new_password: string;
+}
+
 /**
  * Access Token response schema from OpenAPI #/components/schemas/AccessToken
  */

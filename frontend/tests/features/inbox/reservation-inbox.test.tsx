@@ -503,6 +503,11 @@ describe('Reservation status and notification inbox (FE-008)', () => {
       expect(screen.getByText(/req-err-403/i)).toBeInTheDocument();
       // Retry button is available
       expect(screen.getByRole('button', { name: /Retry/i })).toBeInTheDocument();
+
+      // Truthful Failure UI (M-03): hides synchronized cues and zero-count tablist on loadError
+      expect(screen.queryByText(/synchronized with authoritative backend state/i)).not.toBeInTheDocument();
+      expect(screen.queryByRole('tablist')).not.toBeInTheDocument();
+      expect(screen.queryByText(/All Items \(0\)/i)).not.toBeInTheDocument();
     });
   });
 

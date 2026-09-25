@@ -1,8 +1,9 @@
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect, useContext } from 'react';
 import { useTokens, calcNestedRadius } from '../../shared/tokens';
 import { Button, Input, Dialog, LoadingSkeleton } from '../../shared/components';
 import { FinesViewProps } from './types';
 import { PublicLibraryFine, apiClient } from '../../shared/api';
+import { AuthContext } from '../auth/context';
 
 export function FinesView({
   fines,
@@ -11,6 +12,9 @@ export function FinesView({
   onError,
 }: FinesViewProps) {
   const tokens = useTokens();
+  const authContext = useContext(AuthContext);
+  const token = authContext?.accessToken;
+
   const [searchQuery, setSearchQuery] = useState('');
   const [waiveTargetFine, setWaiveTargetFine] = useState<PublicLibraryFine | null>(null);
   const [waiveReason, setWaiveReason] = useState('');
@@ -39,9 +43,13 @@ export function FinesView({
 
     setIsSubmittingWaive(true);
     try {
-      const updated = await apiClient.publicLibrary.fines.waive(waiveTargetFine.fine_id, {
-        reason: waiveReason.trim(),
-      });
+      const updated = await apiClient.publicLibrary.fines.waive(
+        waiveTargetFine.fine_id,
+        {
+          reason: waiveReason.trim(),
+        },
+        { token },
+      );
       setLocalFines((prev) =>
         prev.map((f) => (f.fine_id === updated.fine_id ? updated : f))
       );

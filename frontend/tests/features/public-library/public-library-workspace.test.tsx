@@ -739,6 +739,37 @@ describe('Public membership, fine, payment and invoice views (FE-010)', () => {
       expect(returnBtn).toHaveAttribute('href', '#/circulation');
     });
 
+    it('renders RFC 7807 problem details with retry and hides tabs when initial load fails (M-03)', async () => {
+      vi.mocked(globalThis.fetch).mockResolvedValue({
+        ok: false,
+        status: 404,
+        headers: new Headers({
+          'Content-Type': 'application/problem+json',
+          'X-Request-ID': 'req-err-404',
+        }),
+        json: async () => ({
+          type: 'https://openlibrary.org/errors/not-found',
+          title: 'Not Found',
+          status: 404,
+          detail: 'Public library module endpoints not found.',
+          instance: '/api/v1/public-library',
+          request_id: 'req-err-404',
+        }),
+      } as Response);
+
+      renderPublicLibraryWorkspace();
+
+      await waitFor(() => {
+        expect(screen.getByRole('alert')).toBeInTheDocument();
+        expect(screen.getByText(/Public library module endpoints not found/i)).toBeInTheDocument();
+      });
+
+      // Truthful Failure UI (M-03): hides tab navigation and does not show zero-count tabs or empty members message
+      expect(screen.queryByRole('tablist')).not.toBeInTheDocument();
+      expect(screen.queryByText(/no public library members found/i)).not.toBeInTheDocument();
+      expect(screen.getByRole('button', { name: /retry/i })).toBeInTheDocument();
+    });
+
     it('renders RFC 7807 problem details error banner safely when a financial action fails', async () => {
       setupDefaultMocks();
 
@@ -804,7 +835,7 @@ describe('Public membership, fine, payment and invoice views (FE-010)', () => {
       setupDefaultMocks();
       window.location.hash = '#/public-library';
 
-      render(<App />);
+      render(<App initialAuthenticated={true} autoRefreshOnMount={false} />);
 
       await waitFor(() => {
         expect(
@@ -816,6 +847,22 @@ describe('Public membership, fine, payment and invoice views (FE-010)', () => {
       const publicLink = within(nav).getByRole('link', { name: /public library & finance/i });
       expect(publicLink).toBeInTheDocument();
       expect(publicLink).toHaveAttribute('href', '#/public-library');
+    });
+
+    it('passes authorization bearer token to public library API requests (H-02)', async () => {
+      setupDefaultMocks();
+      renderPublicLibraryWorkspace();
+
+      await waitFor(() => {
+        expect(globalThis.fetch).toHaveBeenCalledWith(
+          expect.stringContaining('/public-library/'),
+          expect.objectContaining({
+            headers: expect.objectContaining({
+              Authorization: 'Bearer test-public-library-token',
+            }),
+          }),
+        );
+      });
     });
   });
 });

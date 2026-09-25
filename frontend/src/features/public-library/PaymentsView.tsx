@@ -1,8 +1,9 @@
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo, useEffect, useContext } from 'react';
 import { useTokens, calcNestedRadius } from '../../shared/tokens';
 import { Button, Input, LoadingSkeleton } from '../../shared/components';
 import { PaymentsViewProps } from './types';
 import { PublicLibraryPayment, apiClient } from '../../shared/api';
+import { AuthContext } from '../auth/context';
 
 export function PaymentsView({
   payments,
@@ -11,6 +12,9 @@ export function PaymentsView({
   onError,
 }: PaymentsViewProps) {
   const tokens = useTokens();
+  const authContext = useContext(AuthContext);
+  const token = authContext?.accessToken;
+
   const [searchQuery, setSearchQuery] = useState('');
   const [reconcilingId, setReconcilingId] = useState<string | null>(null);
   const [localPayments, setLocalPayments] = useState<PublicLibraryPayment[]>(payments);
@@ -33,7 +37,7 @@ export function PaymentsView({
   async function handleReconcile(payment: PublicLibraryPayment) {
     setReconcilingId(payment.payment_id);
     try {
-      const reconciled = await apiClient.publicLibrary.payments.reconcile(payment.payment_id);
+      const reconciled = await apiClient.publicLibrary.payments.reconcile(payment.payment_id, { token });
       setLocalPayments((prev) =>
         prev.map((p) => (p.payment_id === reconciled.payment_id ? reconciled : p))
       );

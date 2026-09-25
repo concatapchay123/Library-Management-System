@@ -23,7 +23,7 @@ describe('App Shell, Navigation & Shared Controls (FE-002)', () => {
 
   describe('Semantic Landmarks & DOM Order', () => {
     it('renders landmarks in predictable accessible order: skip link -> banner -> navigation -> main', () => {
-      const { container } = render(<App />);
+      const { container } = render(<App initialAuthenticated={true} autoRefreshOnMount={false} />);
 
       expect(globalThis.fetch).not.toHaveBeenCalled();
 
@@ -58,7 +58,7 @@ describe('App Shell, Navigation & Shared Controls (FE-002)', () => {
     });
 
     it('renders logo-to-home navigation link with product branding', () => {
-      render(<App />);
+      render(<App initialAuthenticated={true} autoRefreshOnMount={false} />);
 
       const logoLink = screen.getByRole('link', { name: /openlibraryos/i });
       expect(logoLink).toBeInTheDocument();
@@ -66,7 +66,7 @@ describe('App Shell, Navigation & Shared Controls (FE-002)', () => {
     });
 
     it('renders account area displaying human-readable desk context without technical IDs', () => {
-      render(<App />);
+      render(<App initialAuthenticated={true} autoRefreshOnMount={false} />);
 
       const accountArea = screen.getByLabelText(/account/i);
       expect(accountArea).toBeInTheDocument();
@@ -97,7 +97,7 @@ describe('App Shell, Navigation & Shared Controls (FE-002)', () => {
 
   describe('Primary Navigation & Product Language', () => {
     it('uses product terminology for all navigation labels rather than technical identifiers', () => {
-      render(<App />);
+      render(<App initialAuthenticated={true} autoRefreshOnMount={false} />);
 
       const navigation = screen.getByRole('navigation', { name: /primary navigation/i });
       expect(navigation).toBeInTheDocument();
@@ -119,7 +119,7 @@ describe('App Shell, Navigation & Shared Controls (FE-002)', () => {
     });
 
     it('indicates active navigation route using aria-current="page"', () => {
-      render(<App />);
+      render(<App initialAuthenticated={true} autoRefreshOnMount={false} />);
 
       const navigation = screen.getByRole('navigation', { name: /primary navigation/i });
       const currentLinks = within(navigation).getAllByRole('link');
@@ -144,7 +144,7 @@ describe('App Shell, Navigation & Shared Controls (FE-002)', () => {
 
   describe('Single Visually Primary Action Rule', () => {
     it('limits each distinct screen region to strictly one visually primary action', () => {
-      render(<App />);
+      render(<App initialAuthenticated={true} autoRefreshOnMount={false} />);
 
       const banner = screen.getByRole('banner');
       const main = screen.getByRole('main');
@@ -412,7 +412,7 @@ describe('App Shell, Navigation & Shared Controls (FE-002)', () => {
 
   describe('Responsive Navigation & Narrow Viewport Behavior', () => {
     it('provides accessible toggle menu button for narrow viewports without hiding navigation', () => {
-      render(<App />);
+      render(<App initialAuthenticated={true} autoRefreshOnMount={false} />);
 
       const toggleBtn = screen.getByRole('button', { name: /toggle navigation menu/i });
       expect(toggleBtn).toBeInTheDocument();

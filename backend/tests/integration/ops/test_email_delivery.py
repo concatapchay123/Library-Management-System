@@ -122,27 +122,16 @@ def seeded_database_urls(database_urls: SqlServerUrls) -> Iterator[SqlServerUrls
 
     with connect(urls["DATABASE_BOOTSTRAP_URL"]) as connection:
         connection.execute(
-            text(
-                "INSERT INTO core.organizations (organization_id, slug, name, is_active) "
-                "VALUES (:org_a, 'alpha-library', 'Alpha Library', 1), "
-                "       (:org_b, 'beta-library', 'Beta Library', 1)"
-            ),
-            {"org_a": str(org_a), "org_b": str(org_b)},
+            "INSERT INTO core.organizations "
+            "(organization_id, name, slug, organization_type, status, timezone, settings_json) "
+            f"VALUES ('{org_a}', N'Alpha Library', 'alpha-library', 'education', 'active', 'UTC', N'{{}}'), "
+            f"('{org_b}', N'Beta Library', 'beta-library', 'education', 'active', 'UTC', N'{{}}')"
         )
         connection.execute(
-            text(
-                "INSERT INTO core.users (user_id, organization_id, email, password_hash, status) "
-                "VALUES (:user_a1, :org_a, 'alice@alpha.example', 'hash1', 'active'), "
-                "       (:user_b1, :org_b, 'bob@beta.example', 'hash2', 'active')"
-            ),
-            {
-                "user_a1": str(user_a1),
-                "org_a": str(org_a),
-                "user_b1": str(user_b1),
-                "org_b": str(org_b),
-            },
+            "INSERT INTO core.users (user_id, organization_id, email, password_hash, status) "
+            f"VALUES ('{user_a1}', '{org_a}', 'alice@alpha.example', 'hash1', 'active'), "
+            f"('{user_b1}', '{org_b}', 'bob@beta.example', 'hash2', 'active')"
         )
-        connection.commit()
 
     urls["ORG_A_ID"] = str(org_a)
     urls["ORG_B_ID"] = str(org_b)
@@ -189,6 +178,32 @@ def _create_claimed_event(
         lease_token=uuid4(),
         lease_expires_at=now,
         created_at=now,
+    )
+
+
+def _persist_outbox_event(connection: Any, event: ClaimedOutboxEvent) -> None:
+    connection.execute(
+        text(
+            "INSERT INTO ops.outbox_events ("
+            "  event_id, organization_id, event_type, aggregate_type, aggregate_id, "
+            "  payload_version, payload_json, correlation_id, idempotency_key, "
+            "  attempts, created_at, available_at, delivered_at"
+            ") VALUES ("
+            "  :event_id, :org_id, :event_type, :aggregate_type, :aggregate_id, "
+            "  :payload_version, :payload_json, :corr_id, :idemp_key, 1, SYSUTCDATETIME(), SYSUTCDATETIME(), SYSUTCDATETIME()"
+            ")"
+        ),
+        {
+            "event_id": str(event.event_id),
+            "org_id": str(event.organization_id),
+            "event_type": event.event_type,
+            "aggregate_type": event.aggregate_type,
+            "aggregate_id": str(event.aggregate_id),
+            "payload_version": event.payload_version,
+            "payload_json": event.payload_json,
+            "corr_id": str(event.correlation_id),
+            "idemp_key": event.idempotency_key,
+        },
     )
 
 
@@ -284,6 +299,7 @@ def test_email_consumer_handles_events_and_sends_email(
     )
 
     with tenant_context.connection(org_id) as connection:
+        _persist_outbox_event(connection, event)
         consumer.handle_event(connection, event)
         connection.commit()
 
@@ -446,13 +462,9 @@ def test_bounded_retry_and_dead_letter_visibility(
     # Make event immediately available for attempt 2
     with connect(seeded_database_urls["DATABASE_BOOTSTRAP_URL"]) as connection:
         connection.execute(
-            text(
-                "UPDATE ops.outbox_events SET available_at = SYSUTCDATETIME() "
-                "WHERE event_id = :event_id"
-            ),
-            {"event_id": str(event_id)},
+            f"UPDATE ops.outbox_events SET available_at = SYSUTCDATETIME() "
+            f"WHERE event_id = '{event_id}'"
         )
-        connection.commit()
 
     # Dispatch attempt 2 (max_retries reached) -> dead_letter
     assert dispatcher.dispatch_one() is True
@@ -501,6 +513,7 @@ def test_email_replay_safety_deduplication(
 
     # First execution
     with tenant_context.connection(org_id) as connection:
+        _persist_outbox_event(connection, event)
         consumer.handle_event(connection, event)
         connection.commit()
 
@@ -546,6 +559,7 @@ def test_email_payload_sanitization_removes_secrets(
     )
 
     with tenant_context.connection(org_id) as connection:
+        _persist_outbox_event(connection, event)
         consumer.handle_event(connection, event)
         connection.commit()
 
