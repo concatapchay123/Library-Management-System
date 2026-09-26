@@ -423,5 +423,76 @@ describe('App Shell, Navigation & Shared Controls (FE-002)', () => {
       fireEvent.click(toggleBtn);
       expect(toggleBtn.getAttribute('aria-expanded')).not.toBe(initialExpanded);
     });
+
+    it('desktop navigation does not have overflowX: auto and groups core and edition workspaces (P1-04 & P2-06)', () => {
+      render(<App initialAuthenticated={true} autoRefreshOnMount={false} />);
+
+      const nav = screen.getByRole('navigation', { name: /primary navigation/i });
+      expect(nav).toHaveClass('openlibrary-desktop-nav');
+      expect(nav.style.overflowX).not.toBe('auto');
+
+      // Account region has dedicated class for responsive media queries
+      const accountRegion = screen.getByRole('region', { name: /^account$/i });
+      expect(accountRegion).toHaveClass('openlibrary-desktop-account');
+    });
+
+    it('mobile drawer opens with dialog attributes, operator desk details, grouped categories, and restores focus on close (P1-04, P1-05, P2-06)', async () => {
+      render(<App initialAuthenticated={true} autoRefreshOnMount={false} />);
+
+      const toggleBtn = screen.getByRole('button', { name: /toggle navigation menu/i });
+      toggleBtn.focus();
+      expect(document.activeElement).toBe(toggleBtn);
+
+      // Open mobile drawer
+      fireEvent.click(toggleBtn);
+
+      const drawer = screen.getByRole('dialog', { name: /mobile navigation menu/i });
+      expect(drawer).toBeInTheDocument();
+      expect(drawer).toHaveAttribute('aria-modal', 'true');
+
+      // Displays operator desk inside drawer
+      expect(within(drawer).getByRole('region', { name: /account details/i })).toBeInTheDocument();
+
+      // Displays categorized navigation
+      expect(within(drawer).getByText(/vận hành cốt lõi/i)).toBeInTheDocument();
+      expect(within(drawer).getByText(/mở rộng phân hệ/i)).toBeInTheDocument();
+
+      // Displays operator actions
+      expect(within(drawer).getByRole('button', { name: /hồ sơ cán bộ/i })).toBeInTheDocument();
+      expect(within(drawer).getByRole('button', { name: /đổi mật khẩu/i })).toBeInTheDocument();
+
+      // Close via close button restores focus to toggle button
+      const closeBtn = within(drawer).getByRole('button', { name: /đóng menu/i });
+      fireEvent.click(closeBtn);
+
+      expect(screen.queryByRole('dialog', { name: /mobile navigation menu/i })).not.toBeInTheDocument();
+      expect(document.activeElement).toBe(toggleBtn);
+    });
+
+    it('traps Tab focus inside mobile drawer while open (P1-05)', () => {
+      render(<App initialAuthenticated={true} autoRefreshOnMount={false} />);
+
+      const toggleBtn = screen.getByRole('button', { name: /toggle navigation menu/i });
+      fireEvent.click(toggleBtn);
+
+      const drawer = screen.getByRole('dialog', { name: /mobile navigation menu/i });
+      const closeBtn = within(drawer).getByRole('button', { name: /đóng menu/i });
+      const focusableButtons = within(drawer).getAllByRole('button');
+      const lastButton = focusableButtons[focusableButtons.length - 1]!;
+
+      // Tab from last button wraps to first element (closeBtn)
+      lastButton.focus();
+      const tabEvent = new KeyboardEvent('keydown', { key: 'Tab', bubbles: true, cancelable: true });
+      window.dispatchEvent(tabEvent);
+      expect(tabEvent.defaultPrevented).toBe(true);
+      expect(document.activeElement).toBe(closeBtn);
+
+      // Shift+Tab from closeBtn wraps to last button
+      closeBtn.focus();
+      const shiftTabEvent = new KeyboardEvent('keydown', { key: 'Tab', shiftKey: true, bubbles: true, cancelable: true });
+      window.dispatchEvent(shiftTabEvent);
+      expect(shiftTabEvent.defaultPrevented).toBe(true);
+      expect(document.activeElement).toBe(lastButton);
+    });
   });
 });

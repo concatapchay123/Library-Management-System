@@ -1,6 +1,6 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useTokens } from '../../shared/tokens';
-import { navigationItems } from '../navigation/navigationModel';
+import { coreNavigationItems, editionNavigationItems } from '../navigation/navigationModel';
 import { ChangePasswordModal } from '../../features/auth/ChangePasswordModal';
 import { UserProfileModal } from '../../features/auth/UserProfileModal';
 
@@ -35,16 +35,66 @@ export function AppHeader({
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isPasswordModalOpen, setIsPasswordModalOpen] = useState(false);
   const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
+  const mobileToggleRef = useRef<HTMLButtonElement>(null);
+  const mobileDrawerRef = useRef<HTMLDivElement>(null);
 
-  // Close mobile drawer on Escape key
+  // Focus management and keyboard navigation for mobile drawer
   useEffect(() => {
+    if (!isMobileMenuOpen) return;
+
+    // Auto-focus first focusable element when drawer opens
+    const timer = setTimeout(() => {
+      if (mobileDrawerRef.current) {
+        const firstFocusable = mobileDrawerRef.current.querySelector<HTMLElement>(
+          'button:not([disabled]), [href], input:not([disabled])'
+        );
+        firstFocusable?.focus();
+      }
+    }, 50);
+
     function handleKeyDown(e: KeyboardEvent) {
-      if (e.key === 'Escape' && isMobileMenuOpen) {
+      if (e.key === 'Escape') {
         setIsMobileMenuOpen(false);
+        mobileToggleRef.current?.focus();
+        return;
+      }
+
+      if (e.key === 'Tab' || e.code === 'Tab') {
+        if (!mobileDrawerRef.current) return;
+        const focusables = Array.from(
+          mobileDrawerRef.current.querySelectorAll<HTMLElement>(
+            'button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])'
+          )
+        ).filter((el) => el.getAttribute('tabindex') !== '-1');
+
+        if (focusables.length === 0) {
+          e.preventDefault();
+          return;
+        }
+
+        const firstElement = focusables[0];
+        const lastElement = focusables[focusables.length - 1];
+        if (!firstElement || !lastElement) return;
+
+        if (e.shiftKey) {
+          if (document.activeElement === firstElement || document.activeElement === mobileDrawerRef.current) {
+            e.preventDefault();
+            lastElement.focus();
+          }
+        } else {
+          if (document.activeElement === lastElement) {
+            e.preventDefault();
+            firstElement.focus();
+          }
+        }
       }
     }
+
     window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
+    return () => {
+      clearTimeout(timer);
+      window.removeEventListener('keydown', handleKeyDown);
+    };
   }, [isMobileMenuOpen]);
 
   return (
@@ -55,12 +105,18 @@ export function AppHeader({
           .openlibrary-desktop-nav {
             display: none !important;
           }
+          .openlibrary-desktop-account {
+            display: none !important;
+          }
           .openlibrary-mobile-toggle {
             display: inline-flex !important;
           }
         }
         @media (min-width: 1025px) {
           .openlibrary-desktop-nav {
+            display: flex !important;
+          }
+          .openlibrary-desktop-account {
             display: flex !important;
           }
           .openlibrary-mobile-toggle {
@@ -74,12 +130,14 @@ export function AppHeader({
         style={{
           backgroundColor: tokens.colors.surface,
           borderBottom: `1px solid ${tokens.colors.border}`,
-          paddingLeft: tokens.spacing.lg,
-          paddingRight: tokens.spacing.lg,
-          paddingTop: tokens.spacing.md,
-          paddingBottom: tokens.spacing.md,
+          paddingLeft: tokens.spacing.md,
+          paddingRight: tokens.spacing.md,
+          paddingTop: tokens.spacing.sm,
+          paddingBottom: tokens.spacing.sm,
           boxSizing: 'border-box',
           width: '100%',
+          maxWidth: '100vw',
+          overflow: 'hidden',
         }}
       >
         <div
@@ -170,10 +228,71 @@ export function AppHeader({
               alignItems: 'center',
               gap: tokens.spacing.xs,
               flexWrap: 'nowrap',
-              overflowX: 'auto',
             }}
           >
-            {navigationItems.map((item) => {
+            {coreNavigationItems.map((item) => {
+              const isActive = item.id === activeNavigationId;
+              return (
+                <a
+                  key={item.id}
+                  href={item.href}
+                  aria-current={isActive ? 'page' : undefined}
+                  onClick={(e) => {
+                    if (onNavigate) {
+                      e.preventDefault();
+                      onNavigate(item.id);
+                    }
+                  }}
+                  style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    padding: `${tokens.buttonSpacing.sm.py} ${tokens.buttonSpacing.sm.px}`,
+                    borderRadius: tokens.radius.md,
+                    fontFamily: tokens.typography.fontFamily,
+                    fontSize: tokens.typography.fontSizes.sm,
+                    color: isActive ? tokens.colors.primary : tokens.colors.textSecondary,
+                    backgroundColor: isActive ? tokens.colors.surfaceElevated : 'transparent',
+                    border: `1px solid ${isActive ? tokens.colors.primary : 'transparent'}`,
+                    textDecoration: 'none',
+                    whiteSpace: 'nowrap',
+                    transition: 'background-color 150ms ease, color 150ms ease',
+                  }}
+                >
+                  <span
+                    style={{
+                      fontWeight: isActive
+                        ? tokens.typography.fontWeights.semibold
+                        : tokens.typography.fontWeights.medium,
+                    }}
+                  >
+                    {item.labelVi}
+                  </span>
+                  <span
+                    style={{
+                      fontSize: '11px',
+                      opacity: 0.75,
+                      marginLeft: tokens.spacing.xs,
+                      fontFamily: tokens.typography.fontFamily,
+                    }}
+                  >
+                    ({item.label})
+                  </span>
+                </a>
+              );
+            })}
+
+            {/* Subtle Divider between Core Operations and Editions */}
+            <div
+              aria-hidden="true"
+              style={{
+                width: '1px',
+                height: '18px',
+                backgroundColor: tokens.colors.border,
+                margin: `0 ${tokens.spacing.xs}`,
+              }}
+            />
+
+            {editionNavigationItems.map((item) => {
               const isActive = item.id === activeNavigationId;
               return (
                 <a
@@ -229,9 +348,11 @@ export function AppHeader({
           <div style={{ display: 'flex', alignItems: 'center', gap: tokens.spacing.sm, flexShrink: 0 }}>
             {/* Mobile menu toggle button */}
             <button
+              ref={mobileToggleRef}
               type="button"
               className="openlibrary-mobile-toggle"
               aria-label="Toggle navigation menu"
+              aria-controls="mobile-navigation-drawer"
               aria-expanded={isMobileMenuOpen}
               onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
               style={{
@@ -255,10 +376,11 @@ export function AppHeader({
               Menu
             </button>
 
-            {/* Operator Desk Context & Quick Profile */}
+            {/* Operator Desk Context & Quick Profile (Desktop Only) */}
             <div
               role="region"
               aria-label="Account"
+              className="openlibrary-desktop-account"
               style={{
                 display: 'flex',
                 alignItems: 'center',
@@ -367,6 +489,8 @@ export function AppHeader({
           }}
         >
           <div
+            id="mobile-navigation-drawer"
+            ref={mobileDrawerRef}
             role="dialog"
             aria-modal="true"
             aria-label="Mobile Navigation Menu"
@@ -423,7 +547,10 @@ export function AppHeader({
               <button
                 type="button"
                 aria-label="Đóng menu / Close menu"
-                onClick={() => setIsMobileMenuOpen(false)}
+                onClick={() => {
+                  setIsMobileMenuOpen(false);
+                  mobileToggleRef.current?.focus();
+                }}
                 style={{
                   background: 'none',
                   border: 'none',
@@ -438,7 +565,55 @@ export function AppHeader({
               </button>
             </div>
 
-            {/* Drawer Nav Items List - 1 column layout, touch-friendly min 48px height */}
+            {/* Operator Desk Context Inside Drawer for Mobile */}
+            <div
+              role="region"
+              aria-label="Account details"
+              style={{
+                margin: `${tokens.spacing.md} ${tokens.spacing.md} 0 ${tokens.spacing.md}`,
+                padding: tokens.spacing.md,
+                backgroundColor: tokens.colors.surfaceAlt,
+                borderRadius: tokens.radius.md,
+                border: `1px solid ${tokens.colors.borderMuted}`,
+                display: 'flex',
+                alignItems: 'center',
+                gap: tokens.spacing.sm,
+              }}
+            >
+              <div
+                aria-hidden="true"
+                style={{
+                  width: '10px',
+                  height: '10px',
+                  borderRadius: tokens.radius.full,
+                  backgroundColor: tokens.colors.status.success.color,
+                  flexShrink: 0,
+                }}
+              />
+              <div style={{ display: 'flex', flexDirection: 'column' }}>
+                <span
+                  style={{
+                    fontFamily: tokens.typography.fontFamily,
+                    fontSize: tokens.typography.fontSizes.sm,
+                    fontWeight: tokens.typography.fontWeights.semibold,
+                    color: tokens.colors.textPrimary,
+                  }}
+                >
+                  {operatorDeskName}
+                </span>
+                <span
+                  style={{
+                    fontFamily: tokens.typography.fontFamily,
+                    fontSize: tokens.typography.fontSizes.xs,
+                    color: tokens.colors.textMuted,
+                  }}
+                >
+                  Core Edition (Operate)
+                </span>
+              </div>
+            </div>
+
+            {/* Drawer Nav Items List - Categorized by Core vs Editions */}
             <nav
               aria-label="Mobile navigation"
               style={{
@@ -447,73 +622,178 @@ export function AppHeader({
                 padding: tokens.spacing.md,
                 display: 'flex',
                 flexDirection: 'column',
-                gap: tokens.spacing.sm,
+                gap: tokens.spacing.md,
               }}
             >
-              {navigationItems.map((item) => {
-                const isActive = item.id === activeNavigationId;
-                return (
-                  <a
-                    key={item.id}
-                    href={item.href}
-                    aria-current={isActive ? 'page' : undefined}
-                    onClick={(e) => {
-                      if (onNavigate) {
-                        e.preventDefault();
-                        onNavigate(item.id);
-                      }
-                      setIsMobileMenuOpen(false);
-                    }}
-                    style={{
-                      display: 'flex',
-                      flexDirection: 'column',
-                      justifyContent: 'center',
-                      minHeight: '52px',
-                      padding: `${tokens.spacing.sm} ${tokens.spacing.md}`,
-                      borderRadius: tokens.radius.md,
-                      backgroundColor: isActive ? tokens.colors.surfaceElevated : tokens.colors.surfaceAlt,
-                      border: `1px solid ${isActive ? tokens.colors.primary : tokens.colors.borderMuted}`,
-                      textDecoration: 'none',
-                      transition: 'background-color 150ms ease',
-                    }}
-                  >
-                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                      <span
+              {/* Core Operations Section */}
+              <div>
+                <span
+                  style={{
+                    display: 'block',
+                    fontFamily: tokens.typography.fontFamily,
+                    fontSize: '11px',
+                    fontWeight: tokens.typography.fontWeights.bold,
+                    color: tokens.colors.textMuted,
+                    letterSpacing: '0.05em',
+                    marginBottom: tokens.spacing.xs,
+                    paddingLeft: tokens.spacing.xs,
+                  }}
+                >
+                  VẬN HÀNH CỐT LÕI (CORE)
+                </span>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: tokens.spacing.xs }}>
+                  {coreNavigationItems.map((item) => {
+                    const isActive = item.id === activeNavigationId;
+                    return (
+                      <a
+                        key={item.id}
+                        href={item.href}
+                        aria-current={isActive ? 'page' : undefined}
+                        onClick={(e) => {
+                          if (onNavigate) {
+                            e.preventDefault();
+                            onNavigate(item.id);
+                          }
+                          setIsMobileMenuOpen(false);
+                          mobileToggleRef.current?.focus();
+                        }}
                         style={{
-                          fontFamily: tokens.typography.fontFamily,
-                          fontSize: tokens.typography.fontSizes.sm,
-                          fontWeight: isActive
-                            ? tokens.typography.fontWeights.bold
-                            : tokens.typography.fontWeights.semibold,
-                          color: isActive ? tokens.colors.primary : tokens.colors.textPrimary,
+                          display: 'flex',
+                          flexDirection: 'column',
+                          justifyContent: 'center',
+                          minHeight: '48px',
+                          padding: `${tokens.spacing.sm} ${tokens.spacing.md}`,
+                          borderRadius: tokens.radius.md,
+                          backgroundColor: isActive ? tokens.colors.surfaceElevated : tokens.colors.surfaceAlt,
+                          border: `1px solid ${isActive ? tokens.colors.primary : tokens.colors.borderMuted}`,
+                          textDecoration: 'none',
+                          transition: 'background-color 150ms ease',
                         }}
                       >
-                        {item.labelVi}
-                      </span>
-                      <span
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                          <span
+                            style={{
+                              fontFamily: tokens.typography.fontFamily,
+                              fontSize: tokens.typography.fontSizes.sm,
+                              fontWeight: isActive
+                                ? tokens.typography.fontWeights.bold
+                                : tokens.typography.fontWeights.semibold,
+                              color: isActive ? tokens.colors.primary : tokens.colors.textPrimary,
+                            }}
+                          >
+                            {item.labelVi}
+                          </span>
+                          <span
+                            style={{
+                              fontSize: '11px',
+                              color: tokens.colors.textMuted,
+                              fontFamily: tokens.typography.fontFamily,
+                            }}
+                          >
+                            {item.label}
+                          </span>
+                        </div>
+                        <span
+                          style={{
+                            fontFamily: tokens.typography.fontFamily,
+                            fontSize: tokens.typography.fontSizes.xs,
+                            color: tokens.colors.textSecondary,
+                            marginTop: '2px',
+                            lineHeight: 1.3,
+                          }}
+                        >
+                          {item.descriptionVi}
+                        </span>
+                      </a>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* Editions Section */}
+              <div>
+                <span
+                  style={{
+                    display: 'block',
+                    fontFamily: tokens.typography.fontFamily,
+                    fontSize: '11px',
+                    fontWeight: tokens.typography.fontWeights.bold,
+                    color: tokens.colors.textMuted,
+                    letterSpacing: '0.05em',
+                    marginBottom: tokens.spacing.xs,
+                    paddingLeft: tokens.spacing.xs,
+                  }}
+                >
+                  MỞ RỘNG PHÂN HỆ (EDITIONS)
+                </span>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: tokens.spacing.xs }}>
+                  {editionNavigationItems.map((item) => {
+                    const isActive = item.id === activeNavigationId;
+                    return (
+                      <a
+                        key={item.id}
+                        href={item.href}
+                        aria-current={isActive ? 'page' : undefined}
+                        onClick={(e) => {
+                          if (onNavigate) {
+                            e.preventDefault();
+                            onNavigate(item.id);
+                          }
+                          setIsMobileMenuOpen(false);
+                          mobileToggleRef.current?.focus();
+                        }}
                         style={{
-                          fontSize: '11px',
-                          color: tokens.colors.textMuted,
-                          fontFamily: tokens.typography.fontFamily,
+                          display: 'flex',
+                          flexDirection: 'column',
+                          justifyContent: 'center',
+                          minHeight: '48px',
+                          padding: `${tokens.spacing.sm} ${tokens.spacing.md}`,
+                          borderRadius: tokens.radius.md,
+                          backgroundColor: isActive ? tokens.colors.surfaceElevated : tokens.colors.surfaceAlt,
+                          border: `1px solid ${isActive ? tokens.colors.primary : tokens.colors.borderMuted}`,
+                          textDecoration: 'none',
+                          transition: 'background-color 150ms ease',
                         }}
                       >
-                        {item.label}
-                      </span>
-                    </div>
-                    <span
-                      style={{
-                        fontFamily: tokens.typography.fontFamily,
-                        fontSize: tokens.typography.fontSizes.xs,
-                        color: tokens.colors.textSecondary,
-                        marginTop: '2px',
-                        lineHeight: 1.3,
-                      }}
-                    >
-                      {item.descriptionVi}
-                    </span>
-                  </a>
-                );
-              })}
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                          <span
+                            style={{
+                              fontFamily: tokens.typography.fontFamily,
+                              fontSize: tokens.typography.fontSizes.sm,
+                              fontWeight: isActive
+                                ? tokens.typography.fontWeights.bold
+                                : tokens.typography.fontWeights.semibold,
+                              color: isActive ? tokens.colors.primary : tokens.colors.textPrimary,
+                            }}
+                          >
+                            {item.labelVi}
+                          </span>
+                          <span
+                            style={{
+                              fontSize: '11px',
+                              color: tokens.colors.textMuted,
+                              fontFamily: tokens.typography.fontFamily,
+                            }}
+                          >
+                            {item.label}
+                          </span>
+                        </div>
+                        <span
+                          style={{
+                            fontFamily: tokens.typography.fontFamily,
+                            fontSize: tokens.typography.fontSizes.xs,
+                            color: tokens.colors.textSecondary,
+                            marginTop: '2px',
+                            lineHeight: 1.3,
+                          }}
+                        >
+                          {item.descriptionVi}
+                        </span>
+                      </a>
+                    );
+                  })}
+                </div>
+              </div>
             </nav>
 
             {/* Drawer Footer Actions */}
