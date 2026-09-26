@@ -395,25 +395,36 @@ def test_operational_runbooks() -> None:
 
 
 def test_live_smoke_probes(base_url: str | None = None) -> None:
-    """Execute live probes against running HTTP service if available."""
+    """Execute live and readiness probes against running HTTP service if available (M-02)."""
     import urllib.request
     import urllib.error
 
     url = base_url or os.environ.get("OPENLIBRARY_LIVE_URL", "http://localhost:8000")
-    try:
-        req = urllib.request.Request(f"{url}/api/v1/health/live", headers={"Accept": "application/json"})
-        with urllib.request.urlopen(req, timeout=3) as resp:
-            if resp.status != 200:
-                raise VerificationError(f"Live health probe returned non-200 status: {resp.status}")
-    except (urllib.error.URLError, TimeoutError, ConnectionRefusedError, OSError):
-        # Service is not currently running locally on port 8000; log non-blocking notice unless strictly required
-        if os.environ.get("OPENLIBRARY_REQUIRE_LIVE_PROBES") == "1":
-            raise VerificationError(f"Live probe required but unable to connect to {url}")
+    for endpoint in ("/api/v1/health/live", "/api/v1/health/ready"):
+        try:
+            req = urllib.request.Request(
+                f"{url}{endpoint}", headers={"Accept": "application/json"}
+            )
+            with urllib.request.urlopen(req, timeout=3) as resp:
+                if resp.status != 200:
+                    raise VerificationError(
+                        f"Health probe {endpoint} returned non-200 status: {resp.status}"
+                    )
+        except (
+            urllib.error.URLError,
+            TimeoutError,
+            ConnectionRefusedError,
+            OSError,
+        ) as err:
+            # Service is not currently running locally on port 8000; log non-blocking notice unless strictly required
+            if os.environ.get("OPENLIBRARY_REQUIRE_LIVE_PROBES") == "1":
+                raise VerificationError(
+                    f"Live probe required for {endpoint} but unable to connect to {url}: {err}"
+                ) from err
 
 
 def main() -> int:
     """Run all checks and report status."""
-    import os
 
     checks = [
         (

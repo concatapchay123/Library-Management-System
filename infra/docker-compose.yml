@@ -79,14 +79,18 @@ services:
       - >-
         python scripts/run_migrations.py && python -m pytest
         tests/integration/ops/test_audit_outbox.py
-        tests/integration/auth/test_login_persistence.py -q
+        tests/integration/auth/test_login_persistence.py
+        tests/integration/ -q
     environment:
       DATABASE_BOOTSTRAP_URL: ${DATABASE_BOOTSTRAP_URL:-}
       DATABASE_MIGRATION_URL: ${DATABASE_MIGRATION_URL:-}
       DATABASE_RUNTIME_URL: ${DATABASE_RUNTIME_URL:-}
+      REDIS_URL: ${REDIS_URL:-}
     depends_on:
       database-init:
         condition: service_completed_successfully
+      redis:
+        condition: service_healthy
     networks:
       - internal
 
@@ -120,6 +124,7 @@ services:
       JWT_PUBLIC_KEYS_JSON: ${JWT_PUBLIC_KEYS_JSON:?JWT_PUBLIC_KEYS_JSON is required}
       JWT_ACCESS_TOKEN_TTL_SECONDS: ${JWT_ACCESS_TOKEN_TTL_SECONDS:?JWT_ACCESS_TOKEN_TTL_SECONDS is required}
       REFRESH_TOKEN_TTL_SECONDS: ${REFRESH_TOKEN_TTL_SECONDS:?REFRESH_TOKEN_TTL_SECONDS is required}
+      PAYMENT_WEBHOOK_SECRET: ${PAYMENT_WEBHOOK_SECRET:-development-payment-secret}
     depends_on:
       database:
         condition: service_healthy
@@ -129,7 +134,7 @@ services:
       - internal
       - edge
     healthcheck:
-      test: ["CMD", "python", "-c", "from urllib.request import urlopen; response = urlopen('http://localhost:8000/api/v1/health/live'); raise SystemExit(response.status != 200)"]
+      test: ["CMD", "python", "-c", "from urllib.request import urlopen; response = urlopen('http://localhost:8000/api/v1/health/ready'); raise SystemExit(response.status != 200)"]
       interval: 10s
       timeout: 5s
       retries: 6

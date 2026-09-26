@@ -941,12 +941,16 @@ def handle_loan_returned_allocation(
 
     org_id = resolved_event.organization_id
     payload: dict[str, Any] = {}
-    if hasattr(resolved_event, "payload_json") and getattr(resolved_event, "payload_json"):
+    if hasattr(resolved_event, "payload_json") and getattr(
+        resolved_event, "payload_json"
+    ):
         try:
             payload = json.loads(getattr(resolved_event, "payload_json"))
         except Exception:
             payload = {}
-    elif hasattr(resolved_event, "payload") and isinstance(getattr(resolved_event, "payload"), dict):
+    elif hasattr(resolved_event, "payload") and isinstance(
+        getattr(resolved_event, "payload"), dict
+    ):
         payload = getattr(resolved_event, "payload")
 
     raw_copy_id = payload.get("copy_id")

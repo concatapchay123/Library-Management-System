@@ -50,12 +50,13 @@ export function ChangePasswordModal({
 
   if (!isOpen) return null;
 
-  // Realtime password checklist validation
-  const hasMinLength = newPassword.length >= 8;
+  // Realtime password checklist validation (aligned with server 12+ char requirement, M-06)
+  const hasMinLength = newPassword.length >= 12;
   const hasUpperCase = /[A-Z]/.test(newPassword);
   const hasSpecialOrDigit = /[0-9!@#$%^&*()_+\-=[\]{};':"\\|,.<>/?]/.test(newPassword);
+  const isDifferentFromCurrent = currentPassword.length === 0 || newPassword !== currentPassword;
   const passwordsMatch = newPassword.length > 0 && newPassword === confirmPassword;
-  const isFormValid = hasMinLength && hasUpperCase && hasSpecialOrDigit && passwordsMatch && currentPassword.length > 0;
+  const isFormValid = hasMinLength && hasUpperCase && hasSpecialOrDigit && isDifferentFromCurrent && passwordsMatch && currentPassword.length > 0;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -271,7 +272,7 @@ export function ChangePasswordModal({
               required
               value={newPassword}
               onChange={(e) => setNewPassword(e.target.value)}
-              placeholder="Tối thiểu 8 ký tự, có chữ hoa và ký tự đặc biệt..."
+              placeholder="Tối thiểu 12 ký tự, có chữ hoa và ký tự đặc biệt..."
               style={{
                 padding: `${tokens.buttonSpacing.sm.py} ${tokens.buttonSpacing.sm.px}`,
                 borderRadius: tokens.radius.md,
@@ -333,7 +334,7 @@ export function ChangePasswordModal({
             }}
           >
             <div style={{ color: hasMinLength ? tokens.colors.status.success.color : tokens.colors.textMuted }}>
-              {hasMinLength ? '✓' : '○'} Tối thiểu 8 ký tự (At least 8 characters)
+              {hasMinLength ? '✓' : '○'} Tối thiểu 12 ký tự (At least 12 characters)
             </div>
             <div style={{ color: hasUpperCase ? tokens.colors.status.success.color : tokens.colors.textMuted }}>
               {hasUpperCase ? '✓' : '○'} Có ít nhất 1 chữ in hoa (At least 1 uppercase letter)

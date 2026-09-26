@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { TokenProvider } from '../shared/tokens';
 import { AppShell } from './shell/AppShell';
-import { SessionProvider, ProtectedRoute, LoginForm } from '../features/auth';
+import { SessionProvider, ProtectedRoute, LoginForm, useSession } from '../features/auth';
 import { CatalogSearch } from '../features/catalog';
 import { InventoryWorkspace } from '../features/inventory';
 import { CirculationDesk } from '../features/circulation';
@@ -40,6 +40,7 @@ function resolveHashTab(hashStr: string): string {
 }
 
 function OperateModeDesk() {
+  const { accessToken, logout } = useSession();
   const [activeTab, setActiveTab] = useState(() => {
     if (typeof window !== 'undefined' && window.location.hash) {
       return resolveHashTab(window.location.hash);
@@ -90,6 +91,8 @@ function OperateModeDesk() {
       activeNavigationId={activeTab}
       onNavigate={(id) => setActiveTab(id)}
       operatorDeskName="Librarian Desk"
+      accessToken={accessToken}
+      onLogout={logout}
     >
       {isCatalog ? (
         <CatalogSearch />

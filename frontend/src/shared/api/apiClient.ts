@@ -10,6 +10,7 @@ import {
   OrganizationSettings,
   Book,
   BookPage,
+  BookWrite,
   CatalogSearchParams,
   Location,
   LocationPage,
@@ -274,6 +275,8 @@ export function createApiClient(config: ApiClientConfig = {}) {
     },
     getById: (bookId: string, options?: RequestOptions) =>
       get<Book>(`/books/${encodeURIComponent(bookId)}`, options),
+    create: (data: BookWrite, options?: RequestOptions) =>
+      post<Book>('/books', data, options),
   };
 
   const locations = {

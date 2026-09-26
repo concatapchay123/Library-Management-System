@@ -43,4 +43,3 @@ frontend/dist/
 .DS_Store
 .worktrees/
 graphify-out/
-docs/

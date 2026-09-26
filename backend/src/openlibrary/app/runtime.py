@@ -66,6 +66,9 @@ from openlibrary.modules.public_library.infrastructure import (
 from openlibrary.modules.public_library.policy import (
     PublicLibraryBorrowingPolicyAdapter,
 )
+from openlibrary.modules.public_library.providers import (
+    EnvironmentPaymentProviderAdapter,
+)
 
 
 class ConfigurationError(ValueError):
@@ -119,14 +122,19 @@ class RuntimeSettings:
 
 @dataclass(frozen=True, slots=True)
 class WorkerSettings:
-    """The worker's narrow runtime contract excludes HTTP signing credentials."""
+    """The worker's runtime contract requires database and broker configuration."""
 
     redis_url: str
+    database_runtime_url: str | None = None
 
     @classmethod
     def from_environ(cls, environ: Mapping[str, str]) -> "WorkerSettings":
-        """Parse only the worker's broker configuration."""
-        return cls(redis_url=_required(environ, "REDIS_URL"))
+        """Parse the worker's broker and database configuration."""
+        return cls(
+            redis_url=_required(environ, "REDIS_URL"),
+            database_runtime_url=environ.get("DATABASE_RUNTIME_URL", "").strip()
+            or None,
+        )
 
 
 def create_app_from_environ(
@@ -163,11 +171,13 @@ def create_app_from_environ(
         store=public_library_store,
         authorizer=authorization,
     )
+    payment_provider = EnvironmentPaymentProviderAdapter.from_environ(environ)
     public_library_finance_service = PublicLibraryFinanceService(
         store=public_library_store,
         authorizer=authorization,
         transaction=audited_tx,
         connection_provider=tenant_context.connection,
+        payment_provider=payment_provider,
     )
     education_policy = EducationBorrowerPolicyAdapter(
         store=education_store,
@@ -202,9 +212,13 @@ def create_app_from_environ(
         redis_url=settings.redis_url,
         metrics_store=metrics_store,
     )
+    active_readiness = readiness_probe or create_runtime_readiness_probe(
+        database_url=settings.database_runtime_url,
+        redis_url=settings.redis_url,
+    )
     app = create_app(
         AppConfig(
-            readiness_probe=readiness_probe or _dependencies_are_unverified,
+            readiness_probe=active_readiness,
             login_service=create_sqlserver_login_service(settings.database_runtime_url),
             access_tokens=access_tokens,
             refresh_sessions=RefreshSessionService(
@@ -303,6 +317,49 @@ def _access_tokens(settings: RuntimeSettings) -> AccessTokenService:
         )
     except ValueError as error:
         raise ConfigurationError("Invalid JWT signing configuration") from error
+
+
+def create_runtime_readiness_probe(
+    database_url: str,
+    redis_url: str,
+    timeout_seconds: float = 2.0,
+) -> ReadinessProbe:
+    """Probe critical dependencies (database and Redis) with a strict fail-closed timeout."""
+
+    def _probe() -> bool:
+        # 1. Database connectivity check
+        try:
+            from sqlalchemy import create_engine, text
+
+            engine = create_engine(database_url)
+            try:
+                with engine.connect() as conn:
+                    conn.execute(text("SELECT 1"))
+            finally:
+                engine.dispose()
+        except Exception:
+            return False
+
+        # 2. Redis broker check
+        try:
+            import redis
+
+            client = redis.Redis.from_url(
+                redis_url,
+                socket_timeout=timeout_seconds,
+                socket_connect_timeout=timeout_seconds,
+            )
+            try:
+                if not client.ping():
+                    return False
+            finally:
+                client.close()
+        except Exception:
+            return False
+
+        return True
+
+    return _probe
 
 
 def _dependencies_are_unverified() -> bool:

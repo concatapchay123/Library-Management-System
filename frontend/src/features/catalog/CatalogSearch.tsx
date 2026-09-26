@@ -11,6 +11,7 @@ import {
 } from '../../shared/components';
 import { AuthContext } from '../auth/context';
 import { BookDetail } from './BookDetail';
+import { CreateBookModal } from './CreateBookModal';
 import { CatalogFilterValues, CatalogViewStatus } from './types';
 
 export interface CatalogSearchProps {
@@ -57,7 +58,17 @@ export function CatalogSearch({ initialTitle = '', initialIsbn = '' }: CatalogSe
   // Detail inspection state
   const [selectedBook, setSelectedBook] = useState<Book | null>(null);
   const [isDetailOpen, setIsDetailOpen] = useState(false);
+  const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const lastTriggerRef = useRef<HTMLButtonElement | null>(null);
+
+  /**
+   * Prepend newly registered book to catalog results.
+   */
+  function handleBookCreated(newBook: Book) {
+    setItems((prev) => [newBook, ...prev]);
+    setStatus('success');
+    setHasSearched(true);
+  }
 
   /**
    * Executes a catalog search request.
@@ -271,6 +282,17 @@ export function CatalogSearch({ initialTitle = '', initialIsbn = '' }: CatalogSe
               disabled={status === 'loading'}
             >
               Clear Filters
+            </Button>
+
+            {/* Direct Book Registration (M-05) */}
+            <Button
+              type="button"
+              variant="secondary"
+              size="md"
+              onClick={() => setIsCreateModalOpen(true)}
+              disabled={status === 'loading'}
+            >
+              + Đăng Ký Sách Mới
             </Button>
           </div>
         </form>
@@ -512,6 +534,14 @@ export function CatalogSearch({ initialTitle = '', initialIsbn = '' }: CatalogSe
         isOpen={isDetailOpen}
         onClose={() => setIsDetailOpen(false)}
         triggerRef={lastTriggerRef}
+      />
+
+      {/* Direct Book Registration Modal (M-05) */}
+      <CreateBookModal
+        isOpen={isCreateModalOpen}
+        onClose={() => setIsCreateModalOpen(false)}
+        onSuccess={handleBookCreated}
+        accessToken={token}
       />
     </div>
   );

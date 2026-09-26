@@ -16,6 +16,7 @@ from openlibrary.modules.core.api.auth import (
 )
 from openlibrary.modules.core.application.access_tokens import AccessTokenService
 from openlibrary.modules.core.application.authorization import AuthorizationDenied
+from openlibrary.modules.core.infrastructure.rate_limiter import rate_limit
 from openlibrary.modules.core.infrastructure.tenancy import TenantRequestContext
 from openlibrary.modules.public_library.application import (
     PublicLibraryFinanceService,
@@ -477,8 +478,8 @@ def create_public_library_blueprint(
         except Exception as err:
             return _handle_public_library_error(err)
 
-    # Register handlers for /membership-plans matching OpenAPI contract
-    for route_base in ("/membership-plans",):
+    # Register handlers for /membership-plans matching OpenAPI contract and /plans alias
+    for route_base in ("/membership-plans", "/plans"):
         bp.add_url_rule(
             route_base,
             f"list_plans{route_base.replace('-', '_')}",
@@ -992,6 +993,9 @@ def create_public_library_blueprint(
             return _handle_public_library_error(err)
 
     @bp.post("/payments/webhooks/<provider>")
+    @rate_limit(
+        limit=100, window_seconds=60, key_prefix="payment:webhook", fail_closed=True
+    )
     def handle_payment_webhook(provider: str) -> Response:
         try:
             raw_org_id = request.args.get("organization_id") or request.headers.get(

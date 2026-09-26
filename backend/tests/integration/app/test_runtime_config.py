@@ -4,6 +4,7 @@ import json
 import os
 from collections.abc import Mapping
 from pathlib import Path
+import shutil
 import subprocess
 import warnings
 
@@ -182,6 +183,9 @@ def test_app_creation_defers_sql_engine_creation_until_login() -> None:
 
 def test_compose_requires_redis_url() -> None:
     """Compose must not silently replace the documented Redis connection URL."""
+    if shutil.which("docker") is None:
+        pytest.skip("Docker CLI is not installed or available in PATH.")
+
     environment = os.environ.copy()
     environment.update(valid_environment())
     environment["MSSQL_SA_PASSWORD"] = "LocalTestPassword!123"
@@ -203,6 +207,9 @@ def test_compose_requires_redis_url() -> None:
 
 def test_compose_keeps_migration_credentials_out_of_runtime_services() -> None:
     """The migration profile is the sole Compose path receiving elevated URLs."""
+    if shutil.which("docker") is None:
+        pytest.skip("Docker CLI is not installed or available in PATH.")
+
     environment = os.environ.copy()
     environment.update(valid_environment())
     environment.update(

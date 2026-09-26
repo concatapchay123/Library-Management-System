@@ -8,7 +8,9 @@ from pathlib import Path
 import sys
 
 
-HTTP_METHODS = frozenset({"delete", "get", "head", "options", "patch", "post", "put", "trace"})
+HTTP_METHODS = frozenset(
+    {"delete", "get", "head", "options", "patch", "post", "put", "trace"}
+)
 
 
 def load_contract(path: Path) -> Mapping[str, object]:
@@ -40,8 +42,14 @@ def find_breaking_changes(
             if candidate_operation is None:
                 changes.append(f"removed operation {label}")
                 continue
-            changes.extend(_required_parameter_changes(baseline_operation, candidate_operation, label))
-            changes.extend(_response_changes(baseline_operation, candidate_operation, label))
+            changes.extend(
+                _required_parameter_changes(
+                    baseline_operation, candidate_operation, label
+                )
+            )
+            changes.extend(
+                _response_changes(baseline_operation, candidate_operation, label)
+            )
     changes.extend(_schema_changes(baseline, candidate))
     return changes
 
@@ -60,7 +68,9 @@ def _required_parameter_changes(
     baseline_parameters = _parameters(baseline)
     changes: list[str] = []
     for key, parameter in _parameters(candidate).items():
-        if parameter.get("required") and not baseline_parameters.get(key, {}).get("required"):
+        if parameter.get("required") and not baseline_parameters.get(key, {}).get(
+            "required"
+        ):
             location, name = key
             changes.append(f"added required parameter {location} {name} to {label}")
     if _mapping(candidate.get("requestBody")).get("required") and not _mapping(
@@ -70,7 +80,9 @@ def _required_parameter_changes(
     return changes
 
 
-def _parameters(operation: Mapping[str, object]) -> dict[tuple[str, str], Mapping[str, object]]:
+def _parameters(
+    operation: Mapping[str, object],
+) -> dict[tuple[str, str], Mapping[str, object]]:
     parameters: dict[tuple[str, str], Mapping[str, object]] = {}
     raw_parameters = operation.get("parameters", [])
     if not isinstance(raw_parameters, list):
@@ -128,7 +140,11 @@ def _mapping(value: object) -> Mapping[str, object]:
 
 
 def _strings(value: object) -> set[str]:
-    return {item for item in value if isinstance(item, str)} if isinstance(value, list) else set()
+    return (
+        {item for item in value if isinstance(item, str)}
+        if isinstance(value, list)
+        else set()
+    )
 
 
 def main(arguments: list[str]) -> int:

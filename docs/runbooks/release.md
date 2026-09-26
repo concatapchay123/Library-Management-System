@@ -109,7 +109,7 @@ docker compose -f infra/docker-compose.yml --env-file production.env ps database
 Execute the one-shot migration job using migration-only database identity (`openlibrary_migrator`). This job bootstraps database identities, executes all Alembic revisions (`head`), and verifies runtime identity restrictions (`verify_runtime_restrictions`):
 
 ```bash
-docker compose -f infra/docker-compose.yml --profile production-migration --env-file production.env run --rm migration
+docker compose -f infra/docker-compose.yml --profile production-migration --env-file production.env run --rm production-migration
 ```
 
 Verify output confirmation:

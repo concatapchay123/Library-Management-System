@@ -9,6 +9,8 @@ export interface AppShellProps {
   activeNavigationId?: string;
   onNavigate?: (id: string) => void;
   operatorDeskName?: string;
+  accessToken?: string | null;
+  onLogout?: () => void;
 }
 
 /**
@@ -28,6 +30,8 @@ export function AppShell({
   activeNavigationId = 'circulation',
   onNavigate,
   operatorDeskName = 'Librarian Desk',
+  accessToken,
+  onLogout,
 }: AppShellProps) {
   const tokens = useTokens();
   const [isSkipLinkFocused, setIsSkipLinkFocused] = useState(false);
@@ -75,6 +79,8 @@ export function AppShell({
         activeNavigationId={activeNavigationId}
         onNavigate={onNavigate}
         operatorDeskName={operatorDeskName}
+        accessToken={accessToken}
+        onLogout={onLogout}
       />
 
       {/* 3. Main Landmark */}

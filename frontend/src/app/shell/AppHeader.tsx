@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useTokens } from '../../shared/tokens';
 import { navigationItems } from '../navigation/navigationModel';
 import { ChangePasswordModal } from '../../features/auth/ChangePasswordModal';
+import { UserProfileModal } from '../../features/auth/UserProfileModal';
 
 export interface AppHeaderProps {
   activeNavigationId?: string;
@@ -33,6 +34,7 @@ export function AppHeader({
   const tokens = useTokens();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isPasswordModalOpen, setIsPasswordModalOpen] = useState(false);
+  const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
 
   // Close mobile drawer on Escape key
   useEffect(() => {
@@ -301,6 +303,27 @@ export function AppHeader({
                 </span>
               </div>
 
+              {/* Profile inspection shortcut button */}
+              <button
+                type="button"
+                onClick={() => setIsProfileModalOpen(true)}
+                title="Hồ sơ cán bộ / Operator profile"
+                aria-label="Hồ sơ cán bộ / Operator Profile"
+                style={{
+                  padding: `4px 8px`,
+                  backgroundColor: 'transparent',
+                  border: `1px solid ${tokens.colors.border}`,
+                  borderRadius: tokens.radius.sm,
+                  color: tokens.colors.textSecondary,
+                  fontSize: '11px',
+                  cursor: 'pointer',
+                  fontFamily: tokens.typography.fontFamily,
+                  marginLeft: tokens.spacing.xs,
+                }}
+              >
+                👤
+              </button>
+
               {/* Password change shortcut button */}
               <button
                 type="button"
@@ -507,6 +530,27 @@ export function AppHeader({
                 type="button"
                 onClick={() => {
                   setIsMobileMenuOpen(false);
+                  setIsProfileModalOpen(true);
+                }}
+                style={{
+                  padding: `${tokens.buttonSpacing.md.py} ${tokens.buttonSpacing.md.px}`,
+                  borderRadius: tokens.radius.md,
+                  border: `1px solid ${tokens.colors.border}`,
+                  backgroundColor: tokens.colors.surfaceAlt,
+                  color: tokens.colors.textPrimary,
+                  fontFamily: tokens.typography.fontFamily,
+                  fontSize: tokens.typography.fontSizes.sm,
+                  fontWeight: tokens.typography.fontWeights.medium,
+                  cursor: 'pointer',
+                  textAlign: 'center',
+                }}
+              >
+                👤 Hồ Sơ Cán Bộ (Profile)
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setIsMobileMenuOpen(false);
                   setIsPasswordModalOpen(true);
                 }}
                 style={{
@@ -556,6 +600,13 @@ export function AppHeader({
       <ChangePasswordModal
         isOpen={isPasswordModalOpen}
         onClose={() => setIsPasswordModalOpen(false)}
+        accessToken={accessToken}
+      />
+
+      {/* Operator User Profile Modal (M-05) */}
+      <UserProfileModal
+        isOpen={isProfileModalOpen}
+        onClose={() => setIsProfileModalOpen(false)}
         accessToken={accessToken}
       />
     </>

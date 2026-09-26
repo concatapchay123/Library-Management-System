@@ -26,6 +26,7 @@ from openlibrary.modules.core.application.refresh_sessions import (
     RefreshResult,
     RefreshSessionService,
 )
+from openlibrary.modules.core.infrastructure.rate_limiter import rate_limit
 from openlibrary.modules.core.infrastructure.tenancy import TenantRequestContext
 
 
@@ -43,6 +44,7 @@ def create_auth_blueprint(
     auth = Blueprint("auth", __name__, url_prefix="/api/v1/auth")
 
     @auth.post("/login")
+    @rate_limit(limit=10, window_seconds=60, key_prefix="auth:login", fail_closed=True)
     def login() -> Response:
         payload = request.get_json(silent=True)
         body = payload if isinstance(payload, dict) else {}
@@ -57,6 +59,9 @@ def create_auth_blueprint(
         return _refresh_response(refresh_sessions.start(result), access_tokens)
 
     @auth.post("/refresh")
+    @rate_limit(
+        limit=30, window_seconds=60, key_prefix="auth:refresh", fail_closed=True
+    )
     def refresh() -> Response:
         try:
             result = refresh_sessions.rotate(
@@ -102,6 +107,9 @@ def create_auth_blueprint(
         )
 
     @auth.post("/password/change")
+    @rate_limit(
+        limit=5, window_seconds=60, key_prefix="auth:change_password", fail_closed=True
+    )
     @_require_principal(access_tokens, tenant_request_context)
     def change_password() -> Response:
         try:

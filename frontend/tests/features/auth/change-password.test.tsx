@@ -65,12 +65,42 @@ describe('ChangePasswordModal Component (M-05 & M-07)', () => {
     fireEvent.change(newPwdInput, { target: { value: 'short' } });
     expect(submitBtn).toBeDisabled();
 
-    // Step 3: Satisfy all rules: 8+ chars, uppercase, digit/special
+    // Step 3: Satisfy all rules: 12+ chars, uppercase, digit/special
     fireEvent.change(newPwdInput, { target: { value: 'NewSecretPass123!' } });
     expect(submitBtn).toBeDisabled(); // Passwords don't match yet
 
     // Step 4: Fill matching confirmation
     fireEvent.change(confirmPwdInput, { target: { value: 'NewSecretPass123!' } });
+    expect(submitBtn).not.toBeDisabled();
+  });
+
+  it('rejects passwords shorter than 12 characters or identical to current password', () => {
+    render(
+      <TokenProvider>
+        <ChangePasswordModal isOpen={true} onClose={vi.fn()} />
+      </TokenProvider>
+    );
+
+    const currentPwdInput = screen.getByLabelText(/mật khẩu hiện tại/i);
+    const newPwdInput = screen.getByLabelText(/^mật khẩu mới/i);
+    const confirmPwdInput = screen.getByLabelText(/xác nhận mật khẩu mới/i);
+    const submitBtn = screen.getByRole('button', { name: /cập nhật mật khẩu/i });
+
+    fireEvent.change(currentPwdInput, { target: { value: 'CurrentPass123!' } });
+
+    // 11 characters (valid uppercase/special, but under 12)
+    fireEvent.change(newPwdInput, { target: { value: 'Short9Char!' } });
+    fireEvent.change(confirmPwdInput, { target: { value: 'Short9Char!' } });
+    expect(submitBtn).toBeDisabled();
+
+    // 12 characters but identical to current password
+    fireEvent.change(newPwdInput, { target: { value: 'CurrentPass123!' } });
+    fireEvent.change(confirmPwdInput, { target: { value: 'CurrentPass123!' } });
+    expect(submitBtn).toBeDisabled();
+
+    // 12 characters and different from current password
+    fireEvent.change(newPwdInput, { target: { value: 'ValidPass123!' } });
+    fireEvent.change(confirmPwdInput, { target: { value: 'ValidPass123!' } });
     expect(submitBtn).not.toBeDisabled();
   });
 
