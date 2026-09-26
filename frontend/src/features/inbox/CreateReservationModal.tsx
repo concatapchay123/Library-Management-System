@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useTokens } from '../../shared/tokens';
 import { apiClient, Reservation, ReservationCreateWrite } from '../../shared/api';
-import { Button, Input } from '../../shared/components';
+import { Button, Input, Dialog } from '../../shared/components';
 
 export interface CreateReservationModalProps {
   isOpen: boolean;
@@ -14,12 +14,13 @@ export interface CreateReservationModalProps {
  * Accessible Modal Dialog for Creating Book Hold / Reservation (M-05).
  *
  * Implements strict design invariants:
+ * - Built on top of accessible Dialog primitive with full Tab/Shift+Tab focus trap
  * - Single-column vertical form (no multi-column zigzag)
  * - Semantic spacing progression (Label 12px, Field 24px, Submit 32px)
  * - Only 1 primary action button (Von Restorff Isolation)
  * - 2:1 button whitespace padding ratio
- * - Actionable button labels (Tạo Đặt Giữ / Place Hold vs Hủy / Cancel)
- * - Inline error alerts and full keyboard accessibility (Esc + focus management)
+ * - Actionable button labels (Tạo Đặt Giữ vs Hủy)
+ * - Inline error alerts and full keyboard accessibility
  */
 export function CreateReservationModal({
   isOpen,
@@ -43,23 +44,8 @@ export function CreateReservationModal({
       setRequesterUserId('');
       setErrorMessage(null);
       setIsSubmitting(false);
-      setTimeout(() => {
-        initialInputRef.current?.focus();
-      }, 50);
     }
   }, [isOpen]);
-
-  useEffect(() => {
-    function handleKeyDown(e: KeyboardEvent) {
-      if (e.key === 'Escape' && isOpen) {
-        onClose();
-      }
-    }
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [isOpen, onClose]);
-
-  if (!isOpen) return null;
 
   const isFormValid = bookId.trim().length > 0;
 
@@ -90,111 +76,21 @@ export function CreateReservationModal({
   }
 
   return (
-    <div
-      role="presentation"
-      onClick={onClose}
-      style={{
-        position: 'fixed',
-        top: 0,
-        left: 0,
-        right: 0,
-        bottom: 0,
-        backgroundColor: 'rgba(18, 18, 18, 0.65)',
-        backdropFilter: 'blur(2px)',
-        zIndex: 1000,
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        padding: tokens.spacing.md,
-        boxSizing: 'border-box',
-      }}
+    <Dialog
+      isOpen={isOpen}
+      onClose={onClose}
+      title="Đặt Giữ Sách Mới"
+      description="Place New Book Reservation & Queue Hold"
+      maxWidth="560px"
     >
-      <div
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="create-reservation-title"
-        onClick={(e) => e.stopPropagation()}
+      <form
+        onSubmit={handleSubmit}
         style={{
-          backgroundColor: tokens.colors.surface,
-          borderRadius: tokens.radius.lg,
-          border: `1px solid ${tokens.colors.border}`,
-          boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.2), 0 8px 10px -6px rgba(0, 0, 0, 0.2)',
-          width: '100%',
-          maxWidth: '560px',
-          boxSizing: 'border-box',
-          overflow: 'hidden',
           display: 'flex',
           flexDirection: 'column',
+          gap: tokens.spacing.semantic.groupToGroup,
         }}
       >
-        {/* Modal Header */}
-        <div
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-            padding: `${tokens.spacing.lg} ${tokens.spacing.xl}`,
-            borderBottom: `1px solid ${tokens.colors.border}`,
-            backgroundColor: tokens.colors.surfaceAlt,
-          }}
-        >
-          <div style={{ display: 'flex', alignItems: 'center', gap: tokens.spacing.sm }}>
-            <span aria-hidden="true" style={{ fontSize: '20px' }}>
-              📌
-            </span>
-            <div>
-              <h2
-                id="create-reservation-title"
-                style={{
-                  margin: 0,
-                  fontSize: tokens.typography.fontSizes.lg,
-                  fontWeight: tokens.typography.fontWeights.semibold,
-                  color: tokens.colors.textPrimary,
-                  fontFamily: tokens.typography.fontFamily,
-                }}
-              >
-                Đặt Giữ Sách Mới
-              </h2>
-              <p
-                style={{
-                  margin: 0,
-                  fontSize: tokens.typography.fontSizes.xs,
-                  color: tokens.colors.textMuted,
-                  fontFamily: tokens.typography.fontFamily,
-                }}
-              >
-                Place New Book Reservation &amp; Queue Hold
-              </p>
-            </div>
-          </div>
-          <button
-            type="button"
-            onClick={onClose}
-            aria-label="Đóng"
-            style={{
-              background: 'transparent',
-              border: 'none',
-              fontSize: '18px',
-              cursor: 'pointer',
-              color: tokens.colors.textMuted,
-              padding: tokens.spacing.xs,
-              borderRadius: tokens.radius.sm,
-            }}
-          >
-            ✕
-          </button>
-        </div>
-
-        {/* Modal Body / Form */}
-        <form
-          onSubmit={handleSubmit}
-          style={{
-            padding: `${tokens.spacing.xl} ${tokens.spacing.xl}`,
-            display: 'flex',
-            flexDirection: 'column',
-            gap: tokens.spacing.semantic.groupToGroup,
-          }}
-        >
           {errorMessage && (
             <div
               role="alert"
@@ -280,7 +176,6 @@ export function CreateReservationModal({
             </Button>
           </div>
         </form>
-      </div>
-    </div>
+    </Dialog>
   );
 }

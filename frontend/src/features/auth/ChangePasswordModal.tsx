@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useTokens } from '../../shared/tokens';
 import { changePassword } from './authApi';
+import { Dialog } from '../../shared/components';
 
 export interface ChangePasswordModalProps {
   isOpen: boolean;
@@ -32,23 +33,8 @@ export function ChangePasswordModal({
       setConfirmPassword('');
       setErrorMessage(null);
       setSuccessMessage(null);
-      setTimeout(() => {
-        initialInputRef.current?.focus();
-      }, 50);
     }
   }, [isOpen]);
-
-  useEffect(() => {
-    function handleKeyDown(e: KeyboardEvent) {
-      if (e.key === 'Escape' && isOpen) {
-        onClose();
-      }
-    }
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [isOpen, onClose]);
-
-  if (!isOpen) return null;
 
   // Realtime password checklist validation (aligned with server 12+ char requirement, M-06)
   const hasMinLength = newPassword.length >= 12;
@@ -88,103 +74,21 @@ export function ChangePasswordModal({
   };
 
   return (
-    <div
-      role="presentation"
-      onClick={onClose}
-      style={{
-        position: 'fixed',
-        top: 0,
-        left: 0,
-        right: 0,
-        bottom: 0,
-        backgroundColor: 'rgba(18, 18, 18, 0.65)',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        zIndex: 1000,
-        padding: tokens.spacing.md,
-      }}
+    <Dialog
+      isOpen={isOpen}
+      onClose={onClose}
+      title="Đổi Mật Khẩu (Change Password)"
+      description="Cập nhật mật khẩu tài khoản thủ thư / Operator password update"
+      maxWidth="480px"
     >
-      <div
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="change-password-modal-title"
-        onClick={(e) => e.stopPropagation()}
+      <form
+        onSubmit={handleSubmit}
         style={{
-          backgroundColor: tokens.colors.surface,
-          borderRadius: tokens.radius.lg,
-          border: `1px solid ${tokens.colors.border}`,
-          boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.1)',
-          maxWidth: '480px',
-          width: '100%',
-          overflow: 'hidden',
           display: 'flex',
           flexDirection: 'column',
+          gap: tokens.spacing.lg,
         }}
       >
-        {/* Header */}
-        <div
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-            padding: `${tokens.spacing.lg} ${tokens.spacing.xl}`,
-            borderBottom: `1px solid ${tokens.colors.borderMuted}`,
-          }}
-        >
-          <div>
-            <h2
-              id="change-password-modal-title"
-              style={{
-                margin: 0,
-                fontFamily: tokens.typography.fontFamily,
-                fontSize: tokens.typography.fontSizes.lg,
-                fontWeight: tokens.typography.fontWeights.bold,
-                color: tokens.colors.textPrimary,
-              }}
-            >
-              Đổi Mật Khẩu (Change Password)
-            </h2>
-            <p
-              style={{
-                margin: `${tokens.spacing.xs} 0 0 0`,
-                fontFamily: tokens.typography.fontFamily,
-                fontSize: tokens.typography.fontSizes.xs,
-                color: tokens.colors.textMuted,
-              }}
-            >
-              Cập nhật mật khẩu tài khoản thủ thư / Operator password update
-            </p>
-          </div>
-          <button
-            type="button"
-            aria-label="Đóng / Close"
-            onClick={onClose}
-            style={{
-              background: 'none',
-              border: 'none',
-              fontSize: '20px',
-              color: tokens.colors.textMuted,
-              cursor: 'pointer',
-              padding: tokens.spacing.xs,
-              borderRadius: tokens.radius.sm,
-              lineHeight: 1,
-            }}
-          >
-            ✕
-          </button>
-        </div>
-
-        {/* Form Body - Single column layout */}
-        <form
-          onSubmit={handleSubmit}
-          style={{
-            padding: tokens.spacing.xl,
-            display: 'flex',
-            flexDirection: 'column',
-            gap: tokens.spacing.lg,
-          }}
-        >
           {errorMessage && (
             <div
               role="alert"
@@ -393,7 +297,6 @@ export function ChangePasswordModal({
             </button>
           </div>
         </form>
-      </div>
-    </div>
+    </Dialog>
   );
 }

@@ -45,21 +45,23 @@ export function Dialog({
     if (isOpen) {
       previouslyFocusedElementRef.current = (document.activeElement as HTMLElement) || null;
 
-      // Focus the dialog container or first focusable element
-      const timer = setTimeout(() => {
-        if (dialogRef.current) {
-          const focusable = dialogRef.current.querySelector<HTMLElement>(
-            'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])',
-          );
-          if (focusable) {
-            focusable.focus();
-          } else {
-            dialogRef.current.focus();
-          }
-        }
-      }, 10);
+      // Focus first field or focusable element inside the dialog
+      if (dialogRef.current) {
+        const focusables = dialogRef.current.querySelectorAll<HTMLElement>(
+          'input:not([disabled]), select:not([disabled]), textarea:not([disabled]), button:not([disabled]), [href], [tabindex]:not([tabindex="-1"])'
+        );
+        // Prefer first form input over close button if available
+        const target =
+          Array.from(focusables).find(
+            (el) => el.tagName === 'INPUT' || el.tagName === 'TEXTAREA' || el.tagName === 'SELECT'
+          ) || focusables[0];
 
-      return () => clearTimeout(timer);
+        if (target) {
+          target.focus();
+        } else {
+          dialogRef.current.focus();
+        }
+      }
     } else {
       // Restore focus to triggerRef or saved previously focused element
       const targetToFocus = triggerRef?.current || previouslyFocusedElementRef.current;
@@ -69,7 +71,7 @@ export function Dialog({
     }
   }, [isOpen, triggerRef]);
 
-  // Handle Escape key
+  // Handle Escape key and Tab/Shift+Tab Focus Trap
   useEffect(() => {
     if (!isOpen) return;
 
@@ -77,6 +79,37 @@ export function Dialog({
       if (event.key === 'Escape' || event.code === 'Escape') {
         event.stopPropagation();
         onClose();
+        return;
+      }
+
+      if (event.key === 'Tab' || event.code === 'Tab') {
+        if (!dialogRef.current) return;
+        const focusables = Array.from(
+          dialogRef.current.querySelectorAll<HTMLElement>(
+            'button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])'
+          )
+        ).filter((el) => el.getAttribute('tabindex') !== '-1');
+
+        if (focusables.length === 0) {
+          event.preventDefault();
+          return;
+        }
+
+        const firstElement = focusables[0];
+        const lastElement = focusables[focusables.length - 1];
+        if (!firstElement || !lastElement) return;
+
+        if (event.shiftKey) {
+          if (document.activeElement === firstElement || document.activeElement === dialogRef.current) {
+            event.preventDefault();
+            lastElement.focus();
+          }
+        } else {
+          if (document.activeElement === lastElement) {
+            event.preventDefault();
+            firstElement.focus();
+          }
+        }
       }
     }
 
@@ -174,7 +207,7 @@ export function Dialog({
           {/* Close button [X] */}
           <button
             type="button"
-            aria-label="Close dialog"
+            aria-label="Đóng / Close dialog"
             onClick={onClose}
             style={{
               display: 'inline-flex',

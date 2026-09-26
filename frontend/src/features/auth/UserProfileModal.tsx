@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useTokens } from '../../shared/tokens';
 import { apiClient, AccessPrincipal } from '../../shared/api';
+import { Dialog } from '../../shared/components';
 
 export interface UserProfileModalProps {
   isOpen: boolean;
@@ -31,132 +32,38 @@ export function UserProfileModal({
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   useEffect(() => {
+    let isMounted = true;
     if (isOpen) {
       setIsLoading(true);
       setErrorMessage(null);
       apiClient.auth
         .getCurrentPrincipal(accessToken ?? undefined)
         .then((data) => {
-          setProfile(data);
-          setIsLoading(false);
+          if (isMounted) {
+            setProfile(data);
+            setIsLoading(false);
+          }
         })
         .catch((err) => {
-          setErrorMessage(err instanceof Error ? err.message : 'Không thể tải thông tin hồ sơ.');
-          setIsLoading(false);
+          if (isMounted) {
+            setErrorMessage(err instanceof Error ? err.message : 'Không thể tải thông tin hồ sơ.');
+            setIsLoading(false);
+          }
         });
     }
+    return () => {
+      isMounted = false;
+    };
   }, [isOpen, accessToken]);
 
-  useEffect(() => {
-    function handleKeyDown(e: KeyboardEvent) {
-      if (e.key === 'Escape' && isOpen) {
-        onClose();
-      }
-    }
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [isOpen, onClose]);
-
-  if (!isOpen) return null;
-
   return (
-    <div
-      role="presentation"
-      onClick={onClose}
-      style={{
-        position: 'fixed',
-        top: 0,
-        left: 0,
-        right: 0,
-        bottom: 0,
-        backgroundColor: 'rgba(18, 18, 18, 0.65)',
-        backdropFilter: 'blur(2px)',
-        zIndex: 1000,
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        padding: tokens.spacing.md,
-        boxSizing: 'border-box',
-      }}
+    <Dialog
+      isOpen={isOpen}
+      onClose={onClose}
+      title="Hồ Sơ Cán Bộ Thư Viện"
+      description="Operator Profile & Session Context"
+      maxWidth="520px"
     >
-      <div
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="user-profile-title"
-        onClick={(e) => e.stopPropagation()}
-        style={{
-          backgroundColor: tokens.colors.surface,
-          borderRadius: tokens.radius.lg,
-          border: `1px solid ${tokens.colors.border}`,
-          boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.2), 0 8px 10px -6px rgba(0, 0, 0, 0.2)',
-          width: '100%',
-          maxWidth: '520px',
-          boxSizing: 'border-box',
-          overflow: 'hidden',
-          display: 'flex',
-          flexDirection: 'column',
-        }}
-      >
-        {/* Header */}
-        <div
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-            padding: `${tokens.spacing.lg} ${tokens.spacing.xl}`,
-            borderBottom: `1px solid ${tokens.colors.border}`,
-            backgroundColor: tokens.colors.surfaceAlt,
-          }}
-        >
-          <div style={{ display: 'flex', alignItems: 'center', gap: tokens.spacing.sm }}>
-            <span aria-hidden="true" style={{ fontSize: '20px' }}>
-              👤
-            </span>
-            <div>
-              <h2
-                id="user-profile-title"
-                style={{
-                  margin: 0,
-                  fontSize: tokens.typography.fontSizes.lg,
-                  fontWeight: tokens.typography.fontWeights.semibold,
-                  color: tokens.colors.textPrimary,
-                  fontFamily: tokens.typography.fontFamily,
-                }}
-              >
-                Hồ Sơ Cán Bộ Thư Viện
-              </h2>
-              <p
-                style={{
-                  margin: 0,
-                  fontSize: tokens.typography.fontSizes.xs,
-                  color: tokens.colors.textMuted,
-                  fontFamily: tokens.typography.fontFamily,
-                }}
-              >
-                Operator Profile &amp; Session Context
-              </p>
-            </div>
-          </div>
-          <button
-            type="button"
-            onClick={onClose}
-            aria-label="Đóng"
-            style={{
-              background: 'transparent',
-              border: 'none',
-              fontSize: '18px',
-              cursor: 'pointer',
-              color: tokens.colors.textMuted,
-              padding: tokens.spacing.xs,
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              borderRadius: tokens.radius.sm,
-            }}
-          >
-            ✕
-          </button>
-        </div>
 
         {/* Content Body */}
         <div
@@ -397,7 +304,6 @@ export function UserProfileModal({
             Đóng
           </button>
         </div>
-      </div>
-    </div>
+    </Dialog>
   );
 }

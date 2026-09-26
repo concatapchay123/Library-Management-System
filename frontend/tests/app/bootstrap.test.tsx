@@ -51,9 +51,7 @@ describe('Frontend Bootstrap & Token Layer (FE-001)', () => {
     });
 
     it('does not grant authenticated operate session when ?demo=1 query string is in URL', () => {
-      const originalLocation = window.location;
-      delete (window as unknown as { location?: unknown }).location;
-      window.location = { ...originalLocation, search: '?demo=1', hash: '' } as Location;
+      window.history.pushState({}, '', '/?demo=1');
 
       render(<App autoRefreshOnMount={false} />);
 
@@ -61,7 +59,7 @@ describe('Frontend Bootstrap & Token Layer (FE-001)', () => {
       expect(screen.getByRole('heading', { level: 2, name: /sign in to openlibraryos/i })).toBeInTheDocument();
       expect(screen.queryByTestId('circulation-desk')).not.toBeInTheDocument();
 
-      window.location = originalLocation;
+      window.history.pushState({}, '', '/');
     });
 
     it('defaults to unauthenticated entrypoint and triggers auto-refresh on mount (H-01)', async () => {
