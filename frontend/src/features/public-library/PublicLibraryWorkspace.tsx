@@ -101,42 +101,58 @@ export function PublicLibraryWorkspace({
   const authContext = useContext(AuthContext);
   const token = authContext?.accessToken;
 
-  const loadData = useCallback(async () => {
-    setIsLoading(true);
-    setInitialLoadError(null);
-    setProblemDetails(null);
-    try {
-      const [membersRes, plansRes, subsRes, finesRes, invoicesRes, paymentsRes] = await Promise.all([
-        apiClient.publicLibrary.members.list(undefined, { token }),
-        apiClient.publicLibrary.plans.list({ token }),
-        apiClient.publicLibrary.subscriptions.list(undefined, { token }),
-        apiClient.publicLibrary.fines.list(undefined, { token }),
-        apiClient.publicLibrary.invoices.list(undefined, { token }),
-        apiClient.publicLibrary.payments.list(undefined, { token }),
-      ]);
+  const [loadedTabs, setLoadedTabs] = useState<Set<PublicLibraryTab>>(() => new Set());
 
-      setMembers(membersRes.items);
-      setPlans(plansRes.items);
-      setSubscriptions(subsRes.items);
-      setFines(finesRes.items);
-      setInvoices(invoicesRes.items);
-      setPayments(paymentsRes.items);
-    } catch (err) {
-      const parsed = parseProblem(err);
-      if (parsed.isUnavailable) {
-        setIsEditionUnavailable(true);
-        setUnavailableDetail(parsed.detail);
-        return;
+  const loadTabData = useCallback(
+    async (tabToLoad: PublicLibraryTab) => {
+      setIsLoading(true);
+      setInitialLoadError(null);
+      setProblemDetails(null);
+      try {
+        if (tabToLoad === 'memberships') {
+          const [membersRes, plansRes, subsRes] = await Promise.all([
+            apiClient.publicLibrary.members.list(undefined, { token }),
+            apiClient.publicLibrary.plans.list({ token }),
+            apiClient.publicLibrary.subscriptions.list(undefined, { token }),
+          ]);
+          setMembers(membersRes.items);
+          setPlans(plansRes.items);
+          setSubscriptions(subsRes.items);
+        } else if (tabToLoad === 'fines') {
+          const finesRes = await apiClient.publicLibrary.fines.list(undefined, { token });
+          setFines(finesRes.items);
+        } else if (tabToLoad === 'invoices') {
+          const invoicesRes = await apiClient.publicLibrary.invoices.list(undefined, { token });
+          setInvoices(invoicesRes.items);
+        } else if (tabToLoad === 'payments') {
+          const paymentsRes = await apiClient.publicLibrary.payments.list(undefined, { token });
+          setPayments(paymentsRes.items);
+        }
+        setLoadedTabs((prev) => new Set(prev).add(tabToLoad));
+      } catch (err) {
+        const parsed = parseProblem(err);
+        if (parsed.isUnavailable) {
+          setIsEditionUnavailable(true);
+          setUnavailableDetail(parsed.detail);
+          return;
+        }
+        setInitialLoadError(parsed.problem);
+      } finally {
+        setIsLoading(false);
       }
-      setInitialLoadError(parsed.problem);
-    } finally {
-      setIsLoading(false);
-    }
-  }, [token]);
+    },
+    [token],
+  );
+
+  const loadData = useCallback(async () => {
+    await loadTabData(activeTab);
+  }, [activeTab, loadTabData]);
 
   useEffect(() => {
-    loadData();
-  }, [loadData]);
+    if (!loadedTabs.has(activeTab)) {
+      void loadTabData(activeTab);
+    }
+  }, [activeTab, loadedTabs, loadTabData]);
 
   // Keyboard navigation for accessible tabs
   function handleKeyDown(e: React.KeyboardEvent, currentTab: PublicLibraryTab) {

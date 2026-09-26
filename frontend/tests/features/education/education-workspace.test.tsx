@@ -198,6 +198,38 @@ describe('Education management and borrower-policy views (FE-009)', () => {
       });
     });
 
+    it('lazy-loads dataset per active tab and avoids fetching unused domains on initial mount (P2-03)', async () => {
+      setupDefaultMocks();
+      renderEducationWorkspace();
+
+      await waitFor(() => {
+        expect(screen.getByRole('tab', { name: /people & profiles/i })).toBeInTheDocument();
+      });
+
+      // People datasets called on mount
+      expect(globalThis.fetch).toHaveBeenCalledWith(
+        expect.stringContaining('/education/students'),
+        expect.anything(),
+      );
+      expect(globalThis.fetch).toHaveBeenCalledWith(
+        expect.stringContaining('/education/teachers'),
+        expect.anything(),
+      );
+
+      // Policies and classes MUST NOT be called yet
+      const allCalls = vi.mocked(globalThis.fetch).mock.calls.map((c) => String(c[0]));
+      expect(allCalls.some((url) => url.includes('/education/borrower-policies'))).toBe(false);
+      expect(allCalls.some((url) => url.includes('/education/classes'))).toBe(false);
+
+      // Switching to policies tab triggers policies fetch
+      fireEvent.click(screen.getByRole('tab', { name: /borrower policies/i }));
+
+      await waitFor(() => {
+        const updatedCalls = vi.mocked(globalThis.fetch).mock.calls.map((c) => String(c[0]));
+        expect(updatedCalls.some((url) => url.includes('/education/borrower-policies'))).toBe(true);
+      });
+    });
+
     it('switches tabs and updates panel visibility with keyboard and click support', async () => {
       setupDefaultMocks();
       renderEducationWorkspace();

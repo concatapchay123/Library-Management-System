@@ -864,5 +864,34 @@ describe('Public membership, fine, payment and invoice views (FE-010)', () => {
         );
       });
     });
+
+    it('lazy-loads dataset per active tab and avoids fetching unused domains on initial mount (P2-03)', async () => {
+      setupDefaultMocks();
+      renderPublicLibraryWorkspace();
+
+      await waitFor(() => {
+        expect(screen.getByRole('tab', { name: /memberships & plans/i })).toBeInTheDocument();
+      });
+
+      // Members called on mount
+      expect(globalThis.fetch).toHaveBeenCalledWith(
+        expect.stringContaining('/public-library/members'),
+        expect.anything(),
+      );
+
+      // Fines, invoices, payments MUST NOT be called yet
+      const allCalls = vi.mocked(globalThis.fetch).mock.calls.map((c) => String(c[0]));
+      expect(allCalls.some((url) => url.includes('/public-library/fines'))).toBe(false);
+      expect(allCalls.some((url) => url.includes('/public-library/invoices'))).toBe(false);
+      expect(allCalls.some((url) => url.includes('/public-library/payments'))).toBe(false);
+
+      // Switching to fines tab triggers fines fetch
+      fireEvent.click(screen.getByRole('tab', { name: /fines/i }));
+
+      await waitFor(() => {
+        const updatedCalls = vi.mocked(globalThis.fetch).mock.calls.map((c) => String(c[0]));
+        expect(updatedCalls.some((url) => url.includes('/public-library/fines'))).toBe(true);
+      });
+    });
   });
 });

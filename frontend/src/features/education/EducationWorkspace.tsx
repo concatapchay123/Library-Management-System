@@ -59,62 +59,77 @@ export function EducationWorkspace({
   const [editionUnavailableDetail, setEditionUnavailableDetail] = useState<string | undefined>();
   const [problemError, setProblemError] = useState<ProblemDetails | Error | null>(null);
 
-  // Load all education workspace datasets
-  const loadWorkspaceData = useCallback(async () => {
-    setIsLoading(true);
-    setProblemError(null);
-    setIsEditionUnavailable(false);
+  const [loadedTabs, setLoadedTabs] = useState<Set<EducationTab>>(() => new Set());
 
-    try {
-      const [deptRes, semRes, clsRes, stuRes, tchRes, polRes] = await Promise.all([
-        apiClient.education.departments.list({ token }),
-        apiClient.education.semesters.list({ token }),
-        apiClient.education.classes.list({ token }),
-        apiClient.education.students.list({ token }),
-        apiClient.education.teachers.list({ token }),
-        apiClient.education.policies.list({ token }),
-      ]);
+  // Load datasets lazily for the active tab (P2-03)
+  const loadWorkspaceData = useCallback(
+    async (tabToLoad: EducationTab) => {
+      setIsLoading(true);
+      setProblemError(null);
+      setIsEditionUnavailable(false);
 
-      setDepartments(deptRes.items || []);
-      setSemesters(semRes.items || []);
-      setClasses(clsRes.items || []);
-      setStudents(stuRes.items || []);
-      setTeachers(tchRes.items || []);
-      setPolicies(polRes.items || []);
+      try {
+        if (tabToLoad === 'people') {
+          const [deptRes, stuRes, tchRes] = await Promise.all([
+            apiClient.education.departments.list({ token }),
+            apiClient.education.students.list({ token }),
+            apiClient.education.teachers.list({ token }),
+          ]);
+          setDepartments(deptRes.items || []);
+          setStudents(stuRes.items || []);
+          setTeachers(tchRes.items || []);
+        } else if (tabToLoad === 'academic') {
+          const [deptRes, semRes, clsRes] = await Promise.all([
+            apiClient.education.departments.list({ token }),
+            apiClient.education.semesters.list({ token }),
+            apiClient.education.classes.list({ token }),
+          ]);
+          setDepartments(deptRes.items || []);
+          setSemesters(semRes.items || []);
+          setClasses(clsRes.items || []);
 
-      // Preload memberships for the first class if available
-      const firstClass = clsRes.items?.[0];
-      if (firstClass) {
-        const firstClassId = firstClass.class_id;
-        try {
-          const memRes = await apiClient.education.classes.listMemberships(firstClassId, { token });
-          setMemberships((prev) => ({ ...prev, [firstClassId]: memRes.items || [] }));
-        } catch {
-          // Non-critical background fetch failure for optional memberships
+          // Preload memberships for the first class if available
+          const firstClass = clsRes.items?.[0];
+          if (firstClass) {
+            const firstClassId = firstClass.class_id;
+            try {
+              const memRes = await apiClient.education.classes.listMemberships(firstClassId, { token });
+              setMemberships((prev) => ({ ...prev, [firstClassId]: memRes.items || [] }));
+            } catch {
+              // Non-critical background fetch failure for optional memberships
+            }
+          }
+        } else if (tabToLoad === 'policies') {
+          const polRes = await apiClient.education.policies.list({ token });
+          setPolicies(polRes.items || []);
         }
-      }
-    } catch (err: unknown) {
-      if (err instanceof ProblemDetailsError) {
-        const problem = err.problem;
-        if (problem.type.includes('edition-unavailable') || problem.status === 403) {
-          setIsEditionUnavailable(true);
-          setEditionUnavailableDetail(problem.detail);
-          return;
+        setLoadedTabs((prev) => new Set(prev).add(tabToLoad));
+      } catch (err: unknown) {
+        if (err instanceof ProblemDetailsError) {
+          const problem = err.problem;
+          if (problem.type.includes('edition-unavailable') || problem.status === 403) {
+            setIsEditionUnavailable(true);
+            setEditionUnavailableDetail(problem.detail);
+            return;
+          }
+          setProblemError(problem);
+        } else if (err instanceof Error) {
+          setProblemError(err);
+        } else {
+          setProblemError(new Error('Failed to load education workspace data'));
         }
-        setProblemError(problem);
-      } else if (err instanceof Error) {
-        setProblemError(err);
-      } else {
-        setProblemError(new Error('Failed to load education workspace data'));
+      } finally {
+        setIsLoading(false);
       }
-    } finally {
-      setIsLoading(false);
-    }
-  }, [token]);
+    },
+    [token],
+  );
 
   useEffect(() => {
-    loadWorkspaceData();
-  }, [loadWorkspaceData]);
+    if (!loadedTabs.has(activeTab)) {
+      void loadWorkspaceData(activeTab);
+    }
+  }, [activeTab, loadedTabs, loadWorkspaceData]);
 
   // Tab switching
   const handleTabChange = (tab: EducationTab) => {
@@ -197,7 +212,7 @@ export function EducationWorkspace({
       <div style={{ maxWidth: '800px', margin: '0 auto', ...style }}>
         <ProblemDetailsRenderer
           error={problemError}
-          onRetry={loadWorkspaceData}
+          onRetry={() => void loadWorkspaceData(activeTab)}
           isSafeToRetry={true}
         />
       </div>
