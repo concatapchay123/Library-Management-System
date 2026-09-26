@@ -85,12 +85,8 @@ export function CirculationDesk({
         maxWidth: '780px',
       }}
     >
-      {/* Header and Operational Status Cue */}
-      {!lookupError ? (
-        <StatusMessage status="info" title="Operational Status: Ready">
-          Circulation subsystem active for rapid loan requests, approvals, desk checkouts, and returns.
-        </StatusMessage>
-      ) : (
+      {/* Operational Diagnostic Notice on Lookup Error */}
+      {lookupError && (
         <StatusMessage status="warning" title="Operational Status: Attention Required">
           A circulation lookup or operational request encountered an issue. Review the diagnostic details below.
         </StatusMessage>

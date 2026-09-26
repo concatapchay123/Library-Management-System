@@ -42,8 +42,26 @@ describe('Frontend Bootstrap & Token Layer (FE-001)', () => {
         screen.getByText(/Low-Cognitive-Overhead Library Operations/i),
       ).toBeInTheDocument();
       expect(
-        screen.getByText(/Operational Status: Ready/i),
+        screen.getByRole('heading', { level: 2, name: /circulation desk/i }),
       ).toBeInTheDocument();
+      // Does NOT fabricate unevidenced "Ready" status
+      expect(
+        screen.queryByText(/Operational Status: Ready/i),
+      ).not.toBeInTheDocument();
+    });
+
+    it('does not grant authenticated operate session when ?demo=1 query string is in URL', () => {
+      const originalLocation = window.location;
+      delete (window as unknown as { location?: unknown }).location;
+      window.location = { ...originalLocation, search: '?demo=1', hash: '' } as Location;
+
+      render(<App autoRefreshOnMount={false} />);
+
+      // Must show login form, NOT circulation desk
+      expect(screen.getByRole('heading', { level: 2, name: /sign in to openlibraryos/i })).toBeInTheDocument();
+      expect(screen.queryByTestId('circulation-desk')).not.toBeInTheDocument();
+
+      window.location = originalLocation;
     });
 
     it('defaults to unauthenticated entrypoint and triggers auto-refresh on mount (H-01)', async () => {
