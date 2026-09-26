@@ -8,6 +8,7 @@
     "build": "tsc --noEmit && vite build",
     "preview": "vite preview",
     "test": "vitest run",
+    "contract:check": "vitest run tests/shared/openapi-contract-parity.test.ts",
     "typecheck": "tsc --noEmit",
     "lint": "eslint ."
   },
