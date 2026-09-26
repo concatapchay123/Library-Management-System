@@ -79,3 +79,29 @@ def test_rate_limiter_fail_open_when_configured() -> None:
     assert allowed is True
     assert remaining == 1
     assert retry_after == 0
+
+
+def test_rate_limiter_extracts_sanitized_client_ip_from_request() -> None:
+    """Verifies that rate_limit extracts X-Real-IP or rightmost forwarded IP, preventing spoofing."""
+    from openlibrary.modules.core.infrastructure.rate_limiter import get_client_ip
+
+    # Case 1: X-Real-IP set by trusted edge reverse proxy
+    req1 = MagicMock()
+    req1.headers = {
+        "X-Real-IP": "203.0.113.195",
+        "X-Forwarded-For": "1.2.3.4, 203.0.113.195",
+    }
+    req1.remote_addr = "10.0.0.2"
+    assert get_client_ip(req1) == "203.0.113.195"
+
+    # Case 2: Multi-hop X-Forwarded-For without X-Real-IP takes the trusted rightmost client hop
+    req2 = MagicMock()
+    req2.headers = {"X-Forwarded-For": "198.51.100.1, 203.0.113.50"}
+    req2.remote_addr = "10.0.0.2"
+    assert get_client_ip(req2) == "203.0.113.50"
+
+    # Case 3: No headers falls back to remote_addr
+    req3 = MagicMock()
+    req3.headers = {}
+    req3.remote_addr = "192.168.1.100"
+    assert get_client_ip(req3) == "192.168.1.100"

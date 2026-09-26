@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import os
-from typing import Any
+from typing import Any, Callable, cast
 
 from celery import Celery  # type: ignore[import-untyped]  # Celery 5.6 lacks py.typed.
 
@@ -114,7 +114,9 @@ def create_celery_app(settings: WorkerSettings) -> Celery:
     setattr(celery_app, "dispatcher", dispatcher)
 
     # 6. Celery task definitions
-    @celery_app.task(name="openlibrary.dispatch_outbox")
+    task_decorator = cast(Callable[..., Callable[..., Any]], celery_app.task)
+
+    @task_decorator(name="openlibrary.dispatch_outbox")
     def dispatch_outbox(max_events: int = 50) -> int:
         """Poll and dispatch pending outbox events up to max_events limit."""
         processed = 0
@@ -128,7 +130,7 @@ def create_celery_app(settings: WorkerSettings) -> Celery:
                 break
         return processed
 
-    @celery_app.task(name="openlibrary.run_scheduled_circulation")
+    @task_decorator(name="openlibrary.run_scheduled_circulation")
     def run_scheduled_circulation() -> dict[str, Any]:
         """Trigger circulation overdue and hold expiry evaluation."""
         return {"status": "ok"}

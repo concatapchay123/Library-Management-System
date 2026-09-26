@@ -7,10 +7,29 @@ from functools import wraps
 import logging
 from typing import Any, TypeVar
 
-from flask import Response, current_app, jsonify, request
+from flask import Response, current_app, jsonify, make_response, request
 
 _LOGGER = logging.getLogger(__name__)
 F = TypeVar("F", bound=Callable[..., Any])
+
+
+def get_client_ip(req: Any) -> str:
+    """Extract authoritative client IP, prioritizing X-Real-IP set by trusted reverse proxy."""
+    headers = getattr(req, "headers", None)
+    if headers is not None:
+        real_ip = headers.get("X-Real-IP")
+        if real_ip and str(real_ip).strip():
+            return str(real_ip).strip()
+
+        xff = headers.get("X-Forwarded-For")
+        if xff:
+            # Take the rightmost hop (closest to trusted edge proxy) to prevent client spoofing
+            parts = [p.strip() for p in str(xff).split(",") if p.strip()]
+            if parts:
+                return str(parts[-1])
+
+    remote_addr = getattr(req, "remote_addr", None)
+    return str(remote_addr) if remote_addr else "127.0.0.1"
 
 
 class RateLimiterUnavailableError(RuntimeError):
@@ -107,16 +126,10 @@ def rate_limit(
         def wrapper(*args: Any, **kwargs: Any) -> Response:
             limiter = limiter_provider() if limiter_provider else _default_limiter()
             if limiter is None:
-                return fn(*args, **kwargs)
+                return make_response(fn(*args, **kwargs))
 
             # Build rate limit key: prefix + IP + optional user/account
-            client_ip = (
-                request.headers.get(
-                    "X-Forwarded-For", request.remote_addr or "127.0.0.1"
-                )
-                .split(",")[0]
-                .strip()
-            )
+            client_ip = get_client_ip(request)
             key = f"{key_prefix}:{client_ip}"
 
             try:
@@ -154,7 +167,8 @@ def rate_limit(
                 resp.headers["Retry-After"] = str(retry_after)
                 return resp
 
-            response: Response = fn(*args, **kwargs)
+            result = fn(*args, **kwargs)
+            response: Response = make_response(result)
             if hasattr(response, "headers"):
                 response.headers["X-RateLimit-Limit"] = str(limit)
                 response.headers["X-RateLimit-Remaining"] = str(remaining)
