@@ -78,4 +78,3 @@ export async function changePassword(
 ): Promise<void> {
   await apiClient.auth.changePassword(credentials, { token: accessToken ?? undefined });
 }
-

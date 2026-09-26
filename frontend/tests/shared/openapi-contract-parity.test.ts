@@ -57,7 +57,7 @@ describe('OpenAPI Contract Drift & Route Parity Gate (P2-04)', () => {
 
     const clientNormalizedPaths = new Set<string>();
     for (const match of endpointMatches) {
-      let rawPath = match[1];
+      const rawPath = match[1];
       if (!rawPath) continue;
       // Normalize template interpolations `${...}` to `{param}`
       const normalized = rawPath.replace(/\$\{[^}]+\}/g, '{param}');

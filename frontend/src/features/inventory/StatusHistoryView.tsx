@@ -243,7 +243,7 @@ export function StatusHistoryView({
                     backgroundColor: tokens.colors.surfaceAlt,
                     padding: tokens.spacing.sm,
                     borderRadius: tokens.radius.sm,
-                    borderLeft: `3px solid ${tokens.colors.borderFocus}`,
+                    border: `1px solid ${tokens.colors.borderMuted}`,
                   }}
                 >
                   <span

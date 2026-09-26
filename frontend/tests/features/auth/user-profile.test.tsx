@@ -69,7 +69,7 @@ describe('UserProfileModal Component (M-05)', () => {
     });
   });
 
-  it('closes on Escape key press or close button click', () => {
+  it('closes on Escape key press or close button click', async () => {
     vi.spyOn(apiClient.auth, 'getCurrentPrincipal').mockResolvedValue({
       user_id: 'u1',
       organization_id: 'o1',
@@ -82,6 +82,10 @@ describe('UserProfileModal Component (M-05)', () => {
         <UserProfileModal isOpen={true} onClose={handleClose} />
       </TokenProvider>
     );
+
+    await waitFor(() => {
+      expect(screen.getByText('u1')).toBeInTheDocument();
+    });
 
     const closeButtons = screen.getAllByRole('button', { name: /đóng/i });
     expect(closeButtons[0]).toBeDefined();

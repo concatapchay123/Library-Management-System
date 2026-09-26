@@ -77,4 +77,3 @@ export const navigationItems: readonly NavigationItem[] = [
 
 export const coreNavigationItems = navigationItems.filter((item) => item.category === 'core');
 export const editionNavigationItems = navigationItems.filter((item) => item.category === 'edition');
-

@@ -4,7 +4,7 @@
 
 **Goal:** Deploy the verified OpenLibraryOS product to a clean host using secure runtime configuration, immutable image tags, one-time migration job with distinct identities, Nginx TLS and security headers, and prove backup/restore and rollback behavior.
 
-**Architecture:** 
+**Architecture:**
 - Docker Compose production profile with immutable images, private database/Redis, readiness-gated services.
 - Migration job with migration-only database identity (`openlibrary_migrator`) and runtime restriction verification.
 - Nginx configuration with TLS, security headers (HSTS, CSP, X-Frame-Options, X-Content-Type-Options, Referrer-Policy), SPA fallback (`try_files`), and API reverse proxy.

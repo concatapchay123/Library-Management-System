@@ -33,7 +33,7 @@ Theo `DESIGN.md`, sản phẩm bao gồm Core Platform và 2 edition chuyên bi�
 
 ## Operating Mode: "Operate-Mode"
 
-Giao diện người dùng của OpenLibraryOS được thiết kế chuyên biệt cho chế độ vận hành thường nhật (**Operate-Mode**). 
+Giao diện người dùng của OpenLibraryOS được thiết kế chuyên biệt cho chế độ vận hành thường nhật (**Operate-Mode**).
 
 ### Đặc điểm của Operate-Mode:
 - **Tập trung vào tác vụ cốt lõi**: Phục vụ các thao tác quầy lặp đi lặp lại với tần suất cao (quét mã barcode/ISBN, mượn sách siêu tốc, trả sách, kiểm tra vị trí bản sao trên giá kệ, tra cứu danh mục).

@@ -55,7 +55,7 @@ export function BookDetail({ book, isOpen, onClose, triggerRef }: BookDetailProp
           role="note"
           style={{
             backgroundColor: tokens.colors.surfaceElevated,
-            borderLeft: `4px solid ${tokens.colors.primary}`,
+            border: `1px solid ${tokens.colors.border}`,
             borderRadius: tokens.radius.md,
             padding: `${tokens.spacing.sm} ${tokens.spacing.md}`,
             fontSize: tokens.typography.fontSizes.xs,
