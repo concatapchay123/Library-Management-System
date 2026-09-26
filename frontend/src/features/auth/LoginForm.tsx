@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { useTokens } from '../../shared/tokens';
 import { Button, Input, StatusMessage } from '../../shared/components';
 import { useSession } from './context';
+import { SESSION_EXPIRED_MESSAGE } from './authApi';
 
 export interface LoginFormProps {
   onSuccess?: () => void;
@@ -103,7 +104,10 @@ export function LoginForm({ onSuccess, initialSlug = '' }: LoginFormProps) {
         {/* Safe Error Alert */}
         {error && (
           <div style={{ marginBottom: tokens.spacing.lg }}>
-            <StatusMessage status="danger" title="Authentication failed">
+            <StatusMessage
+              status="danger"
+              title={error === SESSION_EXPIRED_MESSAGE ? 'Session Expired' : 'Authentication failed'}
+            >
               {error}
             </StatusMessage>
           </div>

@@ -6,6 +6,7 @@ import {
   ProtectedRoute,
   useSession,
   AUTH_SAFE_ERROR_MESSAGE,
+  SESSION_EXPIRED_MESSAGE,
 } from '../../../src/features/auth';
 import { App } from '../../../src/app/App';
 import { TokenProvider } from '../../../src/shared/tokens';
@@ -357,7 +358,7 @@ describe('Login, Refresh Session & Protected-Route Behavior (FE-003)', () => {
       expect(sessionStorage.getItem('access_token')).toBeNull();
     });
 
-    it('clears in-memory state, resets to login, and displays safe message on refresh session failure', async () => {
+    it('clears in-memory state, resets to login, and displays session expired message on refresh session failure (P2-01)', async () => {
       const mock401Refresh = {
         type: 'https://openlibraryos.example/problems/unauthorized',
         title: 'Authentication failed',
@@ -402,18 +403,47 @@ describe('Login, Refresh Session & Protected-Route Behavior (FE-003)', () => {
       // Trigger refresh which fails with 401
       fireEvent.click(screen.getByRole('button', { name: /trigger refresh/i }));
 
-      // State is reset: protected content unmounts, login form renders with safe message
+      // State is reset: protected content unmounts, login form renders with session expired message
       await waitFor(() => {
         expect(screen.getByLabelText(/organization slug/i)).toBeInTheDocument();
       });
 
       expect(screen.queryByTestId('current-token')).not.toBeInTheDocument();
       expect(screen.getByRole('alert')).toBeInTheDocument();
-      expect(screen.getByRole('alert')).toHaveTextContent(AUTH_SAFE_ERROR_MESSAGE);
+      expect(screen.getByRole('alert')).toHaveTextContent(SESSION_EXPIRED_MESSAGE);
 
       // Access token is purged
       expect(localStorage.getItem('access_token')).toBeNull();
       expect(sessionStorage.getItem('access_token')).toBeNull();
+    });
+
+    it('silent refresh failure on initial unauthenticated mount leaves login form clean without credential error banner (P2-01)', async () => {
+      vi.mocked(globalThis.fetch).mockResolvedValueOnce({
+        ok: false,
+        status: 401,
+        headers: new Headers({ 'Content-Type': 'application/problem+json' }),
+        json: async () => ({ status: 401, title: 'Unauthorized' }),
+      } as Response);
+
+      render(
+        <TokenProvider>
+          <SessionProvider autoRefreshOnMount={true}>
+            <LoginForm />
+          </SessionProvider>
+        </TokenProvider>,
+      );
+
+      await waitFor(() => {
+        expect(globalThis.fetch).toHaveBeenCalledWith(
+          '/api/v1/auth/refresh',
+          expect.objectContaining({ method: 'POST', credentials: 'same-origin' }),
+        );
+      });
+
+      // Login form must be presented cleanly without error alert banner
+      expect(screen.getByRole('heading', { level: 2, name: /sign in|log in/i })).toBeInTheDocument();
+      expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+      expect(screen.queryByText(/authentication failed/i)).not.toBeInTheDocument();
     });
 
     it('documents client-side route guard as non-authoritative UX navigation aid', () => {

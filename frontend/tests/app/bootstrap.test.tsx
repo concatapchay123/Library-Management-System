@@ -80,6 +80,8 @@ describe('Frontend Bootstrap & Token Layer (FE-001)', () => {
       await waitFor(() => {
         expect(screen.getByRole('heading', { level: 2, name: /sign in|log in/i })).toBeInTheDocument();
       });
+      // Verifies silent refresh failure does NOT display a false credential error alert banner (P2-01)
+      expect(screen.queryByRole('alert')).not.toBeInTheDocument();
     });
   });
 

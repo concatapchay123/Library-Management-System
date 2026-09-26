@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { AuthContextValue, LoginCredentials } from './types';
 import { AuthContext } from './context';
 import * as authApi from './authApi';
@@ -26,6 +26,8 @@ export function SessionProvider({
   const [accessToken, setAccessToken] = useState<string | null>(initialAccessToken);
   const [isLoading, setIsLoading] = useState<boolean>(autoRefreshOnMount);
   const [error, setError] = useState<string | null>(null);
+  const accessTokenRef = useRef<string | null>(initialAccessToken);
+  accessTokenRef.current = accessToken;
 
   const clearError = useCallback(() => {
     setError(null);
@@ -53,10 +55,17 @@ export function SessionProvider({
       setAccessToken(response.access_token);
       setError(null);
       return true;
-    } catch (err) {
+    } catch {
+      const hadPreviousSession = accessTokenRef.current !== null;
       setAccessToken(null);
-      const message = err instanceof Error ? err.message : authApi.AUTH_SAFE_ERROR_MESSAGE;
-      setError(message);
+
+      // Silent refresh for unauthenticated/guest users on initial mount MUST NOT render a credential error (P2-01)
+      if (!hadPreviousSession) {
+        setError(null);
+      } else {
+        // Truthful notice when an active session has expired
+        setError(authApi.SESSION_EXPIRED_MESSAGE);
+      }
       return false;
     } finally {
       setIsLoading(false);

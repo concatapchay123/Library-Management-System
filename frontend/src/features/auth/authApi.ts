@@ -13,6 +13,13 @@ export const AUTH_SAFE_ERROR_MESSAGE =
   'Authentication failed. Please verify your organization slug, email, and password.';
 
 /**
+ * Message shown when an established session has expired.
+ * Differentiated from initial credential errors to avoid misleading operators (P2-01).
+ */
+export const SESSION_EXPIRED_MESSAGE =
+  'Session expired. Please sign in again.';
+
+/**
  * Extracts CSRF token from document cookies if present.
  */
 export function getCsrfTokenFromCookie(): string | null {
@@ -46,12 +53,8 @@ export async function login(credentials: LoginCredentials): Promise<AccessTokenR
  * Uses centralized apiClient.auth.refreshAccessToken rather than assembling endpoint strings.
  */
 export async function refreshToken(): Promise<AccessTokenResponse> {
-  try {
-    const data = await apiClient.auth.refreshAccessToken();
-    return data;
-  } catch {
-    throw new Error(AUTH_SAFE_ERROR_MESSAGE);
-  }
+  const data = await apiClient.auth.refreshAccessToken();
+  return data;
 }
 
 /**
